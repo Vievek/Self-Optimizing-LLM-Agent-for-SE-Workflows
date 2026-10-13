@@ -29,11 +29,25 @@ describe('Contracts Schema Validation', () => {
   it('validates outcome evidence', () => {
     const validEvidence = {
       schema_version: OUTCOME_EVIDENCE_SCHEMA_VERSION,
-      task_id: 'test-task',
+      evidence_id: 'ev_test_01',
+      run_id: 'run_test_01',
+      task_id: 'django__django-11099',
       trace_id: '0123456789abcdef0123456789abcdef',
-      test_status: 'passed',
-      timestamp: new Date().toISOString(),
-      details: {},
+      repo: 'django/django',
+      base_commit: 'fb8b75e7a9b8f2d',
+      outcome: {
+        resolved: true,
+        tests_passed: 1,
+        tests_failed: 0,
+        patch_applied: true,
+      },
+      memory_uses: [],
+      failure_labels: [],
+      cost: {
+        tokens_in: 1500,
+        tokens_out: 250,
+        wall_ms: 14500,
+      },
     };
     const parsed = OutcomeEvidenceSchema.safeParse(validEvidence);
     expect(parsed.success).toBe(true);
