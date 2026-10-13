@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   PlanningConfigSchema,
-  RetrievalConfigSchema,
-  FullAgentConfigSchema,
   CONFIG_SCHEMA_VERSION,
 } from './config.js';
 describe('ConfigSchema Contract Tests', () => {
