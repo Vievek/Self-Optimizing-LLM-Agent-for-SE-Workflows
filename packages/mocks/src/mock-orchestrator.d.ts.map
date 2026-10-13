@@ -1,0 +1,1 @@
+{"version":3,"file":"mock-orchestrator.d.ts","sourceRoot":"","sources":["mock-orchestrator.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAE5D,qBAAa,gBAAgB;IACrB,QAAQ,CAAC,MAAM,EAAE,kBAAkB,EAAE,aAAa,EAAE,MAAM,GAAG,OAAO,CAAC,MAAM,CAAC;CAMnF"}

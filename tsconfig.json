@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/contracts" },
+    { "path": "./packages/bus" },
+    { "path": "./packages/store" },
+    { "path": "./packages/llm" },
+    { "path": "./packages/sandbox" },
+    { "path": "./packages/exec-core" },
+    { "path": "./packages/heae" },
+    { "path": "./packages/memory-agent" },
+    { "path": "./packages/orchestrator" },
+    { "path": "./packages/mocks" },
+    { "path": "./packages/eval-harness" },
+    { "path": "./apps/cli" }
+  ],
+  "exclude": ["node_modules", "dist"]
+}

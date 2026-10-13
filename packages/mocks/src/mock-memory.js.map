@@ -1,0 +1,1 @@
+{"version":3,"file":"mock-memory.js","sourceRoot":"","sources":["mock-memory.ts"],"names":[],"mappings":"AAEA,MAAM,OAAO,eAAe;IAC1B,KAAK,CAAC,QAAQ,CAAC,MAAc;QAC3B,OAAO,EAAE,CAAC;IACZ,CAAC;IAED,KAAK,CAAC,KAAK,CAAC,OAA8C;QACxD,OAAO;IACT,CAAC;CACF"}

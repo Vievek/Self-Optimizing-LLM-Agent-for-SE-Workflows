@@ -1,0 +1,1 @@
+{"version":3,"file":"mock-exec-core.d.ts","sourceRoot":"","sources":["mock-exec-core.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,SAAS,EAAE,MAAM,gBAAgB,CAAC;AAE3C,qBAAa,YAAY;IACjB,OAAO,CAAC,MAAM,EAAE,MAAM,GAAG,OAAO,CAAC;QAAE,KAAK,EAAE,SAAS,EAAE,CAAC;QAAC,MAAM,EAAE,MAAM,CAAA;KAAE,CAAC;CAM/E"}

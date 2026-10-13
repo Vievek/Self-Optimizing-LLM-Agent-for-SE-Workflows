@@ -1,0 +1,1 @@
+{"version":3,"file":"mock-memory.d.ts","sourceRoot":"","sources":["mock-memory.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAE/C,qBAAa,eAAe;IACpB,QAAQ,CAAC,MAAM,EAAE,MAAM,GAAG,OAAO,CAAC,aAAa,EAAE,CAAC;IAIlD,KAAK,CAAC,OAAO,EAAE,IAAI,CAAC,aAAa,EAAE,gBAAgB,CAAC,GAAG,OAAO,CAAC,IAAI,CAAC;CAG3E"}

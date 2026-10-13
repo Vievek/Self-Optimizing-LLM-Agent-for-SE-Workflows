@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Runtime data (store is local only)
+/store/*
+!/store/.gitkeep
+
+# Embedded config repo (managed separately)
+/store/config/.git/
+
+# Environment
+.env
+.env.local
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Python (for SWE-bench harness)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
