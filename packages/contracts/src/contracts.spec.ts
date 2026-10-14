@@ -55,13 +55,25 @@ describe('Contracts Schema Validation', () => {
   it('validates optimization signal', () => {
     const validSignal = {
       schema_version: OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-      signal_id: 'sig-001',
+      signal_id: 'sig_test_01',
+      group_id: 'grp_001',
+      run_id: 'run_01',
+      task_id: 'test-task',
       trace_id: '0123456789abcdef0123456789abcdef',
-      failure_category: 'retrieval',
-      attributed_span_ids: ['0123456789abcdef'],
+      failure_class: 'retrieval',
+      root_cause: {
+        summary: 'Retrieved context was insufficient',
+        evidence_node_ids: ['node_retrieval_1'],
+      },
+      target: {
+        axis: 'retrieval',
+        config_path: 'retrieval.top_k',
+        affected_subtask: 'context_retrieval',
+      },
+      suggested_action: 'retrieval_param_update',
       confidence: 0.95,
-      timestamp: new Date().toISOString(),
-      metadata: {},
+      classifier: 'rule',
+      config_version_at_failure: 'cfg_0001',
     };
     const parsed = OptimizationSignalSchema.safeParse(validSignal);
     expect(parsed.success).toBe(true);
