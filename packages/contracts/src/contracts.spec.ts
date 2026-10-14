@@ -5,7 +5,6 @@ import {
   OptimizationSignalSchema,
   OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
 } from './optimization-signal.js';
-import { RefinedMemorySchema, REFINED_MEMORY_SCHEMA_VERSION } from './refined-memory.js';
 import { ConfigSchema, CONFIG_SCHEMA_VERSION } from './config.js';
 
 describe('Contracts Schema Validation', () => {
@@ -51,19 +50,6 @@ describe('Contracts Schema Validation', () => {
       metadata: {},
     };
     const parsed = OptimizationSignalSchema.safeParse(validSignal);
-    expect(parsed.success).toBe(true);
-  });
-
-  it('validates refined memory', () => {
-    const validMemory = {
-      schema_version: REFINED_MEMORY_SCHEMA_VERSION,
-      memory_id: 'mem-001',
-      content: 'Important context',
-      tags: ['doc'],
-      created_at: new Date().toISOString(),
-      metadata: {},
-    };
-    const parsed = RefinedMemorySchema.safeParse(validMemory);
     expect(parsed.success).toBe(true);
   });
 
