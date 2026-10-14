@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  PlanningConfigSchema,
-  CONFIG_SCHEMA_VERSION,
-} from './config.js';
+import { PlanningConfigSchema, CONFIG_SCHEMA_VERSION } from './config.js';
 describe('ConfigSchema Contract Tests', () => {
   it('validates a bounded planning config', () => {
     const validPlanning = {
