@@ -5,7 +5,12 @@ import {
   OptimizationSignalSchema,
   OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
 } from './optimization-signal.js';
-import { ConfigSchema, CONFIG_SCHEMA_VERSION } from './config.js';
+import {
+  PlanningConfigSchema,
+  FullAgentConfigSchema,
+  ConfigSchema,
+  CONFIG_SCHEMA_VERSION,
+} from './config.js';
 
 describe('Contracts Schema Validation', () => {
   it('validates a minimal trace span', () => {
@@ -87,6 +92,59 @@ describe('Contracts Schema Validation', () => {
       updated_at: new Date().toISOString(),
     };
     const parsed = ConfigSchema.safeParse(validConfig);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('validates planning config', () => {
+    const validConfig = {
+      schema_version: CONFIG_SCHEMA_VERSION,
+      backtrack_depth: 2,
+      verify_after_edit: true,
+      subtask_timeout_s: 300,
+    };
+    const parsed = PlanningConfigSchema.safeParse(validConfig);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('validates full agent config', () => {
+    const validConfig = {
+      config_version: 'cfg_0001',
+      planning: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        backtrack_depth: 2,
+        verify_after_edit: true,
+        subtask_timeout_s: 300,
+      },
+      prompts: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        system_prompt_version: '1.0',
+        templates: {
+          default: {
+            id: 'default',
+            version: '1.0',
+            template: 'Review and improve the code.',
+          },
+        },
+      },
+      retrieval: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        top_k: 5,
+        min_score: 0.7,
+        hybrid_weight_vector: 0.5,
+        max_depth: 2,
+      },
+      routing: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        small_tier_threshold: 0.6,
+        default_tier: 'slm' as const,
+      },
+      workflow: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        max_iterations: 10,
+        retry_storm_limit: 3,
+      },
+    };
+    const parsed = FullAgentConfigSchema.safeParse(validConfig);
     expect(parsed.success).toBe(true);
   });
 });
