@@ -1,0 +1,17 @@
+small:
+  provider: openai_compat
+  baseUrl: https://router.huggingface.co/v1
+  model: Qwen/Qwen2.5-Coder-7B-Instruct
+  apiKeyEnv: HF_TOKEN
+
+large:
+  provider: openai_compat
+  baseUrl: https://router.huggingface.co/v1
+  model: Qwen/Qwen2.5-Coder-32B-Instruct
+  apiKeyEnv: HF_TOKEN
+
+embed:
+  provider: openai_compat
+  baseUrl: https://router.huggingface.co/v1
+  model: BAAI/bge-small-en-v1.5
+  apiKeyEnv: HF_TOKEN
