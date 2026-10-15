@@ -37,6 +37,9 @@ importers:
 
   packages/bus:
     dependencies:
+      '@soa/store':
+        specifier: workspace:*
+        version: link:../store
       zod:
         specifier: ^3.22.0
         version: 3.25.76
@@ -94,7 +97,14 @@ importers:
 
   packages/sandbox: {}
 
-  packages/store: {}
+  packages/store:
+    dependencies:
+      '@soa/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
 
 packages:
   /@esbuild/aix-ppc64@0.21.5:

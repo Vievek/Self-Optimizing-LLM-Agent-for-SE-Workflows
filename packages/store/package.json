@@ -13,5 +13,9 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@soa/contracts": "workspace:*",
+    "zod": "^3.22.0"
   }
 }
