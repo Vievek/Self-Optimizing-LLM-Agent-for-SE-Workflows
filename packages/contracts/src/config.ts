@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ModelTierSchema, type ModelTier } from './trace.js';
 
 export const CONFIG_SCHEMA_VERSION = '1.0' as const;
 
@@ -29,10 +30,23 @@ export const RetrievalConfigSchema = z.object({
   max_depth: z.number().int().min(1).max(5),
 });
 
+export const ToolDefinitionSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  description: z.string(),
+  parameters: z.record(z.unknown()).optional(),
+  timeout_s: z.number().int().min(1).max(600).optional(),
+});
+
+export const ToolsConfigSchema = z.object({
+  schema_version: z.literal(CONFIG_SCHEMA_VERSION),
+  tools: z.record(ToolDefinitionSchema),
+});
+
 export const RoutingConfigSchema = z.object({
   schema_version: z.literal(CONFIG_SCHEMA_VERSION),
   small_tier_threshold: z.number().min(0).max(1),
-  default_tier: z.enum(['slm', 'llm']),
+  default_tier: ModelTierSchema,
 });
 
 export const WorkflowConfigSchema = z.object({
@@ -45,6 +59,7 @@ export const FullAgentConfigSchema = z.object({
   config_version: z.string().regex(/^cfg_[0-9]{4}$|^[0-9a-f]{40}$/),
   planning: PlanningConfigSchema,
   prompts: PromptsConfigSchema,
+  tools: ToolsConfigSchema,
   retrieval: RetrievalConfigSchema,
   routing: RoutingConfigSchema,
   workflow: WorkflowConfigSchema,
@@ -65,7 +80,10 @@ export interface ConfigProvider {
 
 export type PlanningConfig = z.infer<typeof PlanningConfigSchema>;
 export type PromptsConfig = z.infer<typeof PromptsConfigSchema>;
+export type ToolDefinition = z.infer<typeof ToolDefinitionSchema>;
+export type ToolsConfig = z.infer<typeof ToolsConfigSchema>;
 export type RetrievalConfig = z.infer<typeof RetrievalConfigSchema>;
 export type RoutingConfig = z.infer<typeof RoutingConfigSchema>;
 export type WorkflowConfig = z.infer<typeof WorkflowConfigSchema>;
 export type FullAgentConfig = z.infer<typeof FullAgentConfigSchema>;
+export { ModelTierSchema, type ModelTier };

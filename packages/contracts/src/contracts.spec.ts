@@ -1,16 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { TraceSpanSchema, SCHEMA_VERSION } from './trace.js';
+import {
+  TraceSpanSchema,
+  OutputSpanAttributesSchema,
+  RouteSpanAttributesSchema,
+  ModelTierSchema,
+  SCHEMA_VERSION,
+} from './trace.js';
 import { OutcomeEvidenceSchema, OUTCOME_EVIDENCE_SCHEMA_VERSION } from './outcome-evidence.js';
 import {
   OptimizationSignalSchema,
   OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
 } from './optimization-signal.js';
 import {
-  PlanningConfigSchema,
+  ToolsConfigSchema,
   FullAgentConfigSchema,
   ConfigSchema,
   CONFIG_SCHEMA_VERSION,
 } from './config.js';
+import {
+  generateUlid,
+  generateMemoryId,
+  generateEvidenceId,
+  generateSignalId,
+  generateConfigVersion,
+  generateTraceId,
+  generateSpanId,
+  generateRunId,
+  isValidMemoryId,
+  isValidEvidenceId,
+  isValidSignalId,
+  isValidConfigVersion,
+  isValidTraceId,
+  isValidSpanId,
+  isValidRunId,
+} from './ids.js';
+import { LogRecordSchema, createLogger } from './logger.js';
 
 describe('Contracts Schema Validation', () => {
   it('validates a minimal trace span', () => {
@@ -28,6 +52,58 @@ describe('Contracts Schema Validation', () => {
     };
     const parsed = TraceSpanSchema.safeParse(validSpan);
     expect(parsed.success).toBe(true);
+  });
+
+  it('validates output span with tests_passed and tests_failed', () => {
+    const outputAttrs = {
+      patch_hash: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+      tests_run: 15,
+      tests_passed: 12,
+      tests_failed: 3,
+      result: 'pass',
+    };
+    const parsed = OutputSpanAttributesSchema.safeParse(outputAttrs);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.tests_passed).toBe(12);
+      expect(parsed.data.tests_failed).toBe(3);
+    }
+  });
+
+  it('defaults tests_passed and tests_failed to 0 when omitted', () => {
+    const outputAttrs = {
+      patch_hash: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+      tests_run: 5,
+      result: 'pass',
+    };
+    const parsed = OutputSpanAttributesSchema.safeParse(outputAttrs);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.tests_passed).toBe(0);
+      expect(parsed.data.tests_failed).toBe(0);
+    }
+  });
+
+  it('enforces unified tier vocabulary (slm / llm) and rejects invalid tiers like slim', () => {
+    expect(ModelTierSchema.safeParse('slm').success).toBe(true);
+    expect(ModelTierSchema.safeParse('llm').success).toBe(true);
+    expect(ModelTierSchema.safeParse('slim').success).toBe(false);
+
+    const validRoute = {
+      tier: 'slm',
+      model: 'Qwen/Qwen2.5-Coder-7B-Instruct',
+      features: {},
+      score: 0.85,
+    };
+    expect(RouteSpanAttributesSchema.safeParse(validRoute).success).toBe(true);
+
+    const invalidRoute = {
+      tier: 'slim',
+      model: 'Qwen/Qwen2.5-Coder-7B-Instruct',
+      features: {},
+      score: 0.85,
+    };
+    expect(RouteSpanAttributesSchema.safeParse(invalidRoute).success).toBe(false);
   });
 
   it('validates outcome evidence', () => {
@@ -95,18 +171,23 @@ describe('Contracts Schema Validation', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('validates planning config', () => {
-    const validConfig = {
+  it('validates tools config schema', () => {
+    const validTools = {
       schema_version: CONFIG_SCHEMA_VERSION,
-      backtrack_depth: 2,
-      verify_after_edit: true,
-      subtask_timeout_s: 300,
+      tools: {
+        apply_patch: {
+          name: 'apply_patch',
+          description: 'Applies a unified git diff patch to the workspace',
+          parameters: { file: { type: 'string' } },
+          timeout_s: 60,
+        },
+      },
     };
-    const parsed = PlanningConfigSchema.safeParse(validConfig);
+    const parsed = ToolsConfigSchema.safeParse(validTools);
     expect(parsed.success).toBe(true);
   });
 
-  it('validates full agent config', () => {
+  it('validates full agent config with tools included', () => {
     const validConfig = {
       config_version: 'cfg_0001',
       planning: {
@@ -123,6 +204,16 @@ describe('Contracts Schema Validation', () => {
             id: 'default',
             version: '1.0',
             template: 'Review and improve the code.',
+          },
+        },
+      },
+      tools: {
+        schema_version: CONFIG_SCHEMA_VERSION,
+        tools: {
+          apply_patch: {
+            name: 'apply_patch',
+            description: 'Applies patch to target repository file',
+            timeout_s: 60,
           },
         },
       },
@@ -146,5 +237,69 @@ describe('Contracts Schema Validation', () => {
     };
     const parsed = FullAgentConfigSchema.safeParse(validConfig);
     expect(parsed.success).toBe(true);
+  });
+
+  describe('ID Generators and Validators', () => {
+    it('generates valid ULID and prefixed IDs', () => {
+      const ulid = generateUlid();
+      expect(ulid.length).toBe(26);
+
+      const memId = generateMemoryId();
+      expect(isValidMemoryId(memId)).toBe(true);
+      expect(memId.startsWith('mem_')).toBe(true);
+
+      const evId = generateEvidenceId();
+      expect(isValidEvidenceId(evId)).toBe(true);
+      expect(evId.startsWith('ev_')).toBe(true);
+
+      const sigId1 = generateSignalId();
+      expect(isValidSignalId(sigId1)).toBe(true);
+
+      const sigId2 = generateSignalId('run_01', 'django__django-11099', 1);
+      expect(isValidSignalId(sigId2)).toBe(true);
+      expect(sigId2).toBe('sig_01_django__django-11099_01');
+
+      const cfgVer = generateConfigVersion(7);
+      expect(cfgVer).toBe('cfg_0007');
+      expect(isValidConfigVersion(cfgVer)).toBe(true);
+
+      const traceId = generateTraceId();
+      expect(traceId.length).toBe(32);
+      expect(isValidTraceId(traceId)).toBe(true);
+
+      const spanId = generateSpanId();
+      expect(spanId.length).toBe(16);
+      expect(isValidSpanId(spanId)).toBe(true);
+
+      const runId = generateRunId('baseline', 1, new Date('2026-10-15T09:00:00Z'));
+      expect(runId).toBe('run_20261015T0900_baseline_01');
+      expect(isValidRunId(runId)).toBe(true);
+    });
+  });
+
+  describe('Pino JSON Logger', () => {
+    it('creates log records matching LogRecordSchema', () => {
+      const traceId = generateTraceId();
+      const logger = createLogger({
+        component: 'exec',
+        run_id: 'run_20261015T0900_baseline_01',
+        task_id: 'django__django-11099',
+        trace_id: traceId,
+      });
+      expect(logger).toBeDefined();
+
+      const validRecord = {
+        ts: new Date().toISOString(),
+        level: 'info' as const,
+        component: 'exec' as const,
+        run_id: 'run_20261015T0900_baseline_01',
+        task_id: 'django__django-11099',
+        trace_id: traceId,
+        msg: 'Task started successfully',
+        context: { step: 1 },
+      };
+      const parsed = LogRecordSchema.safeParse(validRecord);
+      expect(parsed.success).toBe(true);
+    });
   });
 });
