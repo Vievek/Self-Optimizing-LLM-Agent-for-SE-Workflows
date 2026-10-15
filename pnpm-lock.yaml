@@ -34,6 +34,15 @@ importers:
       '@soa/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@soa/eval-harness':
+        specifier: workspace:*
+        version: link:../../packages/eval-harness
+      '@soa/mocks':
+        specifier: workspace:*
+        version: link:../../packages/mocks
+      '@soa/store':
+        specifier: workspace:*
+        version: link:../../packages/store
 
   packages/bus:
     dependencies:
