@@ -1,1 +1,0 @@
-{"version":3,"file":"mock-heae.d.ts","sourceRoot":"","sources":["mock-heae.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,kBAAkB,EAAE,eAAe,EAAE,SAAS,EAAE,MAAM,gBAAgB,CAAC;AAEhF,qBAAa,QAAQ;IACb,oBAAoB,CACxB,QAAQ,EAAE,eAAe,EACzB,MAAM,EAAE,SAAS,EAAE,GAClB,OAAO,CAAC,kBAAkB,EAAE,CAAC;CAcjC"}
