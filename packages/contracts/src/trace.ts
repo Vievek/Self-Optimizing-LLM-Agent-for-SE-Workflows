@@ -64,9 +64,12 @@ export const RetrievalSpanAttributesSchema = z
   })
   .passthrough();
 
+export const ModelTierSchema = z.enum(['slm', 'llm']);
+export type ModelTier = z.infer<typeof ModelTierSchema>;
+
 export const RouteSpanAttributesSchema = z
   .object({
-    tier: z.enum(['slm', 'slim', 'llm']),
+    tier: ModelTierSchema,
     model: z.string(),
     features: z.record(z.unknown()),
     score: z.number(),
@@ -77,6 +80,8 @@ export const OutputSpanAttributesSchema = z
   .object({
     patch_hash: z.string(),
     tests_run: z.number().int().nonnegative(),
+    tests_passed: z.number().int().nonnegative().default(0),
+    tests_failed: z.number().int().nonnegative().default(0),
     result: z.enum(['pass', 'fail', 'error']),
   })
   .passthrough();

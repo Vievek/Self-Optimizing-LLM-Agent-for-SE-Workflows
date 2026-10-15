@@ -4,3 +4,5 @@ export * from './outcome-evidence.js';
 export * from './optimization-signal.js';
 export * from './refined-memory.js';
 export * from './config.js';
+export * from './ids.js';
+export * from './logger.js';
