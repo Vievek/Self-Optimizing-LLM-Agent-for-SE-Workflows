@@ -4,5 +4,12 @@
     "rootDir": "src",
     "outDir": "dist"
   },
+  "references": [
+    { "path": "../contracts" },
+    { "path": "../store" },
+    { "path": "../llm" },
+    { "path": "../sandbox" },
+    { "path": "../mocks" }
+  ],
   "include": ["src/**/*"]
 }
