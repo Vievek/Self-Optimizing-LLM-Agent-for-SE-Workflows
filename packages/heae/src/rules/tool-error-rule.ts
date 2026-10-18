@@ -3,7 +3,7 @@ import type { TraceGraph } from '../trace-graph.js';
 
 export interface RuleFinding {
   ruleId: string;
-  category: 'tool';
+  category: 'tool'| 'retrieval';
   observation: string;
   evidenceNodeIds: string[];
   details: Record<string, unknown>;
