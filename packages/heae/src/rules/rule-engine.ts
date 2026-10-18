@@ -6,6 +6,8 @@ import type {
 } from './rule-types.js';
 import { detectToolErrors } from './tool-error-rule.js';
 import { detectRetrievalFailures } from './retrieval-failure-rule.js';
+import { detectPlanningFailures } from './planning-failure-rule.js';
+
 
 export type RuleDetector = (
   graph: TraceGraph,
@@ -22,6 +24,7 @@ export interface RuleEngineResult {
 const DEFAULT_RULES: readonly RuleDetector[] = [
   detectToolErrors,
   detectRetrievalFailures,
+  detectPlanningFailures,
 ];
 
 export function evaluateRules(
