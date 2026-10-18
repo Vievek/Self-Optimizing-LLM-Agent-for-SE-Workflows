@@ -1,13 +1,6 @@
 
 import type { TraceGraph } from '../trace-graph.js';
-
-export interface RuleFinding {
-  ruleId: string;
-  category: 'tool'| 'retrieval';
-  observation: string;
-  evidenceNodeIds: string[];
-  details: Record<string, unknown>;
-}
+import type { RuleFinding } from './rule-types.js';
 
 export function detectToolErrors(
   graph: TraceGraph,

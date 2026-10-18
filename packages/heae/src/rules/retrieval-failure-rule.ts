@@ -1,6 +1,6 @@
 
 import type { TraceGraph } from '../trace-graph.js';
-import type { RuleFinding } from './tool-error-rule.js';
+import type { RuleFinding } from './rule-types.js';
 
 export function detectRetrievalFailures(
   graph: TraceGraph,
