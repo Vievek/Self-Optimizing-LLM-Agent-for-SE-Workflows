@@ -6,3 +6,4 @@ export * from './rules/tool-error-rule.js';
 export * from './rules/retrieval-failure-rule.js';
 export * from './rules/rule-engine.js';
 export * from './rules/planning-failure-rule.js';
+export * from './rules/prompt-failure-rule.js';
