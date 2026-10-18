@@ -8,6 +8,7 @@ import { detectToolErrors } from './tool-error-rule.js';
 import { detectRetrievalFailures } from './retrieval-failure-rule.js';
 import { detectPlanningFailures } from './planning-failure-rule.js';
 import { detectPromptFailures } from './prompt-failure-rule.js';
+import { detectWorkflowFailures } from './workflow-failure-rule.js';
 
 
 export type RuleDetector = (
@@ -27,6 +28,7 @@ const DEFAULT_RULES: readonly RuleDetector[] = [
   detectRetrievalFailures,
   detectPlanningFailures,
   detectPromptFailures,
+  detectWorkflowFailures,
 ];
 
 export function evaluateRules(
