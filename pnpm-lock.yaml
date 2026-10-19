@@ -88,6 +88,22 @@ importers:
       '@soa/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@soa/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@soa/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
+      '@soa/store':
+        specifier: workspace:*
+        version: link:../store
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+    devDependencies:
+      '@soa/mocks':
+        specifier: workspace:*
+        version: link:../mocks
 
   packages/mocks:
     dependencies:

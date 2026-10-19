@@ -15,6 +15,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@soa/contracts": "workspace:*"
+    "@soa/contracts": "workspace:*",
+    "@soa/llm": "workspace:*",
+    "@soa/sandbox": "workspace:*",
+    "@soa/store": "workspace:*",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@soa/mocks": "workspace:*"
   }
 }
