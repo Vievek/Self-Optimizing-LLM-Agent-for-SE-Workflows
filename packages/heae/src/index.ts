@@ -17,3 +17,5 @@ export * from './signals/optimization-signal-generator.js';
 export * from './evidence/outcome-evidence-generator.js';
 export * from './persistence/evaluation-history.js';
 export * from './commands/evaluate-trace.js';
+export * from './persistence/interaction-graph-store.js';
+export * from './persistence/kuzu-interaction-store.js';

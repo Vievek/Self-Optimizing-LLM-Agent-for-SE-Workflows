@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-  "heae": "./dist/cli/main.js"
+    "heae": "./dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,6 +21,7 @@
     "@soa/contracts": "workspace:*",
     "@soa/llm": "workspace:*",
     "@soa/store": "workspace:*",
+    "kuzu": "0.11.3",
     "zod": "3.25.76"
   }
 }
