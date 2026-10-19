@@ -51,7 +51,7 @@ export const StoredEvaluationSchema = z.object({
   traceFingerprint: z.string()
     .regex(/^[0-9a-f]{64}$/)
     .optional(),
-    
+
   result: z.object({
     traceId: TraceIdSchema,
       traceFingerprint: z.string()
@@ -109,7 +109,7 @@ export class EvaluationHistory {
     return `heae/evaluations/${validTraceId}.json`;
   }
 
-  
+
   async save(
     result: HybridAttributionResult,
     traceFingerprint?: string,
