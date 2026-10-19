@@ -1,6 +1,10 @@
 import { MemoryNoteSchema, type ConsolidatedTaskSummary, type MemoryNote } from '@soa/contracts';
 import type { ChatRequest, LlmProvider } from '@soa/llm';
-import { parseSummaryNote, type ParsedSummaryNote, type TestStatus } from '../working-memory/working-memory.js';
+import {
+  parseSummaryNote,
+  type ParsedSummaryNote,
+  type TestStatus,
+} from '../working-memory/working-memory.js';
 
 export interface BuildNoteResult {
   note: MemoryNote;

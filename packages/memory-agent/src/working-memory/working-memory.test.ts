@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parseSummaryNote, WorkingMemory } from './working-memory.js';
 
-const TASK = { taskId: 'django__django-11099', repo: 'django/django', baseCommit: 'fb8b75e7a9b8f2d' };
+const TASK = {
+  taskId: 'django__django-11099',
+  repo: 'django/django',
+  baseCommit: 'fb8b75e7a9b8f2d',
+};
 
 describe('WorkingMemory', () => {
   let wm: WorkingMemory;
@@ -92,7 +96,10 @@ describe('WorkingMemory', () => {
         files: ['django/contrib/auth/validators.py'],
       });
       wm.explore({ action: 'read validators.py', observation: '' });
-      wm.completeFocus({ learned: 'regex uses $ which allows a trailing newline', outcome: 'success' });
+      wm.completeFocus({
+        learned: 'regex uses $ which allows a trailing newline',
+        outcome: 'success',
+      });
 
       wm.startFocus('fix the anchor');
       wm.explore({

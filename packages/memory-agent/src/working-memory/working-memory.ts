@@ -64,9 +64,7 @@ export class WorkingMemory {
 
   startFocus(topic: string): void {
     if (this.current) {
-      throw new Error(
-        `Cannot start focus "${topic}": focus "${this.current.topic}" is still open`,
-      );
+      throw new Error(`Cannot start focus "${topic}": focus "${this.current.topic}" is still open`);
     }
     this.current = { topic, steps: [] };
   }
