@@ -10,3 +10,5 @@ export * from './rules/prompt-failure-rule.js';
 export * from './rules/workflow-failure-rule.js';
 export * from './evaluation/multi-label-evaluator.js';
 export * from './attribution/evidence-attribution.js';
+export * from './attribution/llm-judge.js';
+export * from './attribution/judge-schema.js';
