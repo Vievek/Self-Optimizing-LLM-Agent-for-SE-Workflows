@@ -21,3 +21,4 @@ export * from './persistence/interaction-graph-store.js';
 export * from './persistence/kuzu-interaction-store.js';
 export * from './persistence/trace-fingerprint.js';
 export * from './intake/execution-trace-source.js';
+export * from './commands/evaluate-execution-trace.js';
