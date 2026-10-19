@@ -13,3 +13,4 @@ export * from './attribution/evidence-attribution.js';
 export * from './attribution/llm-judge.js';
 export * from './attribution/judge-schema.js';
 export * from './attribution/hybrid-attribution.js';
+export * from './signals/optimization-signal-generator.js';
