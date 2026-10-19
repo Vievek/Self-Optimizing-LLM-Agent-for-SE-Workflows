@@ -19,6 +19,8 @@ import {
 import type {
   InteractionGraphStore,
 } from '../persistence/interaction-graph-store.js';
+import { fingerprintTraceGraph } from '../persistence/trace-fingerprint.js';
+
 
 export interface EvaluateTraceOptions {
   provider?: LlmProvider;
@@ -70,11 +72,18 @@ function equivalent(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+
 function assertExistingGraphMatches(
   expected: TraceGraph,
   existing: TraceGraph,
 ): void {
-  if (!equivalent(expected, existing)) {
+  const expectedFingerprint =
+    fingerprintTraceGraph(expected);
+
+  const existingFingerprint =
+    fingerprintTraceGraph(existing);
+
+  if (expectedFingerprint !== existingFingerprint) {
     throw new Error(
       `Recovery rejected: stored graph differs from ` +
       `incoming trace ${expected.traceId}`,
@@ -82,10 +91,34 @@ function assertExistingGraphMatches(
   }
 }
 
+
+
 function assertExistingReportMatches(
   graph: TraceGraph,
   record: StoredEvaluation,
 ): void {
+  const incomingFingerprint =
+    fingerprintTraceGraph(graph);
+
+  // New records have a full-trace fingerprint.
+  if (record.traceFingerprint !== undefined) {
+    if (
+      record.traceFingerprint !== incomingFingerprint
+    ) {
+      throw new Error(
+        `Recovery rejected: stored trace fingerprint ` +
+        `differs from incoming trace ${graph.traceId}`,
+      );
+    }
+
+    return;
+  }
+
+  // Backward compatibility for evaluation records
+  // saved before fingerprints were introduced.
+  //
+  // This comparison is weaker: matching rule findings
+  // do not establish that all span metadata is identical.
   const expectedRules = attributeTrace(graph);
 
   if (!equivalent(
@@ -98,6 +131,7 @@ function assertExistingReportMatches(
     );
   }
 }
+
 
 function summarize(
   attribution: HybridAttributionResult,
@@ -132,6 +166,7 @@ export async function evaluateTrace(
   // 1. Validate and reconstruct the trace graph.
   const spans = parseTraceJsonl(jsonlContent);
   const graph = buildTraceGraph(spans);
+  const traceFingerprint = fingerprintTraceGraph(graph);
 
   const history = options.store
     ? new EvaluationHistory(options.store)
@@ -207,7 +242,7 @@ export async function evaluateTrace(
     }
 
     if (history && !reportSaved) {
-      await history.save(attribution);
+      await history.save(attribution, traceFingerprint);
       reportSaved = true;
     }
   } catch (error) {

@@ -47,8 +47,16 @@ const AttributionReportSchema = z.object({
 export const StoredEvaluationSchema = z.object({
   schemaVersion: z.literal('1.0'),
   traceId: TraceIdSchema,
+
+  traceFingerprint: z.string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+    
   result: z.object({
     traceId: TraceIdSchema,
+      traceFingerprint: z.string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
     ruleReport: AttributionReportSchema,
     judgment: JudgeResponseSchema.nullable(),
     judgeStatus: z.enum([
@@ -101,12 +109,17 @@ export class EvaluationHistory {
     return `heae/evaluations/${validTraceId}.json`;
   }
 
+  
   async save(
     result: HybridAttributionResult,
+    traceFingerprint?: string,
   ): Promise<StoredEvaluation> {
     const record = StoredEvaluationSchema.parse({
       schemaVersion: '1.0',
       traceId: result.traceId,
+      ...(traceFingerprint !== undefined
+        ? { traceFingerprint }
+        : {}),
       result,
     });
 
@@ -122,6 +135,7 @@ export class EvaluationHistory {
 
     return record;
   }
+
 
   async load(
     traceId: string,

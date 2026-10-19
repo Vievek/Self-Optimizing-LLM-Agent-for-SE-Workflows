@@ -161,7 +161,7 @@ describe('HEAE standalone CLI', () => {
     expect(result.saved).toBe(true);
   });
 
-  
+
     it('shows the optional judge flag in help', async () => {
     const output = await runHeaeCli(['help']);
 
@@ -247,7 +247,7 @@ describe('HEAE standalone CLI', () => {
     );
     });
 
-    
+
     it('saves a graph when a Kuzu store is supplied', async () => {
       const directory = await mkdtemp(
         path.join(tmpdir(), 'heae-cli-graph-'),
@@ -298,7 +298,7 @@ describe('HEAE standalone CLI', () => {
       }
     });
 
-    
+
     it('recovers a missing report through the CLI', async () => {
       const directory = await mkdtemp(
         path.join(tmpdir(), 'heae-cli-recovery-'),
