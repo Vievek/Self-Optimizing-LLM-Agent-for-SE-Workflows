@@ -5,6 +5,11 @@ import { MemoryStore } from '@soa/store';
 import { runHeaeCli } from './heae-cli.js';
 import type { LlmProvider } from '@soa/llm';
 import { EvaluationHistory } from '../persistence/evaluation-history.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
 
 const toolFixture =
   'packages/heae/fixtures/tool-error.jsonl';
@@ -237,5 +242,56 @@ describe('HEAE standalone CLI', () => {
     ).rejects.toThrow(
         'Usage: heae evaluate',
     );
+    });
+
+    
+    it('saves a graph when a Kuzu store is supplied', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'heae-cli-graph-'),
+      );
+
+      const graphStore = await KuzuInteractionStore.open(
+        path.join(directory, 'heae.kuzu'),
+      );
+
+      try {
+        const store = new MemoryStore();
+
+        const output = await runHeaeCli(
+          ['evaluate', toolFixture],
+          {
+            store,
+            graphStore,
+          },
+        );
+
+        const summary = JSON.parse(output) as {
+          traceId: string;
+          saved: boolean;
+          graphSaved: boolean;
+        };
+
+        expect(summary.saved).toBe(true);
+        expect(summary.graphSaved).toBe(true);
+
+        const graph = await graphStore.loadGraph(
+          summary.traceId,
+        );
+
+        expect(graph).not.toBeNull();
+        expect(graph?.nodes.length).toBeGreaterThan(0);
+
+        const history = new EvaluationHistory(store);
+        const report = await history.load(summary.traceId);
+
+        expect(report).not.toBeNull();
+      } finally {
+        await graphStore.close();
+
+        await rm(directory, {
+          recursive: true,
+          force: true,
+        });
+      }
     });
 });

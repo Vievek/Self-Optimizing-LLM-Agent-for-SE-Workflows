@@ -10,6 +10,8 @@ import { FileStore, type Store } from '@soa/store';
 import { readTraceFile } from '../trace-intake.js';
 import { evaluateTrace } from '../commands/evaluate-trace.js';
 import { EvaluationHistory } from '../persistence/evaluation-history.js';
+import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
+import type { InteractionGraphStore } from '../persistence/interaction-graph-store.js';
 
 export interface HeaeCliOptions {
   store?: Store;
@@ -18,6 +20,7 @@ export interface HeaeCliOptions {
   // The default provider is only selected for --judge.
   provider?: LlmProvider;
   model?: string;
+  graphStore?: InteractionGraphStore;
 }
 
 const HELP = [
@@ -117,16 +120,41 @@ export async function runHeaeCli(
       }
     }
 
-    const result = await evaluateTrace(
-      jsonlContent,
-      {
-        store,
-        provider,
-        model,
-      },
-    );
+    
+    // Normal CLI execution uses the HEAE-owned Kuzu
+    // database defined in the project architecture.
+    //
+    // When callers inject a FileStore, they may also
+    // inject a graphStore. This keeps existing tests
+    // and programmatic usage backward-compatible.
+    const ownsGraphStore =
+      options.store === undefined &&
+      options.graphStore === undefined;
 
-    return JSON.stringify(result.summary, null, 2);
+    const graphStore = ownsGraphStore
+      ? await KuzuInteractionStore.open(
+          'store/graphs/heae.kuzu',
+        )
+      : options.graphStore;
+
+    try {
+      const result = await evaluateTrace(
+        jsonlContent,
+        {
+          store,
+          graphStore,
+          provider,
+          model,
+        },
+      );
+
+      return JSON.stringify(result.summary, null, 2);
+    } finally {
+      if (ownsGraphStore) {
+        await graphStore?.close();
+      }
+    }
+
   }
 
   if (commandArgs.length > 1) {
