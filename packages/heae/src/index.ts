@@ -8,3 +8,4 @@ export * from './rules/rule-engine.js';
 export * from './rules/planning-failure-rule.js';
 export * from './rules/prompt-failure-rule.js';
 export * from './rules/workflow-failure-rule.js';
+export * from './evaluation/multi-label-evaluator.js';

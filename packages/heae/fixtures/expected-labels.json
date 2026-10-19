@@ -1,0 +1,38 @@
+
+[
+  {
+    "fixture": "success.jsonl",
+    "expectedCategories": [],
+    "expectedRuleIds": []
+  },
+  {
+    "fixture": "tool-error.jsonl",
+    "expectedCategories": ["tool"],
+    "expectedRuleIds": ["TOOL-02"]
+  },
+  {
+    "fixture": "retrieval-empty.jsonl",
+    "expectedCategories": ["retrieval", "workflow"],
+    "expectedRuleIds": ["RETRIEVAL-01", "WORKFLOW-01"]
+  },
+  {
+    "fixture": "planning-error.jsonl",
+    "expectedCategories": ["planning", "workflow"],
+    "expectedRuleIds": ["PLANNING-01", "WORKFLOW-01"]
+  },
+  {
+    "fixture": "prompt-error.jsonl",
+    "expectedCategories": ["prompt", "workflow"],
+    "expectedRuleIds": ["PROMPT-01", "WORKFLOW-01"]
+  },
+  {
+    "fixture": "workflow-unverified.jsonl",
+    "expectedCategories": ["workflow"],
+    "expectedRuleIds": ["WORKFLOW-01"]
+  },
+  {
+    "fixture": "multi-label-error.jsonl",
+    "expectedCategories": ["tool", "retrieval"],
+    "expectedRuleIds": ["TOOL-02", "RETRIEVAL-01"]
+  }
+]
