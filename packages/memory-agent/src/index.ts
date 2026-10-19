@@ -21,3 +21,7 @@ export type {
   TestStatus,
   WorkingMemoryOptions,
 } from './working-memory/working-memory.js';
+export { checkSnippet, normalizeCode } from './verify/snippet-check.js';
+export type { FileCheck } from './verify/snippet-check.js';
+export { CodeVerifier } from './verify/verifier.js';
+export type { CodeVerifierOptions, VerificationOutcome } from './verify/verifier.js';

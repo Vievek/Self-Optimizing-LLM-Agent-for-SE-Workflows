@@ -1,0 +1,125 @@
+import fs from 'node:fs';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import type { MemoryNote } from '@soa/contracts';
+import { CodeVerifier } from './verifier.js';
+import { makeNote } from '../test-utils/fixtures.js';
+import { makeFixtureSandbox } from '../test-utils/fixture-repos.js';
+
+const REPO = 'memtest/memtest';
+const FILE = 'auth/validators.py';
+
+function note(overrides: Partial<MemoryNote> = {}): MemoryNote {
+  return {
+    ...makeNote().note,
+    files: [FILE],
+    fix_snippet: "regex = r'^[\\w.@+-]+\\Z'",
+    evidence_tests: ['tests/test_validators.py::test_rejects_trailing_newline'],
+    ...overrides,
+  };
+}
+
+describe('CodeVerifier', () => {
+  const fixture = makeFixtureSandbox();
+  const verifier = new CodeVerifier({ sandbox: fixture.sandbox });
+  afterAll(() => fixture.cleanup());
+
+  it('verifies the note when the fix is present (v1)', async () => {
+    const out = await verifier.verify(note(), REPO, 'memtest-v1');
+    expect(out.status).toBe('verified');
+    expect(out.details).toBe(`Fix found in ${FILE}.`);
+    expect(out.fileChecks).toEqual([{ file: FILE, result: 'found' }]);
+    expect(out.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('matches the fix despite indentation differences in the snippet', async () => {
+    const out = await verifier.verify(
+      note({ fix_snippet: "  class UsernameValidator:\n\n regex =   r'^[\\w.@+-]+\\Z'" }),
+      REPO,
+      'memtest-v1',
+    );
+    expect(out.status).toBe('verified');
+  });
+
+  it('marks the note stale when the code changed (v2)', async () => {
+    const out = await verifier.verify(note(), REPO, 'memtest-v2');
+    expect(out.status).toBe('stale');
+    expect(out.details).toBe(`Fix no longer present in ${FILE}.`);
+    expect(out.fileChecks).toEqual([{ file: FILE, result: 'not_found' }]);
+  });
+
+  it('marks the note stale when the file was removed (v3)', async () => {
+    const out = await verifier.verify(note(), REPO, 'memtest-v3');
+    expect(out.status).toBe('stale');
+    expect(out.details).toBe(`${FILE} no longer exists.`);
+    expect(out.fileChecks).toEqual([{ file: FILE, result: 'file_missing' }]);
+  });
+
+  it('names removed files alongside files that lost the fix', async () => {
+    const out = await verifier.verify(note({ files: [FILE, 'auth/gone.py'] }), REPO, 'memtest-v2');
+    expect(out.status).toBe('stale');
+    expect(out.details).toBe(`Fix no longer present in ${FILE} (auth/gone.py removed).`);
+  });
+
+  it('verifies when the fix is in any one of the listed files', async () => {
+    const out = await verifier.verify(
+      note({ files: ['auth/__init__.py', FILE] }),
+      REPO,
+      'memtest-v1',
+    );
+    expect(out.status).toBe('verified');
+    expect(out.details).toBe(`Fix found in ${FILE}.`);
+  });
+
+  it('is unverifiable without a fix snippet, and creates no workspace', async () => {
+    const spy = vi.spyOn(fixture.sandbox, 'createWorkspace');
+    for (const fix_snippet of ['', '   \n ']) {
+      const out = await verifier.verify(note({ fix_snippet }), REPO, 'memtest-v1');
+      expect(out.status).toBe('unverifiable');
+      expect(out.fileChecks).toEqual([]);
+    }
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('is unverifiable when a snippet is given but no files are listed', async () => {
+    const out = await verifier.verify(note({ files: [] }), REPO, 'memtest-v1');
+    expect(out.status).toBe('unverifiable');
+  });
+
+  it('is not_applicable when there are no files, snippet or tests', async () => {
+    const out = await verifier.verify(
+      note({ files: [], fix_snippet: '', evidence_tests: [] }),
+      REPO,
+      'memtest-v1',
+    );
+    expect(out.status).toBe('not_applicable');
+    expect(out.details).toBe('Nothing in the codebase to check.');
+  });
+
+  it('uses workspaceKey to pick the workspace', async () => {
+    const workspaceKey = vi.fn((_repo: string, commit: string) => `memtest-${commit}`);
+    const keyed = new CodeVerifier({ sandbox: fixture.sandbox, workspaceKey });
+    const out = await keyed.verify(note(), REPO, 'v1');
+    expect(workspaceKey).toHaveBeenCalledWith(REPO, 'v1');
+    expect(out.status).toBe('verified');
+  });
+
+  it('destroys every workspace it creates', async () => {
+    await verifier.verify(note(), REPO, 'memtest-v1');
+    expect(fs.readdirSync(fixture.workDirRoot)).toEqual([]);
+  });
+
+  it('destroys the workspace even when a check throws', async () => {
+    const readFile = vi
+      .spyOn(fixture.sandbox, 'readFile')
+      .mockRejectedValue(new Error('permission denied'));
+    const destroy = vi.spyOn(fixture.sandbox, 'destroy');
+
+    await expect(verifier.verify(note(), REPO, 'memtest-v1')).rejects.toThrow('permission denied');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(fs.readdirSync(fixture.workDirRoot)).toEqual([]);
+
+    readFile.mockRestore();
+    destroy.mockRestore();
+  });
+});
