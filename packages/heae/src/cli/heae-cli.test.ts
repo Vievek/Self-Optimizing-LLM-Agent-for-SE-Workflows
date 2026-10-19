@@ -10,6 +10,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
+import { parseTraceJsonl } from '../trace-intake.js';
+import { buildTraceGraph } from '../trace-graph.js';
+import { readFileSync } from 'node:fs';
 
 const toolFixture =
   'packages/heae/fixtures/tool-error.jsonl';
@@ -283,6 +286,62 @@ describe('HEAE standalone CLI', () => {
 
         const history = new EvaluationHistory(store);
         const report = await history.load(summary.traceId);
+
+        expect(report).not.toBeNull();
+      } finally {
+        await graphStore.close();
+
+        await rm(directory, {
+          recursive: true,
+          force: true,
+        });
+      }
+    });
+
+    
+    it('recovers a missing report through the CLI', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'heae-cli-recovery-'),
+      );
+
+      const graphStore = await KuzuInteractionStore.open(
+        path.join(directory, 'heae.kuzu'),
+      );
+
+      try {
+        const store = new MemoryStore();
+
+        // Simulate an interrupted evaluation:
+        // Kuzu contains the graph, but FileStore has no report.
+        const content = readFileSync(toolFixture, 'utf8');
+
+        const graph = buildTraceGraph(
+          parseTraceJsonl(content),
+        );
+
+        await graphStore.saveGraph(graph);
+
+        // Repair the missing report using the CLI.
+        const output = await runHeaeCli(
+          ['evaluate', toolFixture, '--recover'],
+          {
+            store,
+            graphStore,
+          },
+        );
+
+        const summary = JSON.parse(output) as {
+          traceId: string;
+          saved: boolean;
+          graphSaved: boolean;
+        };
+
+        expect(summary.traceId).toBe(graph.traceId);
+        expect(summary.saved).toBe(true);
+        expect(summary.graphSaved).toBe(true);
+
+        const history = new EvaluationHistory(store);
+        const report = await history.load(graph.traceId);
 
         expect(report).not.toBeNull();
       } finally {

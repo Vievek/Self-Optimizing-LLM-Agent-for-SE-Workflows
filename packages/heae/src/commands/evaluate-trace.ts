@@ -3,70 +3,51 @@ import type { LlmProvider } from '@soa/llm';
 import type { Store } from '@soa/store';
 
 import { parseTraceJsonl } from '../trace-intake.js';
-import { buildTraceGraph } from '../trace-graph.js';
+import { buildTraceGraph, type TraceGraph } from '../trace-graph.js';
 
 import {
   evaluateHybridAttribution,
   type HybridAttributionResult,
 } from '../attribution/hybrid-attribution.js';
 
-import { EvaluationHistory } from '../persistence/evaluation-history.js';
+import { attributeTrace } from '../attribution/evidence-attribution.js';
+import {
+  EvaluationHistory,
+  type StoredEvaluation,
+} from '../persistence/evaluation-history.js';
 
-import type { InteractionGraphStore } from '../persistence/interaction-graph-store.js';
+import type {
+  InteractionGraphStore,
+} from '../persistence/interaction-graph-store.js';
 
-/**
- * Configuration for trace evaluation.
- */
 export interface EvaluateTraceOptions {
-  // Optional pretrained LLM judge.
   provider?: LlmProvider;
   model?: string;
-
-  // Optional FileStore for evaluation reports.
   store?: Store;
-
-  // Optional Kuzu graph store.
   graphStore?: InteractionGraphStore;
+
+  // Explicitly allow repair of one missing persistence record.
+  // Normal duplicate protection remains enabled by default.
+  recovery?: boolean;
 }
 
-/**
- * Summary returned to CLI, TUI, or other components.
- */
 export interface EvaluateTraceSummary {
   traceId: string;
-
   outcome: HybridAttributionResult['ruleReport']['outcome'];
-
   categories: string[];
-
   observationCount: number;
   hypothesisCount: number;
-
   judgeStatus: HybridAttributionResult['judgeStatus'];
-
-  // Whether FileStore successfully saved the report.
   saved: boolean;
-
-  // Whether Kuzu successfully saved the trace graph.
   graphSaved: boolean;
-
   warnings: string[];
 }
 
-/**
- * Complete evaluation response.
- */
 export interface EvaluateTraceResult {
   summary: EvaluateTraceSummary;
   attribution: HybridAttributionResult;
 }
 
-/**
- * Indicates that one or more persistence operations failed.
- *
- * Kuzu and FileStore do not share a transaction.
- * Therefore, one may succeed while the other fails.
- */
 export class EvaluationPersistenceError extends Error {
   constructor(
     message: string,
@@ -79,103 +60,53 @@ export class EvaluationPersistenceError extends Error {
   }
 }
 
-/**
- * Evaluate an execution trace using HEAE.
- *
- * Workflow:
- * 1. Validate JSONL trace spans.
- * 2. Construct the typed trace graph.
- * 3. Perform rule-based and optional LLM attribution.
- * 4. Check existing persistence records.
- * 5. Persist the trace graph to Kuzu, if configured.
- * 6. Persist the attribution report to FileStore, if configured.
- * 7. Return the evaluation summary and attribution.
- *
- * Persistence is optional for backward compatibility.
- */
-export async function evaluateTrace(
-  jsonlContent: string,
-  options: EvaluateTraceOptions = {},
-): Promise<EvaluateTraceResult> {
-  // STEP 1: Parse and validate the incoming trace.
-  const spans = parseTraceJsonl(jsonlContent);
+function equivalent(
+  left: unknown,
+  right: unknown,
+): boolean {
+  // Graphs and rule reports are built in deterministic order.
+  // This is a structural consistency check, not a cryptographic
+  // trace fingerprint.
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 
-  // STEP 2: Build the typed interaction graph.
-  const graph = buildTraceGraph(spans);
-
-  // STEP 3: Run deterministic rules and optional LLM judging.
-  const attribution = await evaluateHybridAttribution(graph, {
-    provider: options.provider,
-    model: options.model,
-  });
-
-  // STEP 4: Prepare optional evaluation history storage.
-  const history = options.store
-    ? new EvaluationHistory(options.store)
-    : undefined;
-
-  // Prevent overwriting an existing evaluation report.
-  if (history) {
-    const existingReport = await history.load(
-      graph.traceId,
-    );
-
-    if (existingReport) {
-      throw new Error(
-        `Evaluation already exists: ${graph.traceId}`,
-      );
-    }
-  }
-
-  // Prevent overwriting an existing Kuzu interaction graph.
-  if (options.graphStore) {
-    const existingGraph = await options.graphStore.loadGraph(
-      graph.traceId,
-    );
-
-    if (existingGraph) {
-      throw new Error(
-        `Interaction graph already exists: ${graph.traceId}`,
-      );
-    }
-  }
-
-  // STEP 5: Track persistence independently.
-  let graphSaved = false;
-  let reportSaved = false;
-
-  try {
-    // Save the interaction graph into Kuzu.
-    if (options.graphStore) {
-      await options.graphStore.saveGraph(graph);
-      graphSaved = true;
-    }
-
-    // Save the hybrid attribution result into FileStore.
-    if (history) {
-      await history.save(attribution);
-      reportSaved = true;
-    }
-  } catch (error) {
-    // These databases do not share an atomic transaction.
-    // Report partial success rather than hiding it.
-    throw new EvaluationPersistenceError(
-      `HEAE persistence failed for ${graph.traceId}. ` +
-        `Graph saved: ${graphSaved}. ` +
-        `Report saved: ${reportSaved}. ` +
-        'Inspect both stores before retrying.',
-      reportSaved,
-      graphSaved,
-      { cause: error },
+function assertExistingGraphMatches(
+  expected: TraceGraph,
+  existing: TraceGraph,
+): void {
+  if (!equivalent(expected, existing)) {
+    throw new Error(
+      `Recovery rejected: stored graph differs from ` +
+      `incoming trace ${expected.traceId}`,
     );
   }
+}
 
-  // STEP 6: Build the structured evaluation summary.
-  const summary: EvaluateTraceSummary = {
+function assertExistingReportMatches(
+  graph: TraceGraph,
+  record: StoredEvaluation,
+): void {
+  const expectedRules = attributeTrace(graph);
+
+  if (!equivalent(
+    expectedRules,
+    record.result.ruleReport,
+  )) {
+    throw new Error(
+      `Recovery rejected: stored rule findings differ ` +
+      `from incoming trace ${graph.traceId}`,
+    );
+  }
+}
+
+function summarize(
+  attribution: HybridAttributionResult,
+  reportSaved: boolean,
+  graphSaved: boolean,
+): EvaluateTraceSummary {
+  return {
     traceId: attribution.traceId,
-
     outcome: attribution.ruleReport.outcome,
-
     categories: [
       ...new Set(
         attribution.ruleReport.observations.map(
@@ -183,24 +114,120 @@ export async function evaluateTrace(
         ),
       ),
     ],
-
     observationCount:
       attribution.ruleReport.observations.length,
-
     hypothesisCount:
       attribution.ruleReport.hypotheses.length,
-
     judgeStatus: attribution.judgeStatus,
-
     saved: reportSaved,
     graphSaved,
-
     warnings: [...attribution.warnings],
   };
+}
 
-  // STEP 7: Return the summary and full attribution.
+export async function evaluateTrace(
+  jsonlContent: string,
+  options: EvaluateTraceOptions = {},
+): Promise<EvaluateTraceResult> {
+  // 1. Validate and reconstruct the trace graph.
+  const spans = parseTraceJsonl(jsonlContent);
+  const graph = buildTraceGraph(spans);
+
+  const history = options.store
+    ? new EvaluationHistory(options.store)
+    : undefined;
+
+  // 2. Inspect both persistence destinations.
+  // This happens before calling the LLM to avoid spending
+  // tokens on a duplicate evaluation.
+  const existingReport = history
+    ? await history.load(graph.traceId)
+    : null;
+
+  const existingGraph = options.graphStore
+    ? await options.graphStore.loadGraph(graph.traceId)
+    : null;
+
+  if (existingReport && existingGraph) {
+    throw new Error(
+      `Evaluation already exists: ${graph.traceId}`,
+    );
+  }
+
+  if (
+    !options.recovery &&
+    (existingReport || existingGraph)
+  ) {
+    throw new Error(
+      `Evaluation already exists: ${graph.traceId}. ` +
+      'Use recovery mode only for incomplete persistence.',
+    );
+  }
+
+  // Recovery is meaningful only when both destinations
+  // are supplied. A missing destination cannot be repaired
+  // if the caller did not configure it.
+  if (
+    options.recovery &&
+    (!history || !options.graphStore)
+  ) {
+    throw new Error(
+      'Recovery requires both store and graphStore',
+    );
+  }
+
+  // 3. Verify existing data before attempting any repair.
+  if (existingGraph) {
+    assertExistingGraphMatches(graph, existingGraph);
+  }
+
+  if (existingReport) {
+    assertExistingReportMatches(graph, existingReport);
+  }
+
+  // 4. Reuse an existing report instead of calling the LLM.
+  // If there is no report, evaluate normally.
+  const attribution = existingReport
+    ? existingReport.result
+    : await evaluateHybridAttribution(graph, {
+        provider: options.provider,
+        model: options.model,
+      });
+
+  // These flags represent whether the data exists
+  // successfully, whether saved earlier or on this call.
+  let graphSaved = existingGraph !== null;
+  let reportSaved = existingReport !== null;
+
+  try {
+    // 5. Save only missing records.
+    if (options.graphStore && !graphSaved) {
+      await options.graphStore.saveGraph(graph);
+      graphSaved = true;
+    }
+
+    if (history && !reportSaved) {
+      await history.save(attribution);
+      reportSaved = true;
+    }
+  } catch (error) {
+    throw new EvaluationPersistenceError(
+      `HEAE persistence failed for ${graph.traceId}. ` +
+      `Graph saved: ${graphSaved}. ` +
+      `Report saved: ${reportSaved}. ` +
+      'Inspect both stores before retrying.',
+      reportSaved,
+      graphSaved,
+      { cause: error },
+    );
+  }
+
   return {
-    summary,
+    summary: summarize(
+      attribution,
+      reportSaved,
+      graphSaved,
+    ),
     attribution,
   };
 }
