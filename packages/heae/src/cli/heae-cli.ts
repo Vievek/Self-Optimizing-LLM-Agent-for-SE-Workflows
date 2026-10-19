@@ -1,4 +1,10 @@
 
+import {
+  getProvider,
+  loadModelsConfig,
+  type LlmProvider,
+} from '@soa/llm';
+
 import { FileStore, type Store } from '@soa/store';
 
 import { readTraceFile } from '../trace-intake.js';
@@ -7,6 +13,11 @@ import { EvaluationHistory } from '../persistence/evaluation-history.js';
 
 export interface HeaeCliOptions {
   store?: Store;
+
+  // Test and integration injection points.
+  // The default provider is only selected for --judge.
+  provider?: LlmProvider;
+  model?: string;
 }
 
 const HELP = [
@@ -14,12 +25,15 @@ const HELP = [
   '',
   'Usage:',
   '  heae evaluate <trace.jsonl>',
+  '  heae evaluate <trace.jsonl> --judge',
   '  heae history',
   '  heae history <traceId>',
   '  heae help',
   '',
   'Evaluation history is stored in .heae/history by default.',
-  'LLM judging is unavailable unless a model is configured.',
+  'Rule-only evaluation does not require an API token.',
+  '--judge uses the configured large LLM tier.',
+  'The default Hugging Face provider requires HF_TOKEN.',
 ].join('\n');
 
 export async function runHeaeCli(
@@ -44,16 +58,21 @@ export async function runHeaeCli(
   }
 
   if (command === 'evaluate') {
-    const [filePath, ...extraArgs] = commandArgs;
+    const [filePath, ...flags] = commandArgs;
 
-    if (!filePath || extraArgs.length > 0) {
+    const validFlags =
+      flags.length === 0 ||
+      (flags.length === 1 && flags[0] === '--judge');
+
+    if (!filePath || filePath.startsWith('--') || !validFlags) {
       throw new Error(
-        'Usage: heae evaluate <trace.jsonl>',
+        'Usage: heae evaluate <trace.jsonl> [--judge]',
       );
     }
 
-    // Parse and validate the file before executing the
-    // evaluation workflow.
+    const useJudge = flags.includes('--judge');
+
+    // Validate the trace before attempting evaluation.
     const spans = await readTraceFile(filePath);
 
     const jsonlContent = spans
@@ -63,18 +82,55 @@ export async function runHeaeCli(
     const store =
       options.store ?? new FileStore('.heae/history');
 
+    let provider: LlmProvider | undefined;
+    let model: string | undefined;
+
+    if (useJudge) {
+      if (options.provider) {
+        // Allows deterministic, offline mock testing.
+        provider = options.provider;
+        model = options.model ?? 'test-judge';
+      } else {
+        const config = loadModelsConfig().large;
+
+        // Check credentials before creating a remote request.
+        const credentialConfigured =
+          Boolean(config.apiKey) ||
+          (
+            Boolean(config.apiKeyEnv) &&
+            Boolean(
+              config.apiKeyEnv &&
+              process.env[config.apiKeyEnv],
+            )
+          );
+
+        if (!credentialConfigured) {
+          throw new Error(
+            `LLM credential not configured: ${
+              config.apiKeyEnv ?? 'API key'
+            }. Run without --judge for rule-only evaluation.`,
+          );
+        }
+
+        provider = getProvider('llm');
+        model = options.model ?? config.model;
+      }
+    }
+
     const result = await evaluateTrace(
       jsonlContent,
-      { store },
+      {
+        store,
+        provider,
+        model,
+      },
     );
 
     return JSON.stringify(result.summary, null, 2);
   }
 
   if (commandArgs.length > 1) {
-    throw new Error(
-      'Usage: heae history [traceId]',
-    );
+    throw new Error('Usage: heae history [traceId]');
   }
 
   const store =

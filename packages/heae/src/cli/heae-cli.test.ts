@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { MemoryStore } from '@soa/store';
 
 import { runHeaeCli } from './heae-cli.js';
+import type { LlmProvider } from '@soa/llm';
+import { EvaluationHistory } from '../persistence/evaluation-history.js';
 
 const toolFixture =
   'packages/heae/fixtures/tool-error.jsonl';
@@ -150,4 +152,90 @@ describe('HEAE standalone CLI', () => {
     expect(result.judgeStatus).toBe('skipped');
     expect(result.saved).toBe(true);
   });
+
+  
+    it('shows the optional judge flag in help', async () => {
+    const output = await runHeaeCli(['help']);
+
+    expect(output).toContain(
+        'heae evaluate <trace.jsonl> --judge',
+    );
+    });
+
+    it('runs hybrid attribution with an injected mock judge', async () => {
+    const store = new MemoryStore();
+
+    let chatCalls = 0;
+
+    const provider: LlmProvider = {
+        async chat(request) {
+        chatCalls += 1;
+
+        return {
+            content: JSON.stringify({
+            findings: [
+                {
+                category: 'tool',
+                assessment: 'insufficient_evidence',
+                explanation:
+                    'The tool failed, but its root cause is not proven.',
+                evidenceNodeIds: ['1000000000000006'],
+                limitations: [
+                    'There is insufficient evidence of causality.',
+                ],
+                },
+            ],
+            overallUncertainty:
+                'The cause requires independent verification.',
+            }),
+            tokensIn: 20,
+            tokensOut: 30,
+            model: request.model,
+            provider: 'mock',
+        };
+        },
+
+        async embed() {
+        return [];
+        },
+    };
+
+    const output = await runHeaeCli(
+        ['evaluate', toolFixture, '--judge'],
+        {
+        store,
+        provider,
+        model: 'test-judge',
+        },
+    );
+
+    const summary = JSON.parse(output) as {
+        judgeStatus: string;
+        observationCount: number;
+        saved: boolean;
+    };
+
+    expect(chatCalls).toBe(1);
+    expect(summary.judgeStatus).toBe('completed');
+    expect(summary.observationCount).toBe(1);
+    expect(summary.saved).toBe(true);
+
+    const saved = await new EvaluationHistory(store).load(
+        toolTraceId,
+    );
+
+    expect(saved?.result.judgment?.findings[0]?.category)
+        .toBe('tool');
+    });
+
+    it('rejects unsupported evaluate flags', async () => {
+    await expect(
+        runHeaeCli(
+        ['evaluate', toolFixture, '--unknown'],
+        { store: new MemoryStore() },
+        ),
+    ).rejects.toThrow(
+        'Usage: heae evaluate',
+    );
+    });
 });
