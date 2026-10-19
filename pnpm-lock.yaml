@@ -84,6 +84,9 @@ importers:
       '@soa/llm':
         specifier: workspace:*
         version: link:../llm
+      '@soa/store':
+        specifier: workspace:*
+        version: link:../store
       zod:
         specifier: 3.25.76
         version: 3.25.76

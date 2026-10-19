@@ -15,3 +15,4 @@ export * from './attribution/judge-schema.js';
 export * from './attribution/hybrid-attribution.js';
 export * from './signals/optimization-signal-generator.js';
 export * from './evidence/outcome-evidence-generator.js';
+export * from './persistence/evaluation-history.js';
