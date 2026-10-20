@@ -1,18 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  FullAgentConfigSchema,
-  CONFIG_SCHEMA_VERSION,
-  OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-  type FullAgentConfig,
-} from '@soa/contracts';
+import { FullAgentConfigSchema } from '@soa/contracts';
 import { MockLlmProvider } from '@soa/mocks';
 import {
   ConfigStore,
   SignalIntake,
   ConfigValidator,
-  Deployer,
-  AuditLogger,
-  StabilityController,
   OptimizationOrchestrator,
   PromptOptimizer,
   ToolOptimizer,
@@ -57,9 +49,9 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
 
     it('rejects saving config that violates schema', async () => {
       const store = new ConfigStore();
-      const bad = structuredClone(BASE_CONFIG);
-      (bad as any).config_version = 'not_a_valid_version';
-      await expect(store.saveVersion(bad)).rejects.toThrow();
+      const bad = structuredClone(BASE_CONFIG) as Record<string, unknown>;
+      bad.config_version = 'not_a_valid_version';
+      await expect(store.saveVersion(bad as typeof BASE_CONFIG)).rejects.toThrow();
     });
   });
 
@@ -120,7 +112,9 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
 
       const res = opt.apply(signal, BASE_CONFIG);
       expect(res).not.toBeNull();
-      expect(res?.tools.tools['apply_patch']?.description).toContain('Patch format requires relative path');
+      expect(res?.tools.tools['apply_patch']?.description).toContain(
+        'Patch format requires relative path',
+      );
     });
 
     it('RetrievalOptimizer increments top_k within bounds', () => {
@@ -168,7 +162,7 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
 
       const res = opt.apply(signal, BASE_CONFIG);
       expect(res).not.toBeNull();
-      expect(res?.routing.small_tier_threshold).toBeCloseTo(0.70);
+      expect(res?.routing.small_tier_threshold).toBeCloseTo(0.7);
     });
 
     it('PromptOptimizer updates prompt version', () => {
