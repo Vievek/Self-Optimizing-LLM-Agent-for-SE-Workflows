@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { FullAgentConfigSchema } from '@soa/contracts';
+import { MockLlmProvider } from '@soa/mocks';
 import {
   ConfigStore,
   SignalIntake,
   ConfigValidator,
+  OptimizationOrchestrator,
   PromptOptimizer,
   ToolOptimizer,
   PlanningOptimizer,
@@ -12,6 +14,7 @@ import {
   RoutingOptimizer,
   BASE_CONFIG,
   SAMPLE_SIGNAL,
+  runSimulatedTasks,
 } from './index.js';
 
 describe('Optimization Orchestrator Skeleton Tests', () => {
@@ -172,6 +175,98 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       const res = opt.apply(signal, BASE_CONFIG);
       expect(res).not.toBeNull();
       expect(res?.prompts.system_prompt_version).toBe('1.0_opt');
+    });
+  });
+
+  describe('OptimizationOrchestrator Pipeline (End-to-End)', () => {
+    let orch: OptimizationOrchestrator;
+    let mockLlm: MockLlmProvider;
+
+    beforeEach(() => {
+      mockLlm = new MockLlmProvider();
+      orch = new OptimizationOrchestrator({
+        llmProvider: mockLlm,
+      });
+    });
+
+    it('processes a valid signal, produces cfg_0002, and subsequent load() returns it without restart', async () => {
+      const initialVer = orch.configStore.getActiveVersion();
+      expect(initialVer).toBe('cfg_0001');
+
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const result = await orch.processSignal(signal);
+      expect(result.status).toBe('deployed');
+      expect(result.newVersion).toBe('cfg_0002');
+
+      // Immediate load without restart returns new version
+      const active = await orch.load();
+      expect(active.config_version).toBe('cfg_0002');
+      expect(active.retrieval.top_k).toBe(6);
+
+      // Audit entry recorded
+      const audit = await orch.auditLogger.query({ signal_id: signal.signal_id });
+      expect(audit.length).toBe(1);
+      expect(audit[0]?.action).toBe('deploy');
+      expect(audit[0]?.version_after).toBe('cfg_0002');
+    });
+
+    it('enforces stability control: at most one change per signal group_id', async () => {
+      const signal1 = structuredClone(SAMPLE_SIGNAL);
+      signal1.group_id = 'grp_duplicate_test';
+      signal1.signal_id = 'sig_test_1';
+      signal1.target.axis = 'retrieval';
+      signal1.target.config_path = 'retrieval.top_k';
+      signal1.suggested_action = 'retrieval_param_update';
+
+      const res1 = await orch.processSignal(signal1);
+      expect(res1.status).toBe('deployed');
+
+      const signal2 = structuredClone(SAMPLE_SIGNAL);
+      signal2.group_id = 'grp_duplicate_test'; // Same group_id
+      signal2.signal_id = 'sig_test_2';
+      signal2.target.axis = 'retrieval';
+      signal2.target.config_path = 'retrieval.top_k';
+      signal2.suggested_action = 'retrieval_param_update';
+
+      const res2 = await orch.processSignal(signal2);
+      expect(res2.status).toBe('rejected');
+      expect(res2.reason).toContain('has already produced a configuration update');
+    });
+
+    it('performs rollback and restores exact earlier configuration', async () => {
+      // Step 1: deploy cfg_0002
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+      await orch.processSignal(signal);
+
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      // Step 2: rollback to cfg_0001
+      const rolledBack = await orch.rollback('cfg_0001', 'Test rollback');
+      expect(rolledBack.config_version).toBe('cfg_0001');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
+
+      const active = await orch.load();
+      expect(active.config_version).toBe('cfg_0001');
+      expect(active.retrieval.top_k).toBe(5);
+
+      const audit = await orch.auditLogger.query({ action: 'rollback' });
+      expect(audit.length).toBe(1);
+      expect(audit[0]?.version_after).toBe('cfg_0001');
+    });
+  });
+
+  describe('Simulated Run Evaluator Stub', () => {
+    it('returns empty simulated outcomes and metrics', async () => {
+      const res = await runSimulatedTasks({ taskCount: 10 });
+      expect(res.outcomes).toEqual([]);
+      expect(res.metrics.configStabilityCv).toBe(0);
     });
   });
 });
