@@ -6,13 +6,14 @@ import {
   CONFIG_SCHEMA_VERSION,
 } from '@soa/contracts';
 import { TaskLoader } from '@soa/eval-harness';
-import { MockExecCore, MockHeae, MockMemoryAgent, MockOrchestrator } from '@soa/mocks';
+import { MockExecCore, MockHeae, MockMemoryAgent } from '@soa/mocks';
 import { renderRecordTable } from './components/record-table.js';
 import { renderStageProgress, StageItem } from './components/stage-progress.js';
 import {
   renderContractCheckPanel,
   ContractCheckResult,
 } from './components/contract-check-panel.js';
+import { runOrchCommand } from './commands/orch/index.js';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
@@ -157,56 +158,9 @@ export class CommandRegistry {
       return renderRecordTable(headers, rows, `Memory Agent Retrieval (Query: "${query}")`);
     });
 
-    // 5. soa orch - Run Optimization Orchestrator view
-    this.register('orch', async () => {
-      const orch = new MockOrchestrator();
-      const initialConfig = {
-        schema_version: CONFIG_SCHEMA_VERSION,
-        version: '1.0.0',
-        parameters: {
-          'prompts.system_version': '1.0',
-          'retrieval.top_k': 5,
-          'planning.backtrack_depth': 2,
-          'workflow.max_iterations': 10,
-        },
-        updated_at: new Date().toISOString(),
-      };
-
-      const mockSignal = {
-        schema_version: OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-        signal_id: 'sig_01_django__django-11099_01',
-        group_id: 'grp_01',
-        run_id: 'run_01',
-        task_id: 'django__django-11099',
-        trace_id: '0123456789abcdef0123456789abcdef',
-        failure_class: 'tool' as const,
-        root_cause: { summary: 'Tool mismatch', evidence_node_ids: [] },
-        target: {
-          axis: 'tool' as const,
-          config_path: 'tools.apply_patch',
-          affected_subtask: 'patch',
-        },
-        suggested_action: 'tool_description_refine' as const,
-        confidence: 0.9,
-        classifier: 'rule' as const,
-        config_version_at_failure: 'cfg_0001',
-      };
-
-      const updated = await orch.optimize(mockSignal, initialConfig);
-
-      const headers = ['Config Axis', 'Parameter', 'Current Value', 'Version'];
-      const rows = Object.entries(updated.parameters).map(([k, v]) => [
-        k.split('.')[0] || 'general',
-        k,
-        String(v),
-        updated.version,
-      ]);
-
-      return renderRecordTable(
-        headers,
-        rows,
-        `Optimization Orchestrator Config (Version: ${updated.version})`,
-      );
+    // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
+    this.register('orch', async (args) => {
+      return runOrchCommand(args);
     });
 
     // 6. soa bench - SWE-bench Lite subset overview

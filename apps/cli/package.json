@@ -21,6 +21,7 @@
     "@soa/contracts": "workspace:*",
     "@soa/eval-harness": "workspace:*",
     "@soa/mocks": "workspace:*",
+    "@soa/orchestrator": "workspace:*",
     "@soa/store": "workspace:*"
   }
 }
