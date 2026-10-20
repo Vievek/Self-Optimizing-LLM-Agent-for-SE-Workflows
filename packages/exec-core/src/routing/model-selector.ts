@@ -1,15 +1,6 @@
-import {
-  RoutingConfig,
-  CONFIG_SCHEMA_VERSION,
-  RouteSpanAttributesSchema,
-} from '@soa/contracts';
+import { RoutingConfig, CONFIG_SCHEMA_VERSION, RouteSpanAttributesSchema } from '@soa/contracts';
 import { z } from 'zod';
-import {
-  SubtaskRoutingFeatures,
-  SubtaskRoutingFeaturesSchema,
-  RoutingDecision,
-  ScoringWeights,
-} from './types.js';
+import { SubtaskRoutingFeaturesSchema, RoutingDecision, ScoringWeights } from './types.js';
 import { calculateRoutingScore, DEFAULT_SCORING_WEIGHTS } from './scoring-rule.js';
 
 export type RouteSpanAttributes = z.infer<typeof RouteSpanAttributesSchema>;
@@ -94,4 +85,3 @@ export class ModelSelector {
     return { ...this.config };
   }
 }
-
