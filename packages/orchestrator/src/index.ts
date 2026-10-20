@@ -18,7 +18,16 @@ export * from './optimizers/index.js';
 export * from './validation/config-validator.js';
 
 // Deployment, audit & stability
+export * from './deploy/deployer.js';
+export * from './audit/audit-logger.js';
 export * from './stability/stability-controller.js';
+
+// Simulated evaluation
+export * from './eval/types.js';
+export * from './eval/simulated-run.js';
+
+// Main Orchestrator
+export * from './orchestrator.js';
 
 // Test utils & fixtures
 export * from './test-utils/fixtures.js';
