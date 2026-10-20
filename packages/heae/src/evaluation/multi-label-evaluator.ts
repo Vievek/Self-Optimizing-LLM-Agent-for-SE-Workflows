@@ -28,6 +28,19 @@ export interface CaseEvaluation {
   ruleIds: string[];
 }
 
+
+export interface CategoryMetrics {
+  category: FailureCategory;
+  support: number;
+  truePositives: number;
+  falsePositives: number;
+  falseNegatives: number;
+  precision: number;
+  recall: number;
+  f1: number;
+}
+
+
 export interface EvaluationSummary {
   totalCases: number;
   exactMatches: number;
@@ -38,6 +51,8 @@ export interface EvaluationSummary {
   microPrecision: number;
   microRecall: number;
   microF1: number;
+  macroF1: number;
+  perCategory: CategoryMetrics[];
   cases: CaseEvaluation[];
 }
 
@@ -109,6 +124,65 @@ export function evaluateMultiLabelCases(
     result => result.exactMatch,
   ).length;
 
+
+  const perCategory: CategoryMetrics[] =
+    FAILURE_CATEGORIES.map((category) => {
+      let tp = 0;
+      let fp = 0;
+      let fn = 0;
+      let support = 0;
+
+      for (const item of results) {
+        const expected =
+          item.expectedCategories.includes(category);
+
+        const predicted =
+          item.predictedCategories.includes(category);
+
+        if (expected) {
+          support++;
+        }
+
+        if (expected && predicted) {
+          tp++;
+        } else if (!expected && predicted) {
+          fp++;
+        } else if (expected && !predicted) {
+          fn++;
+        }
+      }
+
+      const precision =
+        tp + fp === 0 ? 0 : tp / (tp + fp);
+
+      const recall =
+        tp + fn === 0 ? 0 : tp / (tp + fn);
+
+      const f1 =
+        precision + recall === 0
+          ? 0
+          : (2 * precision * recall) /
+            (precision + recall);
+
+      return {
+        category,
+        support,
+        truePositives: tp,
+        falsePositives: fp,
+        falseNegatives: fn,
+        precision,
+        recall,
+        f1,
+      };
+    });
+
+  const macroF1 =
+    perCategory.reduce(
+      (sum, item) => sum + item.f1,
+      0,
+    ) / perCategory.length;
+
+
   return {
     totalCases: cases.length,
     exactMatches,
@@ -119,6 +193,8 @@ export function evaluateMultiLabelCases(
     microPrecision,
     microRecall,
     microF1,
+    macroF1,
+    perCategory,
     cases: results,
   };
 }

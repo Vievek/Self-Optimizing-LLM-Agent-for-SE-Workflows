@@ -148,4 +148,72 @@ describe('HEAE Multi-label Evaluation', () => {
       'Evaluation requires at least one case',
     );
   });
+
+
+  it('calculates per-category metrics for all five failure types', () => {
+    const summary = evaluateMultiLabelCases(
+      loadEvaluationCases(),
+    );
+
+    expect(summary.perCategory).toHaveLength(5);
+
+    const expectedSupport = {
+      prompt: 1,
+      tool: 2,
+      retrieval: 2,
+      planning: 1,
+      workflow: 4,
+    };
+
+    for (const metrics of summary.perCategory) {
+      expect(metrics.support).toBe(
+        expectedSupport[metrics.category],
+      );
+
+      expect(metrics.truePositives).toBe(metrics.support);
+      expect(metrics.falsePositives).toBe(0);
+      expect(metrics.falseNegatives).toBe(0);
+
+      expect(metrics.precision).toBe(1);
+      expect(metrics.recall).toBe(1);
+      expect(metrics.f1).toBe(1);
+    }
+  });
+
+  it('calculates macro-F1 across failure categories', () => {
+    const summary = evaluateMultiLabelCases(
+      loadEvaluationCases(),
+    );
+
+    expect(summary.macroF1).toBe(1);
+  });
+
+  it('reports a category-specific false positive', () => {
+    const cases = loadEvaluationCases();
+
+    const toolCase = cases.find(
+      (item) => item.id === 'tool-error.jsonl',
+    );
+
+    if (!toolCase) {
+      throw new Error('Tool fixture missing');
+    }
+
+    const summary = evaluateMultiLabelCases([
+      {
+        ...toolCase,
+        expectedCategories: [],
+      },
+    ]);
+
+    const toolMetrics = summary.perCategory.find(
+      (item) => item.category === 'tool',
+    );
+
+    expect(toolMetrics?.truePositives).toBe(0);
+    expect(toolMetrics?.falsePositives).toBe(1);
+    expect(toolMetrics?.falseNegatives).toBe(0);
+    expect(toolMetrics?.precision).toBe(0);
+    expect(toolMetrics?.f1).toBe(0);
+  });
 });
