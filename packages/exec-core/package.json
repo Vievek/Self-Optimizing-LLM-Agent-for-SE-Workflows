@@ -15,6 +15,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@soa/contracts": "workspace:*"
+    "@soa/contracts": "workspace:*",
+    "zod": "^3.22.0"
   }
 }
