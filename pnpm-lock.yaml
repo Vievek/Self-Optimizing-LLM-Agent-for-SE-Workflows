@@ -38,15 +38,9 @@ importers:
       '@soa/eval-harness':
         specifier: workspace:*
         version: link:../../packages/eval-harness
-      '@soa/llm':
-        specifier: workspace:*
-        version: link:../../packages/llm
       '@soa/mocks':
         specifier: workspace:*
         version: link:../../packages/mocks
-      '@soa/orchestrator':
-        specifier: workspace:*
-        version: link:../../packages/orchestrator
       '@soa/store':
         specifier: workspace:*
         version: link:../../packages/store
@@ -81,6 +75,9 @@ importers:
       '@soa/contracts':
         specifier: workspace:*
         version: link:../contracts
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
 
   packages/heae:
     dependencies:
