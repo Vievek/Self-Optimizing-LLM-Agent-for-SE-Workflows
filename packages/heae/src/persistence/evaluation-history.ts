@@ -37,15 +37,29 @@ const AttributionHypothesisSchema = z.object({
 
 const AttributionReportSchema = z.object({
   traceId: TraceIdSchema,
-  outcome: z.enum(['pass', 'fail', 'error', 'unknown']),
+  outcome: z.enum([
+    'pass',
+    'fail',
+    'error',
+    'unknown',
+  ]),
   observations: z.array(RuleFindingSchema),
   hypotheses: z.array(AttributionHypothesisSchema),
   warnings: z.array(z.string()),
   requiresJudge: z.boolean(),
 });
 
+/**
+ * Saved HEAE evaluation schema.
+ *
+ * The trace fingerprint belongs at the top level.
+ *
+ * Legacy evaluations without a fingerprint remain
+ * readable because traceFingerprint is optional.
+ */
 export const StoredEvaluationSchema = z.object({
   schemaVersion: z.literal('1.0'),
+
   traceId: TraceIdSchema,
 
   traceFingerprint: z.string()
@@ -54,19 +68,20 @@ export const StoredEvaluationSchema = z.object({
 
   result: z.object({
     traceId: TraceIdSchema,
-      traceFingerprint: z.string()
-    .regex(/^[0-9a-f]{64}$/)
-    .optional(),
     ruleReport: AttributionReportSchema,
     judgment: JudgeResponseSchema.nullable(),
+
     judgeStatus: z.enum([
       'completed',
       'skipped',
       'unavailable',
     ]),
+
     warnings: z.array(z.string()),
   }),
 }).superRefine((record, context) => {
+  // The stored evaluation and rule report must
+  // refer to the same execution trace.
   if (
     record.traceId !== record.result.traceId ||
     record.traceId !== record.result.ruleReport.traceId
@@ -77,6 +92,7 @@ export const StoredEvaluationSchema = z.object({
     });
   }
 
+  // Completed judgments require a judgment result.
   if (
     record.result.judgeStatus === 'completed' &&
     record.result.judgment === null
@@ -87,6 +103,8 @@ export const StoredEvaluationSchema = z.object({
     });
   }
 
+  // Skipped or unavailable judgments must not
+  // contain a completed model response.
   if (
     record.result.judgeStatus !== 'completed' &&
     record.result.judgment !== null
@@ -101,64 +119,103 @@ export const StoredEvaluationSchema = z.object({
 export type StoredEvaluation =
   z.infer<typeof StoredEvaluationSchema>;
 
+/**
+ * Handles HEAE evaluation history.
+ *
+ * Evaluations are stored under:
+ *
+ * heae/evaluations/<traceId>.json
+ *
+ * This class does not overwrite existing evaluations.
+ */
 export class EvaluationHistory {
-  constructor(private readonly store: Store) {}
+  constructor(
+    private readonly store: Store,
+  ) {}
 
+  /**
+   * Construct the storage path after validating
+   * the trace identifier.
+   */
   private pathFor(traceId: string): string {
     const validTraceId = TraceIdSchema.parse(traceId);
+
     return `heae/evaluations/${validTraceId}.json`;
   }
 
-
+  /**
+   * Save a new evaluation report.
+   *
+   * The fingerprint is optional to preserve
+   * compatibility with older callers.
+   */
   async save(
     result: HybridAttributionResult,
     traceFingerprint?: string,
   ): Promise<StoredEvaluation> {
     const record = StoredEvaluationSchema.parse({
       schemaVersion: '1.0',
+
       traceId: result.traceId,
+
       ...(traceFingerprint !== undefined
         ? { traceFingerprint }
         : {}),
+
       result,
     });
 
-    const path = this.pathFor(record.traceId);
+    const filePath = this.pathFor(record.traceId);
 
-    if (await this.store.exists(path)) {
+    // Prevent an existing evaluation from
+    // being silently overwritten.
+    if (await this.store.exists(filePath)) {
       throw new Error(
         `Evaluation already exists for trace ${record.traceId}`,
       );
     }
 
-    await this.store.write(path, record);
+    await this.store.write(filePath, record);
 
     return record;
   }
 
-
+  /**
+   * Load an evaluation by trace ID.
+   *
+   * Returns null when no evaluation exists.
+   * Existing records are validated before returning.
+   */
   async load(
     traceId: string,
   ): Promise<StoredEvaluation | null> {
-    const path = this.pathFor(traceId);
+    const filePath = this.pathFor(traceId);
 
-    if (!(await this.store.exists(path))) {
+    if (!(await this.store.exists(filePath))) {
       return null;
     }
 
-    const raw = await this.store.read<unknown>(path);
+    const raw = await this.store.read<unknown>(
+      filePath,
+    );
 
     return StoredEvaluationSchema.parse(raw);
   }
 
+  /**
+   * List and validate all stored HEAE evaluations.
+   */
   async list(): Promise<StoredEvaluation[]> {
     const prefix = 'heae/evaluations/';
+
     const paths = await this.store.list(prefix);
+
     const results: StoredEvaluation[] = [];
 
-    for (const path of paths) {
-      const match = /^heae\/evaluations\/([0-9a-f]{32})\.json$/
-        .exec(path);
+    for (const filePath of paths) {
+      const match =
+        /^heae\/evaluations\/([0-9a-f]{32})\.json$/
+          .exec(filePath);
 
       if (!match?.[1]) {
         continue;

@@ -23,8 +23,12 @@ import {
 } from '../signals/optimization-signal-generator.js';
 
 /**
- * Event destinations are relative to FileStore's
- * root directory (normally "store").
+ * Event destinations relative to the Store root.
+ *
+ * With FileStore('store'), these become:
+ *
+ * store/events/outcome_evidence.jsonl
+ * store/events/optimization_signals.jsonl
  */
 export const OUTCOME_EVENT_PATH =
   'events/outcome_evidence.jsonl';
@@ -44,10 +48,10 @@ export interface PublicationResult<T> {
 }
 
 /**
- * Compare validated event records.
+ * Compare two schema-normalized JSON records.
  *
- * Both records are normalized through their Zod
- * schemas before reaching this function.
+ * This assumes stable serialization of records
+ * produced and validated through the shared schemas.
  */
 function sameRecord(
   left: unknown,
@@ -57,21 +61,23 @@ function sameRecord(
 }
 
 /**
- * Publish verified OutcomeEvidence.
+ * Publish externally verified OutcomeEvidence.
  *
- * The outcome generator requires externally verified
- * execution details. Rule findings alone are not
- * sufficient to establish execution facts.
+ * Guarantees for sequential calls:
  *
- * Duplicate protection assumes the architecture's
- * single-writer HEAE process.
+ * - Validates the generated evidence.
+ * - Validates previously saved evidence records.
+ * - Prevents duplicate publication.
+ * - Detects conflicting execution identities.
+ *
+ * This assumes a single-writer HEAE process.
  */
 export async function publishOutcomeEvidence(
   store: Store,
   attribution: HybridAttributionResult,
   input: OutcomeEvidenceInput,
 ): Promise<PublicationResult<OutcomeEvidence>> {
-  // Step 1: Generate and validate outcome evidence.
+  // STEP 1: Generate outcome evidence.
   const generated = generateOutcomeEvidence(
     attribution,
     input,
@@ -85,16 +91,27 @@ export async function publishOutcomeEvidence(
     };
   }
 
+  // STEP 2: Validate the new evidence record.
   const candidate: OutcomeEvidence =
-    OutcomeEvidenceSchema.parse(generated.evidence);
+    OutcomeEvidenceSchema.parse(
+      generated.evidence,
+    );
 
-  // Step 2: Load existing outcome events with explicit
-  // TypeScript typing and Zod validation.
-  const existing = await store.readJsonl<OutcomeEvidence>(
-    OUTCOME_EVENT_PATH,
+  // STEP 3: Read and validate all previously
+  // published OutcomeEvidence records.
+  //
+  // Zod defaults allow optional input fields, so
+  // passing this schema directly to Store.readJsonl
+  // creates a TypeScript input/output mismatch.
+  //
+  // Parse the returned unknown records separately.
+  const existing = OutcomeEvidenceSchema.array().parse(
+    await store.readJsonl<unknown>(
+      OUTCOME_EVENT_PATH,
+    ),
   );
 
-  // Step 3: Check for duplicate IDs or executions.
+  // STEP 4: Check for duplicates and conflicts.
   for (const record of existing) {
     const sameId =
       record.evidence_id === candidate.evidence_id;
@@ -108,7 +125,7 @@ export async function publishOutcomeEvidence(
       continue;
     }
 
-    // An identical event was already published.
+    // Identical record: safe sequential retry.
     if (sameRecord(record, candidate)) {
       return {
         status: 'already_exists',
@@ -117,8 +134,8 @@ export async function publishOutcomeEvidence(
       };
     }
 
-    // Prevent two different records from claiming
-    // the same ID or execution identity.
+    // Never silently replace or append conflicting
+    // evidence for the same execution.
     throw new Error(
       'OutcomeEvidence publication conflict: ' +
       'an existing record has the same event ID ' +
@@ -126,7 +143,10 @@ export async function publishOutcomeEvidence(
     );
   }
 
-  // Step 4: Append the validated event.
+  // STEP 5: Append the validated event.
+  //
+  // The candidate has already passed Zod validation.
+  // No schema argument is required for Store.append().
   await store.append<OutcomeEvidence>(
     OUTCOME_EVENT_PATH,
     candidate,
@@ -140,22 +160,23 @@ export async function publishOutcomeEvidence(
 }
 
 /**
- * Publish a reviewed OptimizationSignal.
+ * Publish an evidence-supported OptimizationSignal.
  *
- * The generator checks whether:
- * - The proposal was reviewed.
- * - LLM judgment is completed.
- * - The failure hypothesis is supported.
- * - Evidence node IDs match the supported finding.
+ * The generator requires:
  *
- * Unreviewed or unsupported proposals are skipped.
+ * - A reviewed optimization proposal.
+ * - A completed LLM judgment.
+ * - A supported failure hypothesis.
+ * - Evidence IDs supported by the judgment.
+ *
+ * Skipped proposals do not create any JSONL record.
  */
 export async function publishOptimizationSignal(
   store: Store,
   attribution: HybridAttributionResult,
   proposal: ReviewedOptimizationProposal,
 ): Promise<PublicationResult<OptimizationSignal>> {
-  // Step 1: Generate and validate optimization signal.
+  // STEP 1: Generate the signal.
   const generated = generateOptimizationSignal(
     attribution,
     proposal,
@@ -169,23 +190,28 @@ export async function publishOptimizationSignal(
     };
   }
 
+  // STEP 2: Validate the proposed signal.
   const candidate: OptimizationSignal =
-    OptimizationSignalSchema.parse(generated.signal);
+    OptimizationSignalSchema.parse(
+      generated.signal,
+    );
 
-  // Step 2: Read existing signals with explicit typing.
+  // STEP 3: Read previously published signals
+  // with schema validation.
   const existing =
     await store.readJsonl<OptimizationSignal>(
       OPTIMIZATION_EVENT_PATH,
       OptimizationSignalSchema,
     );
 
-  // Step 3: Check for duplicate signal IDs.
+  // STEP 4: Reject conflicting signal IDs and
+  // prevent duplicate appends.
   for (const record of existing) {
     if (record.signal_id !== candidate.signal_id) {
       continue;
     }
 
-    // Exact retry: return the previously stored event.
+    // Same signal already published.
     if (sameRecord(record, candidate)) {
       return {
         status: 'already_exists',
@@ -194,7 +220,6 @@ export async function publishOptimizationSignal(
       };
     }
 
-    // Same signal ID with different content is unsafe.
     throw new Error(
       'OptimizationSignal publication conflict: ' +
       `signal ID ${candidate.signal_id} ` +
@@ -202,7 +227,7 @@ export async function publishOptimizationSignal(
     );
   }
 
-  // Step 4: Append the validated signal.
+  // STEP 5: Append the schema-validated signal.
   await store.append<OptimizationSignal>(
     OPTIMIZATION_EVENT_PATH,
     candidate,
