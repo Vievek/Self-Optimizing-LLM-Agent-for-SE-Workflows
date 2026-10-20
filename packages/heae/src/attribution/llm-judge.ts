@@ -56,6 +56,7 @@ export async function judgeTrace(
       category: item.category,
       observation: item.observation,
       evidenceNodeIds: item.evidenceNodeIds,
+      details: item.details,
     })),
     warnings: report.warnings,
   };

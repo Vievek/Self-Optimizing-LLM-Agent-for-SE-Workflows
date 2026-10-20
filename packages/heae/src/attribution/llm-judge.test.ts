@@ -183,4 +183,57 @@ describe('HEAE LLM-as-Judge', () => {
     expect(result.report.hypotheses[0]?.status)
       .toBe('unverified');
   });
+
+  
+  it('includes tool error details in the judge evidence', async () => {
+    const { provider, requests } = makeProvider(
+      responseJson(),
+    );
+
+    await judgeTrace(loadGraph(toolPath), {
+      provider,
+      model: 'test-judge',
+    });
+
+    expect(requests).toHaveLength(1);
+
+    const userMessage = requests[0]?.messages.find(
+      (message) => message.role === 'user',
+    );
+
+    expect(userMessage).toBeDefined();
+
+    const evidence = JSON.parse(
+      userMessage!.content,
+    ) as {
+      observations: Array<{
+        ruleId: string;
+        category: string;
+        evidenceNodeIds: string[];
+        details?: {
+          toolName?: string;
+          error?: string;
+          latencyMs?: number;
+        };
+      }>;
+    };
+
+    const toolObservation = evidence.observations.find(
+      (observation) => observation.ruleId === 'TOOL-02',
+    );
+
+    expect(toolObservation).toBeDefined();
+
+    expect(toolObservation?.category).toBe('tool');
+
+    expect(toolObservation?.evidenceNodeIds).toContain(
+      '1000000000000006',
+    );
+
+    expect(toolObservation?.details).toMatchObject({
+      toolName: 'apply_patch',
+      error: 'PATCH_APPLY_FAILED: context mismatch',
+      latencyMs: 1400,
+    });
+  });
 });
