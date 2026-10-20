@@ -276,3 +276,66 @@ The remaining integration milestones are:
 5. Measure diagnostic classification and attribution performance using appropriately reviewed evaluation data.
 
 The HEAE implementation should remain independent of teammate-owned components until their integration contracts are confirmed.
+
+### 6.1 Local Qwen2.5-Coder-3B Integration
+
+HEAE supports local LLM-as-Judge inference using Qwen2.5-Coder-3B-Instruct through Ollama. The implementation uses the existing `LlmProvider` interface and does not require an external inference service or Hugging Face API token.
+
+The Ollama adapter is implemented in `src/providers/ollama-provider.ts` and is exported from `@soa/heae`.
+
+**Local setup**
+
+Start the Ollama server:
+
+```bash
+ollama serve
+```
+
+Download the selected model once:
+
+```bash
+ollama pull qwen2.5-coder:3b
+```
+
+**Using the provider**
+
+```typescript
+import {
+  evaluateTrace,
+  OllamaProvider,
+} from '@soa/heae';
+
+const provider = new OllamaProvider({
+  timeoutMs: 300000,
+});
+
+const result = await evaluateTrace(jsonlContent, {
+  provider,
+  model: 'qwen2.5-coder:3b',
+  store,
+});
+```
+
+The adapter communicates with Ollama through its local HTTP endpoint, normally `http://127.0.0.1:11434/api/chat`.
+
+It requests structured JSON output, forwards model-generation settings, and returns model responses through the shared LLM interface.
+
+HEAE independently validates the judgment schema, allowed failure categories and supporting evidence span identifiers.
+
+**Evaluation observations**
+
+A live evaluation using the synthetic tool-error trace successfully returned `judgeStatus: completed` with no warnings.
+
+The model identified the recorded `PATCH_APPLY_FAILED: context mismatch` message and selected `insufficient_evidence` for its causal assessment.
+
+This demonstrates successful local model integration and structured output validation. It does not establish the correctness of all model-generated causal assessments.
+
+**Operational limitations**
+
+The adapter currently supports chat-based judgment only and does not provide embeddings.
+
+Inference runs locally on available hardware. On the tested WSL environment, the model operated using CPU inference with a 4096-token context.
+
+The model may produce uncertain or inaccurate explanations even when its JSON response passes schema validation.
+
+Automated tests use mocked Ollama responses and therefore do not require a model download or running inference server.
