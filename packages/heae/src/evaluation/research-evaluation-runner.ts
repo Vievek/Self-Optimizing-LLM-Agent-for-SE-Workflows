@@ -139,9 +139,11 @@ async function verifyRealPath(
  * No LLM inference and no persistent HEAE history
  * are involved in this research evaluation.
  */
+
 export async function runResearchEvaluation(
   datasetDirectory: string,
   rawManifest: unknown,
+  validateCase?: (testCase: EvaluationCase) => void,
 ): Promise<ResearchEvaluationReport> {
   const manifest =
     ResearchEvaluationManifestSchema.parse(rawManifest);
@@ -175,11 +177,17 @@ export async function runResearchEvaluation(
       const spans = parseTraceJsonl(content);
       const graph = buildTraceGraph(spans);
 
-      evaluationCases.push({
+
+      const evaluationCase: EvaluationCase = {
         id: item.id,
         graph,
         expectedCategories: item.expectedCategories,
-      });
+      };
+
+      validateCase?.(evaluationCase);
+
+      evaluationCases.push(evaluationCase);
+
     } catch (error) {
       throw new Error(
         `Invalid trace in evaluation case "${item.id}": ${
