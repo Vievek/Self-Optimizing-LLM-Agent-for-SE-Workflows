@@ -1,9 +1,4 @@
-import {
-  CONFIG_SCHEMA_VERSION,
-  FullAgentConfigSchema,
-  type ConfigProvider,
-  type FullAgentConfig,
-} from '@soa/contracts';
+import { FullAgentConfigSchema, type ConfigProvider, type FullAgentConfig } from '@soa/contracts';
 import type { Store } from '@soa/store';
 import { BASE_CONFIG } from '../test-utils/fixtures.js';
 

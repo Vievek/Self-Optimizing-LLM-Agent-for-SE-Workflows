@@ -1,4 +1,8 @@
-import { OPTIMIZATION_SIGNAL_SCHEMA_VERSION, type FullAgentConfig, type OptimizationSignal } from '@soa/contracts';
+import {
+  OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
+  type FullAgentConfig,
+  type OptimizationSignal,
+} from '@soa/contracts';
 
 export const BASE_CONFIG: FullAgentConfig = {
   config_version: 'cfg_0001',
