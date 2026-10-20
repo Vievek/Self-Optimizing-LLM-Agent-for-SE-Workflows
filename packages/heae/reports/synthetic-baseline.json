@@ -1,0 +1,211 @@
+{
+  "datasetType": "synthetic-development-fixtures",
+  "independentlyValidated": false,
+  "datasetName": "HEAE synthetic development fixtures",
+  "datasetVersion": "1.0",
+  "evaluatedAt": "2026-10-20T15:30:49.449Z",
+  "metrics": {
+    "totalCases": 7,
+    "exactMatches": 7,
+    "exactMatchAccuracy": 1,
+    "truePositives": 10,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "microPrecision": 1,
+    "microRecall": 1,
+    "microF1": 1,
+    "macroF1": 1,
+    "perCategory": [
+      {
+        "category": "prompt",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "tool",
+        "support": 2,
+        "truePositives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "retrieval",
+        "support": 2,
+        "truePositives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "planning",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "workflow",
+        "support": 4,
+        "truePositives": 4,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      }
+    ],
+    "cases": [
+      {
+        "id": "success.jsonl",
+        "expectedCategories": [],
+        "predictedCategories": [],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [],
+        "ruleIds": []
+      },
+      {
+        "id": "tool-error.jsonl",
+        "expectedCategories": [
+          "tool"
+        ],
+        "predictedCategories": [
+          "tool"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000006"
+        ],
+        "ruleIds": [
+          "TOOL-02"
+        ]
+      },
+      {
+        "id": "retrieval-empty.jsonl",
+        "expectedCategories": [
+          "retrieval",
+          "workflow"
+        ],
+        "predictedCategories": [
+          "retrieval",
+          "workflow"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000003",
+          "1000000000000007",
+          "1000000000000006"
+        ],
+        "ruleIds": [
+          "RETRIEVAL-01",
+          "WORKFLOW-01"
+        ]
+      },
+      {
+        "id": "planning-error.jsonl",
+        "expectedCategories": [
+          "planning",
+          "workflow"
+        ],
+        "predictedCategories": [
+          "planning",
+          "workflow"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000002",
+          "1000000000000007",
+          "1000000000000006"
+        ],
+        "ruleIds": [
+          "PLANNING-01",
+          "WORKFLOW-01"
+        ]
+      },
+      {
+        "id": "prompt-error.jsonl",
+        "expectedCategories": [
+          "prompt",
+          "workflow"
+        ],
+        "predictedCategories": [
+          "prompt",
+          "workflow"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000005",
+          "1000000000000007",
+          "1000000000000006"
+        ],
+        "ruleIds": [
+          "PROMPT-01",
+          "WORKFLOW-01"
+        ]
+      },
+      {
+        "id": "workflow-unverified.jsonl",
+        "expectedCategories": [
+          "workflow"
+        ],
+        "predictedCategories": [
+          "workflow"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000007",
+          "1000000000000006"
+        ],
+        "ruleIds": [
+          "WORKFLOW-01"
+        ]
+      },
+      {
+        "id": "multi-label-error.jsonl",
+        "expectedCategories": [
+          "retrieval",
+          "tool"
+        ],
+        "predictedCategories": [
+          "retrieval",
+          "tool"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "1000000000000006",
+          "1000000000000003"
+        ],
+        "ruleIds": [
+          "TOOL-02",
+          "RETRIEVAL-01"
+        ]
+      }
+    ]
+  }
+}
