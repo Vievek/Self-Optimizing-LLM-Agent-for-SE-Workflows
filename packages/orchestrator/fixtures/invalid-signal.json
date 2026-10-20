@@ -1,0 +1,22 @@
+{
+  "schema_version": "2.0",
+  "signal_id": "bad_no_sig_prefix",
+  "group_id": "grp_invalid",
+  "run_id": "run_20261015T0900_baseline_01",
+  "task_id": "django__django-11099",
+  "trace_id": "not-a-32-char-hex",
+  "failure_class": "tool",
+  "root_cause": {
+    "summary": "intentionally invalid fixture for contract check",
+    "evidence_node_ids": []
+  },
+  "target": {
+    "axis": "tool",
+    "config_path": "tools.tools.apply_patch.description",
+    "affected_subtask": "patch_application"
+  },
+  "suggested_action": "tool_description_refine",
+  "confidence": 1.5,
+  "classifier": "rule",
+  "config_version_at_failure": "cfg_0001"
+}

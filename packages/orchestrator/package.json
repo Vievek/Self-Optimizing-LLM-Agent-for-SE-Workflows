@@ -12,9 +12,17 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@soa/contracts": "workspace:*"
+    "@soa/contracts": "workspace:*",
+    "@soa/llm": "workspace:*",
+    "@soa/mocks": "workspace:*",
+    "@soa/store": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "vitest": "^1.2.0"
   }
 }
