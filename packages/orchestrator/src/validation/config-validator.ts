@@ -1,7 +1,4 @@
-import {
-  FullAgentConfigSchema,
-  type FullAgentConfig,
-} from '@soa/contracts';
+import { FullAgentConfigSchema, type FullAgentConfig } from '@soa/contracts';
 
 export interface ValidationResult {
   valid: boolean;
@@ -103,16 +100,24 @@ export class ConfigValidator {
     if (path === 'workflow.max_iterations' && (typeof val !== 'number' || val < 1 || val > 50)) {
       return `workflow.max_iterations must be an integer between 1 and 50, got: ${val}`;
     }
-    if (path === 'routing.small_tier_threshold' && (typeof val !== 'number' || val < 0 || val > 1)) {
+    if (
+      path === 'routing.small_tier_threshold' &&
+      (typeof val !== 'number' || val < 0 || val > 1)
+    ) {
       return `routing.small_tier_threshold must be between 0 and 1, got: ${val}`;
     }
     return null;
   }
 
   private getByPath(target: unknown, segments: string[]): unknown {
-    let curr: any = target;
+    let curr: unknown = target;
     const normalized = [...segments];
-    if (normalized[0] === 'tools' && normalized[1] && normalized[1] !== 'tools' && normalized[1] !== 'schema_version') {
+    if (
+      normalized[0] === 'tools' &&
+      normalized[1] &&
+      normalized[1] !== 'tools' &&
+      normalized[1] !== 'schema_version'
+    ) {
       normalized.splice(1, 0, 'tools');
     }
 
@@ -120,28 +125,42 @@ export class ConfigValidator {
       if (!seg || curr === null || curr === undefined || typeof curr !== 'object') {
         return undefined;
       }
-      curr = curr[seg];
+      curr = (curr as Record<string, unknown>)[seg];
     }
     return curr;
   }
 
   private setByPath(target: unknown, segments: string[], val: unknown): boolean {
-    let curr: any = target;
+    let curr: unknown = target;
     const normalized = [...segments];
-    if (normalized[0] === 'tools' && normalized[1] && normalized[1] !== 'tools' && normalized[1] !== 'schema_version') {
+    if (
+      normalized[0] === 'tools' &&
+      normalized[1] &&
+      normalized[1] !== 'tools' &&
+      normalized[1] !== 'schema_version'
+    ) {
       normalized.splice(1, 0, 'tools');
     }
 
     for (let i = 0; i < normalized.length - 1; i++) {
       const seg = normalized[i];
-      if (!seg || !curr[seg] || typeof curr[seg] !== 'object') {
+      if (
+        !seg ||
+        curr === null ||
+        curr === undefined ||
+        typeof curr !== 'object' ||
+        !(seg in (curr as Record<string, unknown>)) ||
+        typeof (curr as Record<string, unknown>)[seg] !== 'object'
+      ) {
         return false;
       }
-      curr = curr[seg];
+      curr = (curr as Record<string, unknown>)[seg];
     }
     const lastSeg = normalized[normalized.length - 1];
-    if (!lastSeg) return false;
-    curr[lastSeg] = val;
+    if (!lastSeg || curr === null || curr === undefined || typeof curr !== 'object') {
+      return false;
+    }
+    (curr as Record<string, unknown>)[lastSeg] = val;
     return true;
   }
 }
