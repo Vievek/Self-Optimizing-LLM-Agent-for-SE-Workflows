@@ -18,6 +18,7 @@ import TraceExplorer from './components/traces/TraceExplorer'
 import FailureAnalysis from './components/attribution/FailureAnalysis'
 import EvidenceAttribution from './components/attribution/EvidenceAttribution'
 import OptimizationSignals from './components/optimization/OptimizationSignals'
+import EvaluationResults from './components/evaluation/EvaluationResults'
 
 
 type Scenario = {
@@ -211,6 +212,10 @@ function App() {
               <OptimizationSignals
                 caseId={selectedId}
                 onCaseChange={setSelectedId}
+                onOpenTraceExplorer={openTraceExplorer}
+              />
+            ) : activePage === 'Evaluation Results' ? (
+              <EvaluationResults
                 onOpenTraceExplorer={openTraceExplorer}
               />
             ) : activePage === 'Overview' ? (

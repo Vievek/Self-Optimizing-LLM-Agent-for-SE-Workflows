@@ -1,0 +1,141 @@
+{
+  "datasetName": "workflow-contrast-v1",
+  "provenance": "synthetic_development",
+  "annotationStatus": "draft",
+  "evaluationMode": "deterministic_rules",
+  "independentlyValidated": false,
+  "annotationSha256": "d95524cbd86d982fc906df032c7af8129712a6cd3f50150be93ac68af18b8806",
+  "metrics": {
+    "totalCases": 5,
+    "exactMatches": 5,
+    "exactMatchAccuracy": 1,
+    "truePositives": 2,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "microPrecision": 1,
+    "microRecall": 1,
+    "microF1": 1,
+    "macroF1": 0.4,
+    "perCategory": [
+      {
+        "category": "prompt",
+        "support": 0,
+        "truePositives": 0,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      {
+        "category": "tool",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "retrieval",
+        "support": 0,
+        "truePositives": 0,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      {
+        "category": "planning",
+        "support": 0,
+        "truePositives": 0,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      {
+        "category": "workflow",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      }
+    ],
+    "cases": [
+      {
+        "id": "workflow-001",
+        "expectedCategories": [
+          "workflow"
+        ],
+        "predictedCategories": [
+          "workflow"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "b100000000000005",
+          "b100000000000004"
+        ],
+        "ruleIds": [
+          "WORKFLOW-01"
+        ]
+      },
+      {
+        "id": "workflow-002",
+        "expectedCategories": [],
+        "predictedCategories": [],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [],
+        "ruleIds": []
+      },
+      {
+        "id": "workflow-003",
+        "expectedCategories": [],
+        "predictedCategories": [],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [],
+        "ruleIds": []
+      },
+      {
+        "id": "workflow-004",
+        "expectedCategories": [
+          "tool"
+        ],
+        "predictedCategories": [
+          "tool"
+        ],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [
+          "b400000000000004"
+        ],
+        "ruleIds": [
+          "TOOL-02"
+        ]
+      },
+      {
+        "id": "workflow-005",
+        "expectedCategories": [],
+        "predictedCategories": [],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [],
+        "ruleIds": []
+      }
+    ]
+  }
+}
