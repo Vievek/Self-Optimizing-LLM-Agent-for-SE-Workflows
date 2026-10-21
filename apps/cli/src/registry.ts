@@ -14,6 +14,7 @@ import {
   ContractCheckResult,
 } from './components/contract-check-panel.js';
 import { runOrchCommand } from './commands/orch/index.js';
+import { TuiApp } from './tui/app.js';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
@@ -191,11 +192,22 @@ export class CommandRegistry {
         `SWE-bench Lite Dataset (Total: ${taskLoader.size} tasks)`,
       );
     });
+
+    // 7. soa tui - Launch or render interactive TUI views
+    this.register('tui', async (args) => {
+      const initialView = args[0] || 'exec';
+      const app = new TuiApp(initialView);
+      return app.renderCurrent();
+    });
   }
 
   private renderHelp(): string {
     return `
 Usage: soa <component> [args...]
+
+Interactive TUI:
+  soa                Launch interactive Claude Code-style TUI with LazyVim menu
+  soa tui [module]   Launch interactive TUI focused on a module (exec, heae, memory, orch)
 
 Available Components:
   soa check          Check status and schema compliance of all shared contracts

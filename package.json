@@ -17,6 +17,14 @@
     "test:watch": "vitest",
     "test:contract": "vitest run --dir packages/contracts",
     "build": "pnpm -r build",
+    "build:cli": "pnpm --filter @soa/cli build",
+    "tui": "node apps/cli/dist/cli.js",
+    "tui:exec": "node apps/cli/dist/cli.js tui exec",
+    "tui:heae": "node apps/cli/dist/cli.js tui heae",
+    "tui:memory": "node apps/cli/dist/cli.js tui memory",
+    "tui:orch": "node apps/cli/dist/cli.js tui orch",
+    "tui:menu": "node apps/cli/dist/cli.js tui menu",
+    "tui:help": "node apps/cli/dist/cli.js tui help",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
