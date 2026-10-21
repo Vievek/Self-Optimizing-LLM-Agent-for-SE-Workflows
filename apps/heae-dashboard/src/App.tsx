@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import TraceExplorer from './components/traces/TraceExplorer'
 import FailureAnalysis from './components/attribution/FailureAnalysis'
+import EvidenceAttribution from './components/attribution/EvidenceAttribution'
+
 
 type Scenario = {
   id: string
@@ -194,6 +196,12 @@ function App() {
               />
             ) : activePage === 'Failure Analysis' ? (
               <FailureAnalysis
+                caseId={selectedId}
+                onCaseChange={setSelectedId}
+                onOpenTraceExplorer={openTraceExplorer}
+              />
+            ) : activePage === 'Evidence & Attribution' ? (
+              <EvidenceAttribution
                 caseId={selectedId}
                 onCaseChange={setSelectedId}
                 onOpenTraceExplorer={openTraceExplorer}
