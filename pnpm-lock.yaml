@@ -40,6 +40,9 @@ importers:
       '@soa/mocks':
         specifier: workspace:*
         version: link:../../packages/mocks
+      '@soa/orchestrator':
+        specifier: workspace:*
+        version: link:../../packages/orchestrator
       '@soa/store':
         specifier: workspace:*
         version: link:../../packages/store
