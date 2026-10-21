@@ -3,32 +3,78 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { MemoryNote } from '@soa/contracts';
 import { CodeVerifier } from './verifier.js';
 import { makeNote } from '../test-utils/fixtures.js';
-import { makeFixtureSandbox } from '../test-utils/fixture-repos.js';
+import {
+  EVIDENCE_TEST,
+  makeFixtureSandbox,
+  VALIDATORS_FILE as FILE,
+} from '../test-utils/fixture-repos.js';
 
 const REPO = 'memtest/memtest';
-const FILE = 'auth/validators.py';
 
 function note(overrides: Partial<MemoryNote> = {}): MemoryNote {
   return {
     ...makeNote().note,
     files: [FILE],
     fix_snippet: "regex = r'^[\\w.@+-]+\\Z'",
-    evidence_tests: ['tests/test_validators.py::test_rejects_trailing_newline'],
+    evidence_tests: [EVIDENCE_TEST],
     ...overrides,
   };
 }
 
 describe('CodeVerifier', () => {
-  const fixture = makeFixtureSandbox();
+  const fixture = makeFixtureSandbox({ fakeTests: true });
   const verifier = new CodeVerifier({ sandbox: fixture.sandbox });
   afterAll(() => fixture.cleanup());
 
-  it('verifies the note when the fix is present (v1)', async () => {
+  it('verifies the note when the fix is present and the evidence test passes (v1)', async () => {
     const out = await verifier.verify(note(), REPO, 'memtest-v1');
     expect(out.status).toBe('verified');
-    expect(out.details).toBe(`Fix found in ${FILE}.`);
+    expect(out.details).toBe(`Fix found in ${FILE}; 1/1 evidence tests pass.`);
     expect(out.fileChecks).toEqual([{ file: FILE, result: 'found' }]);
+    expect(out.testResult).toEqual({ passed: 1, failed: 0, errors: 0 });
     expect(out.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('runs the evidence tests in the workspace it checked the snippet in', async () => {
+    const create = vi.spyOn(fixture.sandbox, 'createWorkspace');
+    const runTests = vi.spyOn(fixture.sandbox, 'runTests');
+    await verifier.verify(note(), REPO, 'memtest-v1');
+    const ws = await create.mock.results[0]!.value;
+    expect(runTests).toHaveBeenCalledWith(ws, [EVIDENCE_TEST]);
+    create.mockRestore();
+    runTests.mockRestore();
+  });
+
+  it('marks the note stale when the fix is present but the evidence test fails', async () => {
+    const runTests = vi
+      .spyOn(fixture.sandbox, 'runTests')
+      .mockResolvedValue({ passed: 0, failed: 1, errors: 0, details: '1 failed' });
+    const out = await verifier.verify(note(), REPO, 'memtest-v1');
+    expect(out.status).toBe('stale');
+    expect(out.details).toBe(
+      `Fix present in ${FILE}, but an evidence test fails or no longer exists.`,
+    );
+    expect(out.testResult).toEqual({ passed: 0, failed: 1, errors: 0 });
+    runTests.mockRestore();
+  });
+
+  it('marks the note stale when the evidence test no longer exists', async () => {
+    const runTests = vi
+      .spyOn(fixture.sandbox, 'runTests')
+      .mockResolvedValue({ passed: 0, failed: 0, errors: 1, details: 'not found' });
+    const out = await verifier.verify(note(), REPO, 'memtest-v1');
+    expect(out.status).toBe('stale');
+    runTests.mockRestore();
+  });
+
+  it('is unverifiable when the fix is present but there is no evidence test', async () => {
+    const runTests = vi.spyOn(fixture.sandbox, 'runTests');
+    const out = await verifier.verify(note({ evidence_tests: [] }), REPO, 'memtest-v1');
+    expect(out.status).toBe('unverifiable');
+    expect(out.details).toBe(`Fix present in ${FILE}, but no test to confirm it.`);
+    expect(out.testResult).toBeUndefined();
+    expect(runTests).not.toHaveBeenCalled();
+    runTests.mockRestore();
   });
 
   it('matches the fix despite indentation differences in the snippet', async () => {
@@ -40,11 +86,15 @@ describe('CodeVerifier', () => {
     expect(out.status).toBe('verified');
   });
 
-  it('marks the note stale when the code changed (v2)', async () => {
+  it('marks the note stale when the code changed (v2), without running tests', async () => {
+    const runTests = vi.spyOn(fixture.sandbox, 'runTests');
     const out = await verifier.verify(note(), REPO, 'memtest-v2');
     expect(out.status).toBe('stale');
     expect(out.details).toBe(`Fix no longer present in ${FILE}.`);
     expect(out.fileChecks).toEqual([{ file: FILE, result: 'not_found' }]);
+    expect(out.testResult).toBeUndefined();
+    expect(runTests).not.toHaveBeenCalled();
+    runTests.mockRestore();
   });
 
   it('marks the note stale when the file was removed (v3)', async () => {
@@ -67,7 +117,7 @@ describe('CodeVerifier', () => {
       'memtest-v1',
     );
     expect(out.status).toBe('verified');
-    expect(out.details).toBe(`Fix found in ${FILE}.`);
+    expect(out.details).toBe(`Fix found in ${FILE}; 1/1 evidence tests pass.`);
   });
 
   it('is unverifiable without a fix snippet, and creates no workspace', async () => {

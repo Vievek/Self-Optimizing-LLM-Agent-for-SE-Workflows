@@ -1,0 +1,25 @@
+{
+  "schema_version": "2.0",
+  "evidence_id": "ev_01JAMEMTEST0000000000SUCC",
+  "run_id": "run_memtest_01",
+  "task_id": "memtest__auth-2",
+  "trace_id": "6f1c2a9e4b7d40f8a3e5c1d2b9f07a11",
+  "repo": "memtest/auth",
+  "base_commit": "memtest-v1",
+  "outcome": {
+    "resolved": true,
+    "tests_passed": 1,
+    "tests_failed": 0,
+    "patch_applied": true
+  },
+  "memory_uses": [
+    {
+      "memory_id": "mem_REPLACE",
+      "retrieved_span_id": "a1b2c3d4e5f60718",
+      "cited_by_node_ids": ["node_plan_1", "node_edit_1"],
+      "implicated_in_failure": false
+    }
+  ],
+  "failure_labels": [],
+  "cost": { "tokens_in": 4200, "tokens_out": 610, "wall_ms": 21500 }
+}

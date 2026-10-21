@@ -1,0 +1,50 @@
+{
+  "taskId": "memtest__auth-1",
+  "repo": "memtest/auth",
+  "baseCommit": "memtest-v1",
+  "resolved": true,
+  "focus": [
+    {
+      "topic": "Find where usernames are validated",
+      "steps": [
+        {
+          "action": "grep -rn 'UsernameValidator' auth/",
+          "observation": "UsernameValidator is defined in auth/validators.py with regex = r'^[\\w.@+-]+$'.",
+          "files": ["auth/validators.py"]
+        },
+        {
+          "action": "Read UsernameValidator.__call__ in auth/validators.py",
+          "observation": "It calls re.match(self.regex, value). In Python, $ also matches just before a trailing newline, so 'alice\\n' is accepted."
+        }
+      ],
+      "learned": "UsernameValidator's regex ends with $, which matches before a trailing newline; \\Z only matches at the true end of the string.",
+      "outcome": "success"
+    },
+    {
+      "topic": "Reject usernames with a trailing newline",
+      "steps": [
+        {
+          "action": "Run tests/test_validators.py::test_rejects_trailing_newline to reproduce",
+          "observation": "1 failed: DID NOT RAISE ValueError for 'alice\\n'.",
+          "tests": [
+            { "id": "tests/test_validators.py::test_rejects_trailing_newline", "passed": false }
+          ]
+        },
+        {
+          "action": "Change the regex in auth/validators.py to regex = r'^[\\w.@+-]+\\Z'",
+          "observation": "One-line change; the character class is unchanged, only the end anchor differs.",
+          "files": ["auth/validators.py"]
+        },
+        {
+          "action": "Re-run tests/test_validators.py::test_rejects_trailing_newline",
+          "observation": "1 passed.",
+          "tests": [
+            { "id": "tests/test_validators.py::test_rejects_trailing_newline", "passed": true }
+          ]
+        }
+      ],
+      "learned": "Anchoring the username regex with \\Z instead of $ rejects a trailing newline; the regression test now passes.",
+      "outcome": "success"
+    }
+  ]
+}

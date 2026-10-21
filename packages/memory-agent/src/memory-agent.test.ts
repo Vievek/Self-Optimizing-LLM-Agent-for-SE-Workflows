@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import type { ConsolidatedTaskSummary } from '@soa/contracts';
+import { afterAll, describe, it, expect, beforeEach, vi } from 'vitest';
+import type { ConsolidatedTaskSummary, MemoryVerificationStatus } from '@soa/contracts';
 import { MemoryStore } from '@soa/store';
 import { MockLlmProvider } from '@soa/mocks';
-import { MemoryAgent } from './memory-agent.js';
+import { DECISION_LOG, MemoryAgent } from './memory-agent.js';
 import { RefinedMemorySchema } from '@soa/contracts';
 import { makeNote, makeScore } from './test-utils/fixtures.js';
 import { WorkingMemory } from './working-memory/working-memory.js';
+import { CodeVerifier } from './verify/verifier.js';
+import { makeFixtureSandbox } from './test-utils/fixture-repos.js';
 
 describe('MemoryAgent', () => {
   let store: MemoryStore;
@@ -52,10 +54,116 @@ describe('MemoryAgent', () => {
       expect(await agent.retrieve('q', 'unknown/repo', 'abc123')).toEqual([]);
     });
 
+    it('increments use_count only on the returned notes', async () => {
+      const notes = [0.9, 0.5, 0.3, 0.1].map((r) =>
+        makeNote({ score: makeScore({ relevance: r }) }),
+      );
+      for (const n of notes) await agent.repository.save(n);
+
+      await agent.retrieve('q', 'django/django', 'abc123');
+
+      const counts = await Promise.all(notes.map((n) => agent.repository.get(n.memory_id)));
+      expect(counts.map((n) => n!.use_count)).toEqual([1, 1, 1, 0]);
+    });
+
     it('makes no model calls', async () => {
       await agent.repository.save(makeNote());
       await agent.retrieve('q', 'django/django', 'abc123');
       expect(llm.recordedRequests).toHaveLength(0);
+    });
+  });
+
+  describe('retrieve with a verifier', () => {
+    const fixture = makeFixtureSandbox();
+    afterAll(() => fixture.cleanup());
+
+    function agentWithStatuses(statuses: Record<string, MemoryVerificationStatus>) {
+      const verifier = new CodeVerifier({ sandbox: fixture.sandbox });
+      vi.spyOn(verifier, 'verify').mockImplementation(async (note) => ({
+        status: statuses[note.task]!,
+        details: `${statuses[note.task]} detail`,
+        fileChecks: [],
+        durationMs: 3,
+      }));
+      return new MemoryAgent({ store, llm, model: 'test-model', retrieveLimit: 3, verifier });
+    }
+    const withTask = (task: string, relevance: number) =>
+      makeNote({ note: { ...makeNote().note, task }, score: makeScore({ relevance }) });
+
+    it('drops stale notes, returns verified first, then unverifiable and not_applicable', async () => {
+      const notes = [
+        withTask('na', 0.9),
+        withTask('stale', 0.8),
+        withTask('unverifiable', 0.7),
+        withTask('verified-low', 0.2),
+        withTask('verified-high', 0.6),
+      ];
+      const verifying = agentWithStatuses({
+        na: 'not_applicable',
+        stale: 'stale',
+        unverifiable: 'unverifiable',
+        'verified-low': 'verified',
+        'verified-high': 'verified',
+      });
+      for (const n of notes) await verifying.repository.save(n);
+
+      const result = await verifying.retrieve('q', 'django/django', 'c2');
+
+      expect(result.map((n) => n.note.task)).toEqual([
+        'verified-high',
+        'verified-low',
+        'unverifiable',
+      ]);
+      expect(result.every((n) => n.use_count === 1)).toBe(true);
+    });
+
+    it('saves the new verification, moving verified_at_commit only for verified notes', async () => {
+      const verified = withTask('verified', 0.5);
+      const stale = withTask('stale', 0.5);
+      const verifying = agentWithStatuses({ verified: 'verified', stale: 'stale' });
+      await verifying.repository.save(verified);
+      await verifying.repository.save(stale);
+
+      await verifying.retrieve('q', 'django/django', 'c2');
+
+      const v = await verifying.repository.get(verified.memory_id);
+      const s = await verifying.repository.get(stale.memory_id);
+      expect(v).toMatchObject({
+        verified_at_commit: 'c2',
+        verification: { status: 'verified', details: 'verified detail' },
+        use_count: 1,
+      });
+      expect(s).toMatchObject({
+        verified_at_commit: stale.verified_at_commit,
+        verification: { status: 'stale', details: 'stale detail' },
+        use_count: 0,
+      });
+    });
+
+    it('logs one decision per check', async () => {
+      const verifying = agentWithStatuses({ a: 'verified', b: 'stale' });
+      const a = withTask('a', 0.5);
+      const b = withTask('b', 0.4);
+      await verifying.repository.save(a);
+      await verifying.repository.save(b);
+
+      await verifying.retrieve('q', 'django/django', 'c2');
+
+      expect(await store.readJsonl(DECISION_LOG)).toEqual([
+        expect.objectContaining({
+          phase: 'retrieve',
+          memory_id: a.memory_id,
+          commit: 'c2',
+          status: 'verified',
+          durationMs: 3,
+        }),
+        expect.objectContaining({
+          phase: 'retrieve',
+          memory_id: b.memory_id,
+          commit: 'c2',
+          status: 'stale',
+        }),
+      ]);
     });
   });
 
