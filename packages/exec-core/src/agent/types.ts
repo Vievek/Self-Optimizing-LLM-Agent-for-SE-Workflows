@@ -4,13 +4,18 @@ import {
   ToolCallSpanAttributesSchema,
   PlanningConfig,
   ToolsConfig,
+  OutcomeEvidenceSchema,
+  TraceSpanSchema,
+  FullAgentConfig,
 } from '@soa/contracts';
 import { SandboxService, WorkspaceId } from '@soa/sandbox';
-import { SubtaskType, SubtaskRoutingFeatures } from '../routing/types.js';
+import { SubtaskType, SubtaskRoutingFeatures, ModelTier } from '../routing/types.js';
 import { GraphRetriever } from '../retrieval/graph/graph-retriever.js';
 
 export type PlanSpanAttributes = z.infer<typeof PlanSpanAttributesSchema>;
 export type ToolCallSpanAttributes = z.infer<typeof ToolCallSpanAttributesSchema>;
+export type OutcomeEvidence = z.infer<typeof OutcomeEvidenceSchema>;
+export type TraceSpan = z.infer<typeof TraceSpanSchema>;
 
 export const SubtaskStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'failed']);
 
@@ -94,4 +99,39 @@ export interface ToolHandler {
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>;
 }
 
-export { SubtaskType, SubtaskRoutingFeatures, PlanningConfig, ToolsConfig };
+/**
+ * Functional plug for invoking LLMs during subtask execution.
+ */
+export type LLMCaller = (
+  prompt: string,
+  subtask: SubTask,
+  tier: ModelTier,
+  model: string,
+) => Promise<ToolCallRequest[]>;
+
+/**
+ * Configuration options for executing an agent run.
+ */
+export interface AgentRunnerOptions {
+  runId?: string;
+  config?: Partial<FullAgentConfig>;
+  condition?: 'baseline' | 'amem' | 'focus' | 'memory_full' | 'orch_off' | 'orch_on';
+  llmCaller?: LLMCaller;
+  maxIterations?: number;
+  baseCommit?: string;
+}
+
+/**
+ * Aggregated run result emitted by AgentRunner for HEAE and Orchestrator.
+ */
+export interface AgentRunResult {
+  runId: string;
+  taskId: string;
+  traceId: string;
+  resolved: boolean;
+  outcomeEvidence: OutcomeEvidence;
+  spans: TraceSpan[];
+  planState: PlanState;
+}
+
+export { SubtaskType, SubtaskRoutingFeatures, PlanningConfig, ToolsConfig, ModelTier };
