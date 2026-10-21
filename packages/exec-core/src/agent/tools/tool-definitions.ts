@@ -1,0 +1,131 @@
+import { ToolsConfig, CONFIG_SCHEMA_VERSION } from '@soa/contracts';
+
+/**
+ * Standard tool specifications aligned with Claude Code / Antigravity / SWE-agent standards.
+ */
+export const TOOL_DEFINITIONS = {
+  read_file: {
+    name: 'read_file',
+    description:
+      'Read the contents of a file in the workspace with optional line offset and limit.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to the file in the workspace' },
+        offset: { type: 'number', description: '1-based line number to start reading from' },
+        limit: { type: 'number', description: 'Maximum number of lines to read' },
+      },
+      required: ['path'],
+    },
+    timeout_s: 30,
+  },
+  write_file: {
+    name: 'write_file',
+    description:
+      'Write complete content to a file in the workspace, creating parent directories if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to the file to create or overwrite' },
+        content: { type: 'string', description: 'Full UTF-8 text content to write' },
+      },
+      required: ['path', 'content'],
+    },
+    timeout_s: 30,
+  },
+  edit_file: {
+    name: 'edit_file',
+    description: 'Precisely replace an exact string occurrence with new content in a target file.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to the target file' },
+        old_str: { type: 'string', description: 'The exact string snippet to be replaced' },
+        new_str: { type: 'string', description: 'The replacement string snippet' },
+      },
+      required: ['path', 'old_str', 'new_str'],
+    },
+    timeout_s: 30,
+  },
+  run_command: {
+    name: 'run_command',
+    description:
+      'Execute a bash command in the workspace sandbox and return stdout, stderr, and exit code.',
+    parameters: {
+      type: 'object',
+      properties: {
+        cmd: { type: 'string', description: 'The shell command to execute' },
+        timeout_ms: { type: 'number', description: 'Execution timeout in milliseconds' },
+      },
+      required: ['cmd'],
+    },
+    timeout_s: 120,
+  },
+  run_tests: {
+    name: 'run_tests',
+    description: 'Run targeted unit or integration tests in the workspace.',
+    parameters: {
+      type: 'object',
+      properties: {
+        test_cmd: { type: 'string', description: 'Custom test command (e.g. pytest or npm test)' },
+        test_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of specific test file paths or IDs to run',
+        },
+      },
+    },
+    timeout_s: 180,
+  },
+  retrieve_context: {
+    name: 'retrieve_context',
+    description:
+      'Retrieve AST code graph symbols, relationships, definitions, and callers for a given query.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Symbol, function, class, or keyword to retrieve' },
+        hops: { type: 'number', description: 'Graph traversal hop depth (1 to 3)' },
+      },
+      required: ['query'],
+    },
+    timeout_s: 30,
+  },
+  list_directory: {
+    name: 'list_directory',
+    description: 'List files and subdirectories in the specified workspace directory.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative directory path (defaults to root ".")' },
+      },
+    },
+    timeout_s: 30,
+  },
+  grep_search: {
+    name: 'grep_search',
+    description: 'Search for regex or text pattern occurrences across workspace files.',
+    parameters: {
+      type: 'object',
+      properties: {
+        pattern: { type: 'string', description: 'Regex or text pattern to search for' },
+        path: {
+          type: 'string',
+          description: 'Directory or file to search within (defaults to ".")',
+        },
+      },
+      required: ['pattern'],
+    },
+    timeout_s: 60,
+  },
+} as const;
+
+/**
+ * Creates a valid ToolsConfig adhering to the @soa/contracts ToolsConfigSchema.
+ */
+export function createDefaultToolsConfig(): ToolsConfig {
+  return {
+    schema_version: CONFIG_SCHEMA_VERSION,
+    tools: { ...TOOL_DEFINITIONS },
+  };
+}
