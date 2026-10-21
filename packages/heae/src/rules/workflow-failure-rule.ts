@@ -15,6 +15,18 @@ export function detectWorkflowFailures(
       node.span.attributes.tool_name === 'apply_patch',
   );
 
+  // Verification requirements may be explicitly recorded
+  // on the task span.
+  const taskSpans = graph.nodes.filter(
+    (node) => node.span.name === 'task',
+  );
+
+  const verificationOptional = taskSpans.some(
+    (node) =>
+      node.span.name === 'task' &&
+      node.span.attributes.verification_required === false,
+  );
+
   for (const node of graph.nodes) {
     if (node.span.name !== 'output') {
       continue;
@@ -28,6 +40,28 @@ export function detectWorkflowFailures(
     const hasPatchEvidence = patchTools.length > 0;
 
     if (!unsuccessful || !noTests || !hasPatchEvidence) {
+      continue;
+    }
+
+    // No verification omission is established when
+    // verification is explicitly optional.
+    if (verificationOptional) {
+      continue;
+    }
+
+    // Do not classify an external interruption as a
+    // deliberate verification omission.
+    const verificationNotReached =
+      output.verification_status === 'not_reached';
+
+    const interrupted = taskSpans.some(
+      (task) =>
+        task.span.name === 'task' &&
+        typeof task.span.attributes.interruption_reason === 'string' &&
+        task.span.attributes.interruption_reason.length > 0,
+    );
+
+    if (verificationNotReached && interrupted) {
       continue;
     }
 

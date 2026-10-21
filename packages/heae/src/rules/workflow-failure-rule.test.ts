@@ -106,4 +106,40 @@ describe('HEAE WORKFLOW-01 Rule', () => {
 
     expect(graph).toEqual(snapshot);
   });
+
+  it('does not flag optional verification as a workflow failure', () => {
+    const graph = loadGraph(
+      new URL(
+        '../../datasets/workflow-contrast-v1/traces/workflow-002.jsonl',
+        import.meta.url,
+      ),
+    );
+
+    expect(detectWorkflowFailures(graph)).toHaveLength(0);
+  });
+
+  it('does not flag interruption before verification begins', () => {
+    const graph = loadGraph(
+      new URL(
+        '../../datasets/workflow-contrast-v1/traces/workflow-003.jsonl',
+        import.meta.url,
+      ),
+    );
+
+    expect(detectWorkflowFailures(graph)).toHaveLength(0);
+  });
+
+  it('still detects explicitly skipped mandatory verification', () => {
+    const graph = loadGraph(
+      new URL(
+        '../../datasets/workflow-contrast-v1/traces/workflow-001.jsonl',
+        import.meta.url,
+      ),
+    );
+
+    const findings = detectWorkflowFailures(graph);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.ruleId).toBe('WORKFLOW-01');
+  });
 });
