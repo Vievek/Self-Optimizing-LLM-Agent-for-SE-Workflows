@@ -13,12 +13,14 @@ import {
   ShieldCheck,
   TriangleAlert,
   Zap,
+  DatabaseZap,
 } from 'lucide-react'
 import TraceExplorer from './components/traces/TraceExplorer'
 import FailureAnalysis from './components/attribution/FailureAnalysis'
 import EvidenceAttribution from './components/attribution/EvidenceAttribution'
 import OptimizationSignals from './components/optimization/OptimizationSignals'
 import EvaluationResults from './components/evaluation/EvaluationResults'
+import SavedEvaluations from './components/history/SavedEvaluations'
 
 
 type Scenario = {
@@ -85,6 +87,7 @@ const navigation = [
   { name: 'Evidence & Attribution', icon: ShieldCheck },
   { name: 'Optimization Signals', icon: Zap },
   { name: 'Evaluation Results', icon: Activity },
+  { name: 'Saved Evaluations', icon: DatabaseZap },
 ]
 
 const stages = [
@@ -166,7 +169,9 @@ function App() {
             </div>
 
             <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-300">
-              Synthetic Development Demo
+              {activePage === 'Saved Evaluations'
+                ? 'Local HEAE History'
+                : 'Synthetic Development Demo'}
             </div>
           </header>
 
@@ -218,6 +223,8 @@ function App() {
               <EvaluationResults
                 onOpenTraceExplorer={openTraceExplorer}
               />
+            ) : activePage === 'Saved Evaluations' ? (
+              <SavedEvaluations />
             ) : activePage === 'Overview' ? (
               <>
                 <section>
