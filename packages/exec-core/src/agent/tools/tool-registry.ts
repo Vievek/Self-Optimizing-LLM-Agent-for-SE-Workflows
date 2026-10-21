@@ -49,4 +49,3 @@ export function createDefaultToolRegistry(): ToolRegistry {
     .register(new GrepSearchHandler());
   return registry;
 }
-
