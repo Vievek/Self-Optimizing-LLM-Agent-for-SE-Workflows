@@ -1,0 +1,125 @@
+{
+  "datasetName": "HEAE Workflow Contrast Synthetic Development Dataset",
+  "datasetVersion": "1.0",
+  "annotations": [
+    {
+      "caseId": "workflow-001",
+      "traceFile": "traces/workflow-001.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": [
+        "workflow"
+      ],
+      "categoryEvidence": [
+        {
+          "category": "workflow",
+          "spanIds": [
+            "b100000000000001",
+            "b100000000000005"
+          ],
+          "justification": "The task explicitly required tests, but the final output records that verification was skipped."
+        }
+      ],
+      "causalAssessments": [
+        {
+          "category": "workflow",
+          "judgment": "supported",
+          "explanation": "The final task failure explicitly records omission of mandatory verification.",
+          "evidenceSpanIds": [
+            "b100000000000001",
+            "b100000000000005"
+          ]
+        }
+      ],
+      "limitations": [
+        "This is a synthetic development scenario, not a real Execution Core run.",
+        "The trace records mandatory verification omission but does not demonstrate the correctness of the underlying code patch."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "workflow-002",
+      "traceFile": "traces/workflow-002.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": [],
+      "categoryEvidence": [],
+      "causalAssessments": [],
+      "limitations": [
+        "The task failed because documentation publication approval was unavailable, not because tests were omitted.",
+        "The five HEAE categories do not include an external approval or publication dependency category.",
+        "This is a synthetic development scenario and not a real Execution Core run."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "workflow-003",
+      "traceFile": "traces/workflow-003.jsonl",
+      "observedOutcome": "error",
+      "expectedCategories": [],
+      "categoryEvidence": [],
+      "causalAssessments": [],
+      "limitations": [
+        "Verification was planned but could not start because the environment shut down.",
+        "The five HEAE categories do not explicitly represent external execution interruption.",
+        "The absence of test execution does not establish a deliberate workflow verification omission.",
+        "This is a controlled synthetic development scenario."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "workflow-004",
+      "traceFile": "traces/workflow-004.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": [
+        "tool"
+      ],
+      "categoryEvidence": [
+        {
+          "category": "tool",
+          "spanIds": [
+            "b400000000000004",
+            "b400000000000005"
+          ],
+          "justification": "The patch tool reports FILE_NOT_FOUND, and the output links the task failure to that tool operation."
+        }
+      ],
+      "causalAssessments": [
+        {
+          "category": "tool",
+          "judgment": "supported",
+          "explanation": "The output explicitly attributes the unsuccessful execution to the failed patch operation.",
+          "evidenceSpanIds": [
+            "b400000000000004",
+            "b400000000000005"
+          ]
+        }
+      ],
+      "limitations": [
+        "The trace does not establish whether the wrong file path originated from planning, retrieval, or another upstream process.",
+        "Tests were not executed because patch application failed; this does not independently establish a verification omission.",
+        "This is a controlled synthetic development scenario."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "workflow-005",
+      "traceFile": "traces/workflow-005.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": [],
+      "categoryEvidence": [],
+      "causalAssessments": [],
+      "limitations": [
+        "Verification was executed and one assertion failed; the trace does not establish a verification omission.",
+        "The test runner returned an error status due to a failed assertion, not an established tool malfunction.",
+        "The trace does not establish whether the underlying defect originated from prompt, planning, retrieval, or another process.",
+        "The expected empty category list is a draft interpretation requiring review against the annotation protocol.",
+        "This is a synthetic development scenario, not a real Execution Core run."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    }
+  ]
+}

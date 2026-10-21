@@ -14,6 +14,7 @@ import {
   TriangleAlert,
   Zap,
 } from 'lucide-react'
+import TraceExplorer from './components/traces/TraceExplorer'
 
 type Scenario = {
   id: string
@@ -158,11 +159,15 @@ function App() {
           </header>
 
           <div className="mx-auto max-w-7xl space-y-7 p-5 md:p-8">
-            {activePage !== 'Overview' && (
+            {activePage === 'Trace Explorer' ? (
+              <TraceExplorer />
+            ) : (
+              <>
               <div className="rounded-xl border border-blue-400/20 bg-blue-400/10 p-4 text-sm text-blue-200">
                 {activePage} is planned for the next development phase.
                 The Overview and scenario explorer below are currently implemented.
               </div>
+              </>
             )}
 
             <section>
