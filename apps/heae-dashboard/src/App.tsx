@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react'
 import TraceExplorer from './components/traces/TraceExplorer'
+import FailureAnalysis from './components/attribution/FailureAnalysis'
 
 type Scenario = {
   id: string
@@ -93,6 +94,13 @@ const stages = [
 function App() {
   const [selectedId, setSelectedId] = useState(scenarios[0].id)
   const [activePage, setActivePage] = useState('Overview')
+  const [focusedSpanId, setFocusedSpanId] = useState<string | null>(null)
+
+  const openTraceExplorer = (caseId: string, spanId?: string) => {
+    setSelectedId(caseId)
+    setFocusedSpanId(spanId ?? null)
+    setActivePage('Trace Explorer')
+  }
 
   const selected =
     scenarios.find((scenario) => scenario.id === selectedId) ??
@@ -158,19 +166,41 @@ function App() {
             </div>
           </header>
 
+          <nav aria-label="Mobile navigation" className="flex gap-2 overflow-x-auto border-b border-white/10 px-5 py-3 lg:hidden">
+            {navigation.map(({ name }) => (
+              <button
+                key={name}
+                onClick={() => setActivePage(name)}
+                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium ${
+                  activePage === name
+                    ? 'bg-blue-600/20 text-blue-300'
+                    : 'bg-white/5 text-slate-400'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </nav>
+
           <div className="mx-auto max-w-7xl space-y-7 p-5 md:p-8">
             {activePage === 'Trace Explorer' ? (
-              <TraceExplorer />
-            ) : (
+              <TraceExplorer
+                caseId={selectedId}
+                onCaseChange={(caseId) => {
+                  setSelectedId(caseId)
+                  setFocusedSpanId(null)
+                }}
+                focusedSpanId={focusedSpanId}
+              />
+            ) : activePage === 'Failure Analysis' ? (
+              <FailureAnalysis
+                caseId={selectedId}
+                onCaseChange={setSelectedId}
+                onOpenTraceExplorer={openTraceExplorer}
+              />
+            ) : activePage === 'Overview' ? (
               <>
-              <div className="rounded-xl border border-blue-400/20 bg-blue-400/10 p-4 text-sm text-blue-200">
-                {activePage} is planned for the next development phase.
-                The Overview and scenario explorer below are currently implemented.
-              </div>
-              </>
-            )}
-
-            <section>
+                <section>
               <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-400">
                 <Activity size={16} />
                 HEAE System Overview
@@ -335,9 +365,19 @@ function App() {
               </div>
             </section>
 
-            <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">
-              HEAE Intelligence Console · Software Engineering Research Demonstration
-            </footer>
+                <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">
+                  HEAE Intelligence Console · Software Engineering Research Demonstration
+                </footer>
+              </>
+            ) : (
+              <div className="rounded-xl border border-blue-400/20 bg-blue-400/10 p-5 text-sm text-blue-200">
+                <p className="font-semibold">{activePage} is not implemented yet.</p>
+                <p className="mt-2 text-slate-300">
+                  This section is planned for a later development phase. The Overview,
+                  Trace Explorer and Failure Analysis pages are currently available.
+                </p>
+              </div>
+            )}
           </div>
         </main>
       </div>
