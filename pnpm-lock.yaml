@@ -122,6 +122,22 @@ importers:
       '@soa/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@soa/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@soa/mocks':
+        specifier: workspace:*
+        version: link:../mocks
+      '@soa/store':
+        specifier: workspace:*
+        version: link:../store
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.43
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@20.19.43)
 
   packages/sandbox: {}
 
