@@ -77,6 +77,9 @@ importers:
       '@soa/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@soa/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
       zod:
         specifier: ^3.22.0
         version: 3.25.76
