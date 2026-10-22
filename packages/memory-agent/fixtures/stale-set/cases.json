@@ -1,0 +1,312 @@
+[
+  {
+    "id": "fix-present-v1",
+    "description": "Fix line is in validators.py and the evidence test passes.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "verified"
+  },
+  {
+    "id": "code-rewritten-v2",
+    "description": "validators.py was rewritten without a regex, so the remembered fix line is gone.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v2",
+    "expected": "stale"
+  },
+  {
+    "id": "file-removed-v3",
+    "description": "validators.py was deleted.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v3",
+    "expected": "stale"
+  },
+  {
+    "id": "test-now-fails-v4",
+    "description": "Fix line is still there, but the evidence test was tightened and now fails.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v4",
+    "expected": "stale"
+  },
+  {
+    "id": "test-deleted-v5",
+    "description": "Fix line is still there, but the evidence test function was deleted.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v5",
+    "expected": "stale"
+  },
+  {
+    "id": "snippet-whitespace-v1",
+    "description": "Snippet copied with different indentation and spacing still matches the code.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "  class UsernameValidator:\n\n        regex   =   r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "verified"
+  },
+  {
+    "id": "wrong-file-v1",
+    "description": "Note lists auth/__init__.py, but the fix lives in validators.py; the listed file has no fix.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/__init__.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "stale"
+  },
+  {
+    "id": "no-evidence-tests-v1",
+    "description": "Fix is present but the note names no test to confirm it.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": [],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "unverifiable"
+  },
+  {
+    "id": "empty-snippet-v1",
+    "description": "Note has no fix_snippet, so there is nothing to look for.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "unverifiable"
+  },
+  {
+    "id": "nothing-to-check-v1",
+    "description": "Process lesson with no files, snippet or tests.",
+    "note": {
+      "task": "Run the validator tests before editing the regex",
+      "problem": "Edited the regex blind and broke valid usernames",
+      "cause": "Skipped running the existing tests first",
+      "files": [],
+      "fix": "Run pytest on tests/ before and after the change",
+      "fix_snippet": "",
+      "evidence": "Workflow note, not a code change",
+      "evidence_tests": [],
+      "keywords": ["workflow", "pytest"],
+      "tags": ["process"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "not_applicable"
+  },
+  {
+    "id": "buggy-regex-remembered-v1",
+    "description": "Note remembers the pre-fix line ending in $; the code has since moved to \\Z.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Regex for usernames",
+      "fix_snippet": "regex = r'^[\\w.@+-]+$'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "stale"
+  },
+  {
+    "id": "multiline-snippet-v2",
+    "description": "Two-line snippet (regex plus message) after the rewrite: the message survived but the regex did not.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'\nmessage = 'Enter a valid username.'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v2",
+    "expected": "stale"
+  },
+  {
+    "id": "one-of-two-tests-deleted-v5",
+    "description": "Two evidence tests; one still passes but the other was deleted.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": [
+        "tests/test_validators.py::test_rejects_trailing_newline",
+        "tests/test_validators.py::test_accepts_plain_username"
+      ],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v5",
+    "expected": "stale"
+  },
+  {
+    "id": "two-files-one-removed-v3",
+    "description": "Both listed files are gone: validators.py was deleted and forms.py never existed.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py", "auth/forms.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v3",
+    "expected": "stale"
+  },
+  {
+    "id": "extra-missing-file-v1",
+    "description": "One listed file does not exist, but the fix is in the other and the test passes.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/forms.py", "auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": ["tests/test_validators.py::test_rejects_trailing_newline"],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v1",
+    "expected": "verified"
+  },
+  {
+    "id": "two-tests-pass-v4",
+    "description": "At v4 the regression test fails, even though the other listed test passes.",
+    "note": {
+      "task": "Reject usernames with a trailing newline",
+      "problem": "UsernameValidator accepted 'alice\\n'",
+      "cause": "The regex ended with $, which matches before a trailing newline",
+      "files": ["auth/validators.py"],
+      "fix": "Anchor the regex with \\Z instead of $",
+      "fix_snippet": "regex = r'^[\\w.@+-]+\\Z'",
+      "evidence": "The trailing-newline regression test passes",
+      "evidence_tests": [
+        "tests/test_validators.py::test_accepts_plain_username",
+        "tests/test_validators.py::test_rejects_trailing_newline"
+      ],
+      "keywords": ["username", "validator", "regex", "newline"],
+      "tags": ["auth"]
+    },
+    "repo": "memtest/auth",
+    "commit": "memtest-v4",
+    "expected": "stale"
+  }
+]

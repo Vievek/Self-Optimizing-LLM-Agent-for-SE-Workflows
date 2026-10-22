@@ -1,23 +1,16 @@
-import { execSync } from 'node:child_process';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { MemoryNote } from '@soa/contracts';
 import { CodeVerifier } from './verifier.js';
 import { makeNote } from '../test-utils/fixtures.js';
+import { evaluateStaleSet, loadStaleSet } from '../eval/stale-set.js';
 import {
   EVIDENCE_TEST,
   FIXED_REGEX_LINE,
+  isPytestAvailable,
   makeFixtureSandbox,
+  STALE_SET_FILE,
   VALIDATORS_FILE,
 } from '../test-utils/fixture-repos.js';
-
-function hasPytest(): boolean {
-  try {
-    execSync('python3 -m pytest --version', { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 const note: MemoryNote = {
   ...makeNote().note,
@@ -27,7 +20,7 @@ const note: MemoryNote = {
 };
 
 // Runs the sandbox's default runner (real pytest), so it is skipped where pytest is not installed.
-describe.skipIf(!hasPytest())('real pytest runner on the memtest repos', () => {
+describe.skipIf(!isPytestAvailable())('real pytest runner on the memtest repos', () => {
   const fixture = makeFixtureSandbox();
   const verifier = new CodeVerifier({ sandbox: fixture.sandbox });
   afterAll(() => fixture.cleanup());
@@ -54,4 +47,25 @@ describe.skipIf(!hasPytest())('real pytest runner on the memtest repos', () => {
     expect(out.status).toBe('stale');
     expect(out.testResult).toBeUndefined();
   }, 60_000);
+
+  it('v4: the tightened evidence test really fails, so the note is stale', async () => {
+    expect(await runEvidenceTest('memtest-v4')).toMatchObject({ passed: 0, failed: 1 });
+    const out = await verifier.verify(note, 'memtest/auth', 'memtest-v4');
+    expect(out.status).toBe('stale');
+    expect(out.fileChecks).toEqual([{ file: VALIDATORS_FILE, result: 'found' }]);
+  }, 60_000);
+
+  it('v5: the evidence test was deleted, pytest runs nothing, and the note is stale', async () => {
+    expect(await runEvidenceTest('memtest-v5')).toMatchObject({ passed: 0 });
+    const out = await verifier.verify(note, 'memtest/auth', 'memtest-v5');
+    expect(out.status).toBe('stale');
+    expect(out.fileChecks).toEqual([{ file: VALIDATORS_FILE, result: 'found' }]);
+  }, 60_000);
+
+  it('the whole stale set gets its expected statuses under real pytest', async () => {
+    const report = await evaluateStaleSet(verifier, await loadStaleSet(STALE_SET_FILE));
+    expect(report.cases.filter((r) => !r.correct)).toEqual([]);
+    expect(report.summary.catchRate).toBe(1);
+    expect(report.summary.falseAlarms).toBe(0);
+  }, 120_000);
 });
