@@ -128,3 +128,5 @@ export class ConversationHistory {
     return result;
   }
 }
+
+export { ConversationHistory as ConversationHistoryManager };
