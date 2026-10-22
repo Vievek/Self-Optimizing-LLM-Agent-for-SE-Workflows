@@ -77,4 +77,3 @@ ${this.customGuidelines.map((g) => `5. ${g}`).join('\n')}`;
     return sections.join('\n');
   }
 }
-

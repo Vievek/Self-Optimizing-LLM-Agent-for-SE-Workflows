@@ -17,4 +17,3 @@ embed:
   baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
   model: text-embedding-004
   apiKeyEnv: GEMINI_API_KEY
-
