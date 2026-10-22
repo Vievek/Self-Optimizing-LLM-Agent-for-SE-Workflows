@@ -7,7 +7,12 @@ import { RefinedMemorySchema } from '@soa/contracts';
 import { makeNote, makeScore } from './test-utils/fixtures.js';
 import { WorkingMemory } from './working-memory/working-memory.js';
 import { CodeVerifier } from './verify/verifier.js';
-import { makeFixtureSandbox } from './test-utils/fixture-repos.js';
+import {
+  EVIDENCE_TEST,
+  FIXED_REGEX_LINE,
+  makeFixtureSandbox,
+  VALIDATORS_FILE,
+} from './test-utils/fixture-repos.js';
 
 describe('MemoryAgent', () => {
   let store: MemoryStore;
@@ -261,6 +266,83 @@ describe('MemoryAgent', () => {
       expect(llm.recordedRequests).toHaveLength(0);
       expect(await agent.repository.list()).toEqual([]);
       expect(agent.usage).toEqual({ calls: 0, tokensIn: 0, tokensOut: 0 });
+    });
+  });
+
+  describe('storeNote and reverify on the memtest repos', () => {
+    const fixture = makeFixtureSandbox({ fakeTests: true });
+    afterAll(() => fixture.cleanup());
+    const REPO = 'memtest/auth';
+    const note = {
+      ...makeNote().note,
+      files: [VALIDATORS_FILE],
+      fix_snippet: FIXED_REGEX_LINE,
+      evidence_tests: [EVIDENCE_TEST],
+    };
+
+    function verifyingAgent() {
+      const verifier = new CodeVerifier({ sandbox: fixture.sandbox });
+      return new MemoryAgent({ store, llm, model: 'test-model', verifier });
+    }
+
+    it('storeNote verifies at the commit, saves the note and logs the decision', async () => {
+      const a = verifyingAgent();
+      const memory = await a.storeNote(note, {
+        repo: REPO,
+        commit: 'memtest-v1',
+        sourceTaskId: 't1',
+      });
+      expect(memory).toMatchObject({
+        repo: REPO,
+        source_task_id: 't1',
+        verified_at_commit: 'memtest-v1',
+        verification: { status: 'verified' },
+        action: 'KEEP',
+      });
+      expect(await a.repository.get(memory.memory_id)).toEqual(memory);
+      expect(await store.readJsonl(DECISION_LOG)).toMatchObject([
+        {
+          phase: 'consolidate',
+          memory_id: memory.memory_id,
+          commit: 'memtest-v1',
+          status: 'verified',
+        },
+      ]);
+      expect(llm.recordedRequests).toHaveLength(0);
+    });
+
+    it('reverify saves the new status, keeps verified_at_commit when stale, and logs phase verify', async () => {
+      const a = verifyingAgent();
+      const memory = await a.storeNote(note, {
+        repo: REPO,
+        commit: 'memtest-v1',
+        sourceTaskId: 't1',
+      });
+
+      const stale = await a.reverify(memory.memory_id, 'memtest-v4');
+      expect(stale!.outcome).toMatchObject({
+        status: 'stale',
+        fileChecks: [{ file: VALIDATORS_FILE, result: 'found' }],
+        testResult: { passed: 0, failed: 1, errors: 0 },
+      });
+      expect(stale!.memory.verification.status).toBe('stale');
+      expect(stale!.memory.verified_at_commit).toBe('memtest-v1');
+      expect((await a.repository.get(memory.memory_id))!.verification.status).toBe('stale');
+
+      const again = await a.reverify(memory.memory_id, 'memtest-v1');
+      expect(again!.memory.verification.status).toBe('verified');
+
+      const log = await store.readJsonl<{ phase: string; commit: string }>(DECISION_LOG);
+      expect(log.map((d) => [d.phase, d.commit])).toEqual([
+        ['consolidate', 'memtest-v1'],
+        ['verify', 'memtest-v4'],
+        ['verify', 'memtest-v1'],
+      ]);
+    });
+
+    it('reverify returns null for an unknown id and throws without a verifier', async () => {
+      expect(await verifyingAgent().reverify('mem_nope', 'memtest-v1')).toBeNull();
+      await expect(agent.reverify('mem_nope', 'memtest-v1')).rejects.toThrow(/no code verifier/);
     });
   });
 });

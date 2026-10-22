@@ -1,7 +1,12 @@
 export const PACKAGE_NAME = '@soa/memory-agent';
 
 export { MemoryAgent, DECISION_LOG } from './memory-agent.js';
-export type { MemoryAgentUsage, MemoryDecision } from './memory-agent.js';
+export type {
+  MemoryAgentUsage,
+  MemoryDecision,
+  NoteSource,
+  ReverifyResult,
+} from './memory-agent.js';
 export { buildNote, FALLBACK_TAG, UNRESOLVED_TAG } from './notes/note-builder.js';
 export type { BuildNoteResult } from './notes/note-builder.js';
 export { findLinks, MIN_LINK_SCORE, DEFAULT_MAX_LINKS } from './notes/linker.js';

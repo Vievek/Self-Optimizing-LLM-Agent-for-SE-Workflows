@@ -15,7 +15,7 @@ import { findLinks } from './notes/linker.js';
 import { buildNote } from './notes/note-builder.js';
 import { DEFAULT_RETRIEVE_LIMIT, type MemoryAgentOptions } from './options.js';
 import { NoteRepository } from './repository/note-repository.js';
-import type { CodeVerifier } from './verify/verifier.js';
+import type { CodeVerifier, VerificationOutcome } from './verify/verifier.js';
 
 export const SUMMARIES_DIR = 'memory/summaries';
 export const DECISION_LOG = 'logs/memory-decisions.jsonl';
@@ -29,7 +29,8 @@ export interface MemoryAgentUsage {
 /** One line of the decision log, written for every verification check. */
 export interface MemoryDecision {
   ts: string;
-  phase: 'consolidate' | 'retrieve';
+  /** 'verify' is a manual re-check, e.g. from `soa memory verify`. */
+  phase: 'consolidate' | 'retrieve' | 'verify';
   memory_id: string;
   repo: string;
   commit: string;
@@ -39,6 +40,19 @@ export interface MemoryDecision {
 }
 
 type Verification = RefinedMemory['verification'];
+
+/** Where a note handed to storeNote() comes from. */
+export interface NoteSource {
+  repo: string;
+  /** Commit the note is verified at. */
+  commit: string;
+  sourceTaskId: string;
+}
+
+export interface ReverifyResult {
+  memory: RefinedMemory;
+  outcome: VerificationOutcome;
+}
 
 const PLACEHOLDER_DIMENSION = 0.5;
 
@@ -80,7 +94,7 @@ export class MemoryAgent implements MemoryService {
     if (this.verifier) {
       usable = [];
       for (const memory of candidates) {
-        const verification = await this.check(
+        const { verification } = await this.check(
           'retrieve',
           memory.memory_id,
           memory.note,
@@ -126,13 +140,22 @@ export class MemoryAgent implements MemoryService {
     this.usage.tokensIn += built.tokensIn;
     this.usage.tokensOut += built.tokensOut;
 
+    return this.storeNote(built.note, {
+      repo: summary.repo,
+      commit: summary.baseCommit,
+      sourceTaskId: summary.taskId,
+    });
+  }
+
+  /** Links, verifies (if a verifier is set) and stores an already-built note. */
+  async storeNote(note: MemoryNote, source: NoteSource): Promise<RefinedMemory> {
     // The linker skips other repos and pruned notes itself.
     const existing = await this.repository.list({ includePruned: true });
-    const links = findLinks(built.note, summary.repo, existing);
+    const links = findLinks(note, source.repo, existing);
 
     const memoryId = generateMemoryId();
     const verification: Verification = this.verifier
-      ? await this.check('consolidate', memoryId, built.note, summary.repo, summary.baseCommit)
+      ? (await this.check('consolidate', memoryId, note, source.repo, source.commit)).verification
       : {
           status: 'unverifiable',
           checked_at: new Date().toISOString(),
@@ -151,10 +174,10 @@ export class MemoryAgent implements MemoryService {
     const memory: RefinedMemory = {
       schema_version: REFINED_MEMORY_SCHEMA_VERSION,
       memory_id: memoryId,
-      repo: summary.repo,
-      source_task_id: summary.taskId,
-      verified_at_commit: summary.baseCommit,
-      note: built.note,
+      repo: source.repo,
+      source_task_id: source.sourceTaskId,
+      verified_at_commit: source.commit,
+      note,
       links,
       verification,
       score: { ...dims, total: computeTotalScore(dims) },
@@ -167,6 +190,32 @@ export class MemoryAgent implements MemoryService {
     return memory;
   }
 
+  /**
+   * Re-checks a stored note at `commit`, saves the new verification and logs the decision.
+   * Returns null when the note does not exist. Throws if no verifier is configured.
+   */
+  async reverify(memoryId: string, commit: string): Promise<ReverifyResult | null> {
+    if (!this.verifier) {
+      throw new Error('Cannot reverify: no code verifier configured.');
+    }
+    const memory = await this.repository.get(memoryId);
+    if (!memory) {
+      return null;
+    }
+    const { verification, outcome } = await this.check(
+      'verify',
+      memoryId,
+      memory.note,
+      memory.repo,
+      commit,
+    );
+    const updated = await this.repository.update(memoryId, {
+      verification,
+      ...(verification.status === 'verified' ? { verified_at_commit: commit } : {}),
+    });
+    return { memory: updated, outcome };
+  }
+
   /** Verifies a note at `commit` and appends the decision to the log. */
   private async check(
     phase: MemoryDecision['phase'],
@@ -174,7 +223,7 @@ export class MemoryAgent implements MemoryService {
     note: MemoryNote,
     repo: string,
     commit: string,
-  ): Promise<Verification> {
+  ): Promise<{ verification: Verification; outcome: VerificationOutcome }> {
     const outcome = await this.verifier!.verify(note, repo, commit);
     const ts = new Date().toISOString();
     const decision: MemoryDecision = {
@@ -188,6 +237,9 @@ export class MemoryAgent implements MemoryService {
       durationMs: outcome.durationMs,
     };
     await this.store.append(DECISION_LOG, decision);
-    return { status: outcome.status, checked_at: ts, details: outcome.details };
+    return {
+      verification: { status: outcome.status, checked_at: ts, details: outcome.details },
+      outcome,
+    };
   }
 }

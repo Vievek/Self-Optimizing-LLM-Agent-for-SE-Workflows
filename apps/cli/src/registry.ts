@@ -6,7 +6,7 @@ import {
   CONFIG_SCHEMA_VERSION,
 } from '@soa/contracts';
 import { TaskLoader } from '@soa/eval-harness';
-import { MockExecCore, MockHeae, MockMemoryAgent } from '@soa/mocks';
+import { MockExecCore, MockHeae } from '@soa/mocks';
 import { renderRecordTable } from './components/record-table.js';
 import { renderStageProgress, StageItem } from './components/stage-progress.js';
 import {
@@ -14,6 +14,7 @@ import {
   ContractCheckResult,
 } from './components/contract-check-panel.js';
 import { runOrchCommand } from './commands/orch/index.js';
+import { runMemoryCommand } from './commands/memory/index.js';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
@@ -139,24 +140,8 @@ export class CommandRegistry {
       return renderRecordTable(headers, rows, `HEAE Failure Attribution: ${taskId}`);
     });
 
-    // 4. soa memory - Run Memory Agent view
-    this.register('memory', async (args) => {
-      const query = args.join(' ') || 'regex trailing newline';
-      const mem = new MockMemoryAgent();
-      const notes = await mem.retrieve(query, 'django/django', 'fb8b75e7a9b8f2d');
-
-      const headers = ['Memory ID', 'Task', 'Files', 'Action', 'Score', 'Lifecycle'];
-      const rows = notes.map((n) => [
-        n.memory_id.slice(0, 12) + '...',
-        n.note.task.slice(0, 30) + '...',
-        n.note.files.join(', '),
-        n.action,
-        n.score.total,
-        n.lifecycle,
-      ]);
-
-      return renderRecordTable(headers, rows, `Memory Agent Retrieval (Query: "${query}")`);
-    });
+    // 4. soa memory - Memory Agent TUI: soa memory <sub> [args]
+    this.register('memory', async (args) => runMemoryCommand(args));
 
     // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
     this.register('orch', async (args) => {
@@ -201,7 +186,7 @@ Available Components:
   soa check          Check status and schema compliance of all shared contracts
   soa exec [taskId]  Run execution trace and view stage progress & span tables
   soa heae [taskId]  Run HEAE failure attribution and view diagnostic signals
-  soa memory [query] Query long-term memory notes and view reflection scores
+  soa memory <sub>   Memory notes: seed, list, show, verify, check, stale-eval
   soa orch           View runtime configuration axes and optimization history
   soa bench          Inspect SWE-bench Lite subset partitioning and task counts
 `;
