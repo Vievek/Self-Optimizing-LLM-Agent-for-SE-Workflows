@@ -42,6 +42,7 @@ export interface ExecuteSubtaskParams {
   parentSpanId?: string | null;
   historyManager?: ConversationHistoryManager;
   systemPrompt?: string;
+  previousContext?: string;
 }
 
 export interface ExecuteSubtaskResult {

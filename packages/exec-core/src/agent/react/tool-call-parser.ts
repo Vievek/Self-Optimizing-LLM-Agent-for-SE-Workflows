@@ -2,13 +2,128 @@ import { ToolCallRequest } from '../types.js';
 import { ParsedReActStep } from './types.js';
 
 /**
+ * Escapes unescaped raw newlines and tabs occurring inside double-quoted JSON strings.
+ */
+export function fixRawNewlinesInJson(str: string): string {
+  let inString = false;
+  let escaped = false;
+  let out = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (escaped) {
+      escaped = false;
+      out += ch;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escaped = true;
+      out += ch;
+    } else if (ch === '"') {
+      inString = !inString;
+      out += ch;
+    } else if (inString && (ch === '\n' || ch === '\r')) {
+      out += ch === '\n' ? '\\n' : '';
+    } else if (inString && ch === '\t') {
+      out += '\\t';
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+/**
+ * Recovers truncated JSON payloads frequently produced when models hit output token limits:
+ * - Extracts fully completed files from a truncated "files": [ ... ] array
+ * - Extracts completed paths from a truncated "paths": [ ... ] array
+ * - Closes truncated single-object payloads if feasible
+ */
+export function repairTruncatedJson(raw: string): Record<string, unknown> | null {
+  // 1. Repair truncated "files": [...] array
+  const filesIdx = raw.indexOf('"files"');
+  if (filesIdx !== -1) {
+    const bracketIdx = raw.indexOf('[', filesIdx);
+    if (bracketIdx !== -1) {
+      const afterBracket = raw.substring(bracketIdx + 1);
+      let lastCloseBrace = afterBracket.lastIndexOf('}');
+      while (lastCloseBrace !== -1) {
+        const validSlice = afterBracket.substring(0, lastCloseBrace + 1);
+        const reconstructed = `{"files": [${validSlice}]}`;
+        try {
+          const sanitized = sanitizeJsonString(reconstructed);
+          const parsed = JSON.parse(sanitized);
+          if (Array.isArray(parsed.files) && parsed.files.length > 0) {
+            return { files: parsed.files, truncated: true };
+          }
+        } catch {
+          // Keep searching backwards for previous valid file item
+        }
+        lastCloseBrace = afterBracket.lastIndexOf('}', lastCloseBrace - 1);
+      }
+    }
+  }
+
+  // 2. Repair truncated "paths": [...] array
+  const pathsIdx = raw.indexOf('"paths"');
+  if (pathsIdx !== -1) {
+    const bracketIdx = raw.indexOf('[', pathsIdx);
+    if (bracketIdx !== -1) {
+      const afterBracket = raw.substring(bracketIdx + 1);
+      let lastQuote = afterBracket.lastIndexOf('"');
+      while (lastQuote !== -1) {
+        const validSlice = afterBracket.substring(0, lastQuote + 1);
+        const reconstructed = `{"paths": [${validSlice}]}`;
+        try {
+          const sanitized = sanitizeJsonString(reconstructed);
+          const parsed = JSON.parse(sanitized);
+          if (Array.isArray(parsed.paths) && parsed.paths.length > 0) {
+            return { paths: parsed.paths, truncated: true };
+          }
+        } catch {
+          // Search backwards
+        }
+        lastQuote = afterBracket.lastIndexOf('"', lastQuote - 1);
+      }
+    }
+  }
+
+  // 3. Repair unclosed single JSON object (e.g. missing trailing quotes or braces)
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{')) {
+    const variations = [
+      trimmed + '"}',
+      trimmed + '"} }',
+      trimmed + '}',
+      trimmed + '"]}',
+      trimmed + '"] }',
+    ];
+    for (const v of variations) {
+      try {
+        const sanitized = sanitizeJsonString(v);
+        const parsed = JSON.parse(sanitized);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          return { ...(parsed as Record<string, unknown>), truncated: true };
+        }
+      } catch {
+        // Continue
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Sanitizes slightly malformed JSON strings frequently produced by SLMs/LLMs:
+ * - Unescaped raw newlines/tabs inside strings
  * - Trailing commas before closing braces/brackets
  * - Single-quoted strings or object keys
- * - Unescaped raw newlines in JSON values
  */
 export function sanitizeJsonString(raw: string): string {
   let cleaned = raw.trim();
+
+  // Escape unescaped newlines/tabs inside double-quoted string literals
+  cleaned = fixRawNewlinesInJson(cleaned);
 
   // Remove trailing commas before } or ]
   cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
@@ -20,6 +135,50 @@ export function sanitizeJsonString(raw: string): string {
   });
 
   return cleaned;
+}
+
+const KNOWN_TOOLS = [
+  'read_file',
+  'write_file',
+  'edit_file',
+  'run_command',
+  'list_directory',
+  'grep_search',
+  'retrieve_context',
+  'run_tests',
+];
+
+export function resolveToolName(candidate: string): string {
+  const lower = candidate.toLowerCase().trim();
+  if (lower.startsWith('<') || lower.includes('tool_call')) {
+    return '';
+  }
+
+  // Direct match
+  const exact = KNOWN_TOOLS.find((t) => t === lower);
+  if (exact) return exact;
+
+  // Contains known tool name
+  const contained = KNOWN_TOOLS.find((t) => lower.includes(t));
+  if (contained) return contained;
+
+  // Verb heuristics
+  if (lower.startsWith('read') || lower.includes('read file')) return 'read_file';
+  if (lower.startsWith('write') || lower.includes('write file')) return 'write_file';
+  if (lower.startsWith('edit') || lower.includes('edit file')) return 'edit_file';
+  if (lower.startsWith('list') || lower.includes('directory') || lower.includes('dir'))
+    return 'list_directory';
+  if (lower.startsWith('grep') || lower.includes('search')) return 'grep_search';
+  if (lower.startsWith('test') || lower.includes('run test')) return 'run_tests';
+  if (
+    lower.startsWith('run') ||
+    lower.startsWith('call') ||
+    lower.startsWith('exec') ||
+    lower.startsWith('cmd')
+  )
+    return 'run_command';
+
+  return candidate;
 }
 
 /**
@@ -40,6 +199,13 @@ function mapStringArgsToTool(toolName: string, input: string): Record<string, un
     case 'run_tests':
       return { test_ids: [input] };
     case 'write_file':
+      if (input.trim().startsWith('{') || input.includes('"files"') || input.includes('"path"')) {
+        return {
+          error:
+            'Invalid or truncated JSON syntax in Action Input for write_file. Please provide valid JSON with "path" and "content", or "files: Array<{path, content}>".',
+          rawInput: input,
+        };
+      }
       return { path: input, content: '' };
     default:
       return { input };
@@ -65,63 +231,161 @@ export class ToolCallParser {
     const detectedCalls: ToolCallRequest[] = [];
 
     // 1. Extract explicit Thought if present
-    const thoughtMatch = /Thought:\s*([\s\S]*?)(?=(?:Action:|Final Answer:|```|$))/i.exec(trimmed);
+    const thoughtMatch =
+      /(?:\*{1,2}|#+\s*)?Thought(?:\*{1,2})?:\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Action|Final\s*Answer)(?:\*{1,2})?:|```|$))/i.exec(
+        trimmed,
+      );
     if (thoughtMatch?.[1]) {
       thought = thoughtMatch[1].trim();
     }
 
     // 2. Extract Final Answer if present
-    const finalAnswerMatch = /Final\s*Answer:\s*([\s\S]*)$/i.exec(trimmed);
+    const finalAnswerMatch = /(?:\*{1,2}|#+\s*)?Final\s*Answer(?:\*{1,2})?:\s*([\s\S]*)$/i.exec(trimmed);
     if (finalAnswerMatch?.[1]) {
       finalAnswer = finalAnswerMatch[1].trim();
     }
 
     // 3. Extract ReAct Action & Action Input
-    const actionMatch = /Action:\s*([a-zA-Z0-9_.-]+)/i.exec(trimmed);
+    const actionMatch = /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?:[^\S\r\n]*([^\r\n]+)/i.exec(trimmed);
     if (actionMatch?.[1]) {
-      const toolName = actionMatch[1].trim();
-      const inputMatch =
-        /Action\s*Input:\s*([\s\S]*?)(?=(?:\n\s*(?:Observation:|Thought:|Action:|Final\s*Answer:)|$))/i.exec(
-          trimmed,
-        );
+      const rawAction = actionMatch[1].trim();
+      const toolName = resolveToolName(rawAction);
+      if (toolName && !toolName.startsWith('<')) {
+        const inputMatch =
+          /(?:\*{1,2}|#+\s*)?Action\s*Input(?:\*{1,2})?:\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2})?(?:Observation|Thought|Action|Final\s*Answer):?|$))/i.exec(
+            trimmed,
+          );
 
-      let args: Record<string, unknown> = {};
+        let args: Record<string, unknown> = {};
 
-      if (inputMatch?.[1]) {
-        let rawInput = inputMatch[1].trim();
+        if (inputMatch?.[1]) {
+          let rawInput = inputMatch[1].trim();
 
-        // Strip surrounding markdown code block if present inside Action Input
-        const mdBlockMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(rawInput);
-        if (mdBlockMatch?.[1]) {
-          rawInput = mdBlockMatch[1].trim();
-        }
-
-        // Try direct JSON parse
-        try {
-          const parsed = JSON.parse(rawInput);
-          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            args = parsed as Record<string, unknown>;
-          } else if (typeof parsed === 'string') {
-            args = mapStringArgsToTool(toolName, parsed);
+          // Strip surrounding markdown code block if present inside Action Input
+          const mdBlockMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(rawInput);
+          if (mdBlockMatch?.[1]) {
+            rawInput = mdBlockMatch[1].trim();
           }
-        } catch {
-          // Try sanitized JSON parse
+
+          // Try direct JSON parse
           try {
-            const sanitized = sanitizeJsonString(rawInput);
-            const parsed = JSON.parse(sanitized);
+            const parsed = JSON.parse(rawInput);
             if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
               args = parsed as Record<string, unknown>;
             } else if (typeof parsed === 'string') {
               args = mapStringArgsToTool(toolName, parsed);
             }
           } catch {
-            // Fallback: raw string argument mapping
-            args = mapStringArgsToTool(toolName, rawInput);
+            // Try sanitized JSON parse
+            try {
+              const sanitized = sanitizeJsonString(rawInput);
+              const parsed = JSON.parse(sanitized);
+              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                args = parsed as Record<string, unknown>;
+              } else if (typeof parsed === 'string') {
+                args = mapStringArgsToTool(toolName, parsed);
+              }
+            } catch {
+              // Try repairing truncated JSON array or object
+              const repaired = repairTruncatedJson(rawInput);
+              if (repaired) {
+                args = repaired;
+              } else {
+                // Fallback: raw string argument mapping
+                args = mapStringArgsToTool(toolName, rawInput);
+              }
+            }
+          }
+        } else {
+          // No explicit Action Input block, check if rawAction has argument clues or defaults
+          if (toolName === 'list_directory') {
+            args = { path: rawAction.includes('.') ? '.' : '.' };
           }
         }
-      }
 
-      detectedCalls.push({ toolName, args });
+        detectedCalls.push({ toolName, args });
+      }
+    }
+
+    // 3.5. Extract Qwen-style XML tool calls: <tool_call> ... </tool_call>
+    if (detectedCalls.length === 0 && trimmed.includes('<tool_call>')) {
+      const toolCallRegex = /<tool_call>([\s\S]*?)(?:<\/tool_call>|$)/gi;
+      let tcMatch: RegExpExecArray | null;
+      while ((tcMatch = toolCallRegex.exec(trimmed)) !== null) {
+        const inner = tcMatch[1]?.trim();
+        if (!inner) continue;
+
+        // 3.5.1 Check if inner content is JSON: {"name": "...", "arguments": {...}}
+        if (inner.startsWith('{') && inner.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(inner);
+            const calls = this.extractCallsFromJson(parsed);
+            if (calls.length > 0) {
+              detectedCalls.push(...calls);
+              continue;
+            }
+          } catch {
+            // Ignore
+          }
+        }
+
+        // 3.5.2 Extract tool name from XML tag or plain line
+        const fnMatch = /<(?:function=)?([a-zA-Z0-9_.-]+)>/i.exec(inner);
+        const plainNameMatch = /^([a-zA-Z0-9_.-]+)/i.exec(inner);
+        const rawToolName = fnMatch?.[1] ?? plainNameMatch?.[1];
+
+        if (rawToolName) {
+          const toolName = resolveToolName(rawToolName);
+          let args: Record<string, unknown> = {};
+
+          // Check for JSON block in inner: {...}
+          const jsonMatch = /\{[\s\S]*?\}/.exec(inner);
+          if (jsonMatch?.[0]) {
+            try {
+              const parsed = JSON.parse(sanitizeJsonString(jsonMatch[0]));
+              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                args = parsed as Record<string, unknown>;
+              }
+            } catch {
+              // Ignore
+            }
+          }
+
+          // Check for <parameter=key>value</parameter>
+          const paramRegex = /<parameter=([a-zA-Z0-9_.-]+)>([\s\S]*?)<\/parameter>/gi;
+          let pMatch: RegExpExecArray | null;
+          while ((pMatch = paramRegex.exec(inner)) !== null) {
+            const pName = pMatch[1]?.trim();
+            const pVal = pMatch[2]?.trim();
+            if (pName && pVal !== undefined) {
+              if (
+                pName === 'content' ||
+                pName === 'cmd' ||
+                pName === 'command' ||
+                pName === 'path' ||
+                pName === 'paths' ||
+                pName === 'query' ||
+                pName === 'old_str' ||
+                pName === 'new_str'
+              ) {
+                args[pName] = pVal;
+              } else {
+                try {
+                  args[pName] = JSON.parse(pVal);
+                } catch {
+                  args[pName] = pVal;
+                }
+              }
+            }
+          }
+
+          if (Object.keys(args).length === 0 && toolName === 'list_directory') {
+            args = { path: '.' };
+          }
+
+          detectedCalls.push({ toolName, args });
+        }
+      }
     }
 
     // 4. If no ReAct action was found, inspect for Markdown JSON blocks or JSON objects
@@ -186,7 +450,7 @@ export class ToolCallParser {
 
     // If no explicit thought and no tool call, entire text serves as final answer or thought
     if (!thought && hasToolCall) {
-      const beforeAction = trimmed.split(/Action:/i)[0]?.trim();
+      const beforeAction = trimmed.split(/(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?:/i)[0]?.trim();
       if (beforeAction && !beforeAction.toLowerCase().startsWith('thought:')) {
         thought = beforeAction;
       }

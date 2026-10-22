@@ -190,4 +190,70 @@ Final Answer: File non_existent_file.xyz does not exist.`,
     expect(result.turns).toBe(2);
     expect(result.finalAnswer).toContain('does not exist');
   });
+
+  it('executes multiple tool calls in a single turn and aggregates observations', async () => {
+    let callCount = 0;
+    const llmCaller: ReActLlmCaller = async (messages) => {
+      callCount += 1;
+      if (callCount === 1) {
+        // Model requests two tool calls simultaneously using XML syntax
+        return {
+          content: `Thought: I will list the directory and read a file together.
+<tool_call>
+<list_directory>
+<parameter=path>
+.
+</parameter>
+</function>
+</tool_call>
+<tool_call>
+<write_file>
+<parameter=path>
+test_batch.txt
+</parameter>
+<parameter=content>
+batch hello
+</parameter>
+</function>
+</tool_call>`,
+          tokensIn: 300,
+          tokensOut: 60,
+        };
+      } else {
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg?.content).toContain('Multi-Tool Results');
+        expect(lastMsg?.content).toContain('list_directory');
+        expect(lastMsg?.content).toContain('write_file');
+
+        return {
+          content: `Thought: Both actions completed in one turn.
+Final Answer: Multi-tool batch execution verified successfully.`,
+          tokensIn: 500,
+          tokensOut: 30,
+        };
+      }
+    };
+
+    const result = await agent.executeSubtask({
+      task: sampleTask,
+      subtask: sampleSubtask,
+      context,
+      llmCaller,
+      tier: 'slm',
+      maxTurns: 5,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.turns).toBe(2);
+    expect(result.toolCallsExecuted).toBe(2);
+    expect(result.finalAnswer).toContain('Multi-tool batch execution verified');
+
+    // Verify 2 tool_call spans were recorded, both valid
+    const toolSpans = result.spans.filter((s) => s.name === 'tool_call');
+    expect(toolSpans).toHaveLength(2);
+    for (const tSpan of toolSpans) {
+      expect(TraceSpanSchema.safeParse(tSpan).success).toBe(true);
+      expect(ToolCallSpanAttributesSchema.safeParse(tSpan.attributes).success).toBe(true);
+    }
+  });
 });

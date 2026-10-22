@@ -105,6 +105,41 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     );
     expect(readRespSlice.result.status).toBe('ok');
     expect(readRespSlice.result.output).toBe('2 | line 2\n3 | line 3');
+
+    // 4. read_file in batch mode across multiple files
+    await executor.execute(
+      { toolName: 'write_file', args: { path: 'src/file2.txt', content: 'alpha\nbeta' } },
+      context,
+    );
+    const batchResp = await executor.execute(
+      {
+        toolName: 'read_file',
+        args: { paths: ['src/example.txt', 'src/file2.txt'] },
+      },
+      context,
+    );
+    expect(batchResp.result.status).toBe('ok');
+    expect(batchResp.result.output).toContain('=== File: src/example.txt');
+    expect(batchResp.result.output).toContain('=== File: src/file2.txt');
+    expect(batchResp.result.output).toContain('alpha');
+
+    // 5. write_file in batch mode across multiple files
+    const batchWriteResp = await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          files: [
+            { path: 'batch_dir/b1.js', content: 'console.log("b1");' },
+            { path: 'batch_dir/b2.js', content: 'console.log("b2");' },
+          ],
+        },
+      },
+      context,
+    );
+    expect(batchWriteResp.result.status).toBe('ok');
+    expect(batchWriteResp.result.output).toContain('Successfully wrote 2 files');
+    expect(batchWriteResp.result.output).toContain('batch_dir/b1.js');
+    expect(batchWriteResp.result.output).toContain('batch_dir/b2.js');
   });
 
   it('executes edit_file with precision matching', async () => {

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { ToolCallParser, sanitizeJsonString } from './tool-call-parser.js';
+import {
+  ToolCallParser,
+  sanitizeJsonString,
+  fixRawNewlinesInJson,
+  repairTruncatedJson,
+} from './tool-call-parser.js';
 
 describe('ToolCallParser', () => {
   describe('ReAct Syntax Parsing', () => {
@@ -15,6 +20,19 @@ Action Input: {"query": "handleError", "path": "src"}`;
       expect(result.toolCall).toBeDefined();
       expect(result.toolCall?.toolName).toBe('grep_search');
       expect(result.toolCall?.args).toEqual({ query: 'handleError', path: 'src' });
+    });
+
+    it('parses ReAct syntax with markdown bolded keywords (**Action**, **Thought**)', () => {
+      const output = `**Thought**: Let's check what files exist in the workspace.
+**Action**: list_directory
+**Action Input**: {"path": "."}`;
+
+      const result = ToolCallParser.parse(output);
+
+      expect(result.isFinal).toBe(false);
+      expect(result.thought).toBe("Let's check what files exist in the workspace.");
+      expect(result.toolCall?.toolName).toBe('list_directory');
+      expect(result.toolCall?.args).toEqual({ path: '.' });
     });
 
     it('parses ReAct with Markdown JSON block inside Action Input', () => {
@@ -160,6 +178,114 @@ Final Answer: Fixed the regex pattern in auth.ts to properly validate email addr
         path: 'src/main.ts',
         limit: 20,
       });
+    });
+  });
+
+  describe('XML Tool Call Parsing', () => {
+    it('parses Qwen-style <tool_call><list_directory><parameter=path>.</parameter></tool_call>', () => {
+      const output = `I'll start by exploring the current state of the workspace.
+
+<tool_call>
+<list_directory>
+<parameter=path>
+.
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = ToolCallParser.parse(output);
+      expect(result.isFinal).toBe(false);
+      expect(result.toolCall?.toolName).toBe('list_directory');
+      expect(result.toolCall?.args).toEqual({ path: '.' });
+    });
+
+    it('parses Qwen-style <tool_call><function=write_file> with multiple parameters', () => {
+      const output = `Creating server entry.
+<tool_call>
+<function=write_file>
+<parameter=path>
+server/src/index.js
+</parameter>
+<parameter=content>
+console.log("hello");
+</parameter>
+</function>
+</tool_call>`;
+
+      const result = ToolCallParser.parse(output);
+      expect(result.isFinal).toBe(false);
+      expect(result.toolCall?.toolName).toBe('write_file');
+      expect(result.toolCall?.args).toEqual({
+        path: 'server/src/index.js',
+        content: 'console.log("hello");',
+      });
+    });
+
+    it('does not parse <tool_call> as tool name when Action is followed by newlines and XML', () => {
+      const output = `Thought: Let me explore.
+Action:
+
+<tool_call>
+<function=list_directory>
+</function>
+</tool_call>`;
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCall?.toolName).toBe('list_directory');
+      expect(parsed.toolCall?.args).toEqual({ path: '.' });
+    });
+  });
+
+  describe('Batch Payload Recovery and Raw Newline Handling', () => {
+    it('escapes raw unescaped newlines inside JSON string literals', () => {
+      const badJson = '{"path": "test.txt", "content": "line1\nline2"}';
+      const fixed = fixRawNewlinesInJson(badJson);
+      expect(JSON.parse(fixed)).toEqual({
+        path: 'test.txt',
+        content: 'line1\nline2',
+      });
+    });
+
+    it('recovers completed files from a truncated batch write payload', () => {
+      const truncated = `{
+  "files": [
+    { "path": "client/src/f1.js", "content": "console.log(1);" },
+    { "path": "client/src/f2.js", "content": "console.log(2);" },
+    { "path": "client/src/f3.js", "content": "console.log(3`;
+
+      const recovered = repairTruncatedJson(truncated);
+      expect(recovered).not.toBeNull();
+      expect(recovered?.truncated).toBe(true);
+      expect(recovered?.files).toEqual([
+        { path: 'client/src/f1.js', content: 'console.log(1);' },
+        { path: 'client/src/f2.js', content: 'console.log(2);' },
+      ]);
+    });
+
+    it('parses ReAct Action Input with truncated batch write and returns completed files', () => {
+      const output = `Thought: Writing files in batch.
+Action: write_file
+Action Input: {
+  "files": [
+    { "path": "button.jsx", "content": "export const Button = () => null;" },
+    { "path": "input.jsx", "content": "export const Input = () => null;" },
+    { "path": "card.jsx", "content": "export const Card = () => {
+`;
+
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCall?.toolName).toBe('write_file');
+      expect(parsed.toolCall?.args.files).toHaveLength(2);
+      expect(parsed.toolCall?.args.truncated).toBe(true);
+    });
+
+    it('rejects treating malformed JSON as raw file path in write_file fallback', () => {
+      const output = `Thought: Attempting to write.
+Action: write_file
+Action Input: { "files": [ { invalid_syntax `;
+
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCall?.toolName).toBe('write_file');
+      expect(parsed.toolCall?.args.path).toBeUndefined();
+      expect(parsed.toolCall?.args.error).toBeDefined();
     });
   });
 });

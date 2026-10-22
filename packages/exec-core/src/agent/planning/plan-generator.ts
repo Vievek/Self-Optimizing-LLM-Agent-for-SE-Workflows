@@ -44,6 +44,86 @@ export class PlanGenerator {
     const extractedFiles = this.extractTargetFiles(task.problemStatement);
     const subtasks: SubTask[] = [];
 
+    const isCreationTask = /^(create|build|setup|implement|generate|initialize|scaffold|add|make)\b/i.test(
+      task.problemStatement.trim(),
+    );
+
+    if (isCreationTask) {
+      // Step 0: Exploration — quick layout check
+      const step0Type: SubtaskType = 'explore';
+      const retrievalFeatures: SubtaskRoutingFeatures = {
+        step_type: step0Type,
+        estimated_tokens: 600,
+        file_count: Math.max(1, extractedFiles.length),
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 2,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_step_0_explore`,
+        stepIndex: 0,
+        type: step0Type,
+        goal: `Inspect workspace layout with list_directory to see existing structure and identify missing files. Complete within 1-2 tool calls.`,
+        targetFiles: extractedFiles,
+        estimatedTokens: retrievalFeatures.estimated_tokens,
+        status: 'pending',
+        retryCount: 0,
+        features: retrievalFeatures,
+      });
+
+      // Step 1: Implementation & Scaffolding — write all required files
+      const step1Type: SubtaskType = 'edit_multi_file';
+      const editFeatures: SubtaskRoutingFeatures = {
+        step_type: step1Type,
+        estimated_tokens: 2500,
+        file_count: Math.max(1, extractedFiles.length),
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 5,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_step_1_scaffold`,
+        stepIndex: 1,
+        type: step1Type,
+        goal: `Scaffold and write all missing project files (configs, source code, components, .env.example) using write_file. Do NOT re-explore files already checked.`,
+        targetFiles: extractedFiles,
+        estimatedTokens: editFeatures.estimated_tokens,
+        status: 'pending',
+        retryCount: 0,
+        features: editFeatures,
+      });
+
+      // Step 2: Verification — ensure requirements are satisfied
+      if (this.config.verify_after_edit) {
+        const step2Type: SubtaskType = 'plan';
+        const verifyFeatures: SubtaskRoutingFeatures = {
+          step_type: step2Type,
+          estimated_tokens: 900,
+          file_count: Math.max(1, extractedFiles.length),
+          prior_failures: 0,
+          requires_cross_file_reasoning: false,
+          symbol_count: 2,
+        };
+
+        subtasks.push({
+          id: `${task.taskId}_step_2_verify`,
+          stepIndex: 2,
+          type: step2Type,
+          goal: `Inspect created workspace files and verify that all requested features and components are complete.`,
+          targetFiles: extractedFiles,
+          estimatedTokens: verifyFeatures.estimated_tokens,
+          status: 'pending',
+          retryCount: 0,
+          features: verifyFeatures,
+        });
+      }
+
+      return subtasks;
+    }
+
+    // Bug-fixing / SWE-bench workflow: Step 0 (explore) -> Step 1 (localize) -> Step 2 (edit) -> Step 3 (test) -> Step 4 (verify)
     // Step 0: Exploration & Context Retrieval
     const step0Type: SubtaskType = 'explore';
     const retrievalFeatures: SubtaskRoutingFeatures = {

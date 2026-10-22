@@ -36,11 +36,15 @@ When you have completely finished the subtask goal:
 ${toolManual}
 
 ## Critical Operational Rules
-1. Never guess file contents or function signatures. Always use \`read_file\`, \`retrieve_context\`, or \`grep_search\` first.
-2. When editing code with \`edit_file\`, provide exact existing lines as \`old_str\` so the replacement is surgical and unique.
-3. If an edit fails or tests fail, analyze the error output in the next turn and adjust your approach.
-4. Keep actions focused strictly on the active subtask goal.
-${this.customGuidelines.map((g) => `5. ${g}`).join('\n')}`;
+1. For existing codebases, never guess file contents or function signatures. Use \`retrieve_context\` (AST search) or \`read_file\` to inspect relevant code.
+2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`.
+3. You can write multiple files at once in a single turn using \`write_file\` with \`{ "files": [{ "path": "...", "content": "..." }, { "path": "...", "content": "..." }] }\`. IMPORTANT: Limit each batch to 2 to 3 files to stay within output token limits and prevent truncation. Do not attempt to write more than 3 files in a single turn.
+4. When reading multiple files at once, use \`read_file\` with \`{ "paths": ["file1", "file2"] }\`.
+5. Always provide \`Action Input:\` with valid JSON arguments whenever you specify an \`Action:\`. Example:
+   **Action**: list_directory
+   **Action Input**: { "path": "." }
+6. Complete exploration efficiently (within 1-2 tool calls). Conclude promptly with **Thought** and **Final Answer**.
+${this.customGuidelines.map((g, idx) => `${7 + idx}. ${g}`).join('\n')}`;
   }
 
   /**

@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:contract": "vitest run --dir packages/contracts",
     "build": "pnpm -r build",
+    "run-agent": "node --env-file=.env scripts/run-agent.js",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {

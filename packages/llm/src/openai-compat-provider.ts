@@ -5,6 +5,7 @@ import { ModelTierConfig } from './models-config.js';
 export interface OpenAiCompatProviderOptions {
   baseUrl: string;
   defaultModel?: string;
+  defaultMaxTokens?: number;
   apiKey?: string;
   apiKeyEnv?: string;
   queue?: RequestQueue;
@@ -13,6 +14,7 @@ export interface OpenAiCompatProviderOptions {
 export class OpenAiCompatProvider implements LlmProvider {
   private readonly baseUrl: string;
   private readonly defaultModel?: string;
+  private readonly defaultMaxTokens?: number;
   private readonly apiKey?: string;
   private readonly apiKeyEnv?: string;
   private readonly queue: RequestQueue;
@@ -20,6 +22,7 @@ export class OpenAiCompatProvider implements LlmProvider {
   constructor(options: OpenAiCompatProviderOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.defaultModel = options.defaultModel;
+    this.defaultMaxTokens = options.defaultMaxTokens;
     this.apiKey = options.apiKey;
     this.apiKeyEnv = options.apiKeyEnv;
     this.queue = options.queue ?? new RequestQueue();
@@ -29,6 +32,7 @@ export class OpenAiCompatProvider implements LlmProvider {
     return new OpenAiCompatProvider({
       baseUrl: config.baseUrl,
       defaultModel: config.model,
+      defaultMaxTokens: config.maxTokens,
       apiKey: config.apiKey,
       apiKeyEnv: config.apiKeyEnv,
       queue,
@@ -61,7 +65,7 @@ export class OpenAiCompatProvider implements LlmProvider {
       model,
       messages: req.messages,
       temperature: req.temperature ?? 0,
-      ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
+      max_tokens: req.maxTokens ?? this.defaultMaxTokens ?? 1024,
     };
 
     return this.queue.enqueue(async () => {
@@ -80,12 +84,34 @@ export class OpenAiCompatProvider implements LlmProvider {
       }
 
       const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+        choices?: Array<{
+          message?: {
+            content?: string;
+            reasoning_content?: string;
+            thought?: string;
+          };
+          text?: string;
+        }>;
         usage?: { prompt_tokens?: number; completion_tokens?: number };
         model?: string;
       };
 
-      const content = data.choices?.[0]?.message?.content ?? '';
+      const choice = data.choices?.[0];
+      const message = choice?.message;
+      const rawContent = (message?.content ?? '').trim();
+      const reasoning = (message?.reasoning_content ?? message?.thought ?? '').trim();
+
+      let content = rawContent;
+      if (!content && reasoning) {
+        // If content is empty but model emitted reasoning/thinking tokens
+        content = reasoning;
+      } else if (!content && typeof choice?.text === 'string') {
+        content = choice.text.trim();
+      } else if (content && reasoning && !content.toLowerCase().includes('thought:')) {
+        // Prepend reasoning as thought for downstream ReAct parsers
+        content = `Thought: ${reasoning}\n\n${content}`;
+      }
+
       const tokensIn = data.usage?.prompt_tokens ?? 0;
       const tokensOut = data.usage?.completion_tokens ?? 0;
 

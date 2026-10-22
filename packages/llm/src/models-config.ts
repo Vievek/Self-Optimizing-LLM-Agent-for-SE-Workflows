@@ -7,6 +7,7 @@ export interface ModelTierConfig {
   model: string;
   apiKeyEnv?: string;
   apiKey?: string;
+  maxTokens?: number;
 }
 
 export interface ModelsConfig {
@@ -88,6 +89,7 @@ export function parseModelsYaml(content: string): ModelsConfig {
       model: raw['model'] || fallback.model,
       apiKeyEnv: raw['apiKeyEnv'] || fallback.apiKeyEnv,
       apiKey: raw['apiKey'] || fallback.apiKey,
+      maxTokens: raw['maxTokens'] ? parseInt(raw['maxTokens'], 10) : fallback.maxTokens,
     };
   };
 

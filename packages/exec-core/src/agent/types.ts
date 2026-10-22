@@ -122,6 +122,7 @@ export interface AgentRunnerOptions {
   reactLlmCaller?: ReActLlmCaller;
   providerRegistry?: ProviderRegistry;
   maxIterations?: number;
+  maxTurnsPerSubtask?: number;
   baseCommit?: string;
 }
 

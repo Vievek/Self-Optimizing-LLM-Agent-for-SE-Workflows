@@ -31,14 +31,16 @@ export function createReActLlmCaller(options: LlmBridgeOptions = {}): ReActLlmCa
     const canonicalTier = tier === 'slm' ? 'small' : 'large';
     const configuredModel = modelsConfig?.[canonicalTier]?.model;
     const model =
-      callOptions?.model ??
       configuredModel ??
+      callOptions?.model ??
       (tier === 'slm' ? 'qwen2.5-coder-7b-instruct' : 'qwen2.5-coder-32b-instruct');
 
+    const configuredMaxTokens = modelsConfig?.[canonicalTier]?.maxTokens;
     const chatResponse = await provider.chat({
       model,
       messages,
       temperature,
+      ...(configuredMaxTokens ? { maxTokens: configuredMaxTokens } : {}),
     });
 
     return {

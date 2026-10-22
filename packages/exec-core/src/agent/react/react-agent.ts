@@ -25,25 +25,39 @@ export class ReactAgent {
     const tier = params.tier ?? 'slm';
     const model =
       params.model ?? (tier === 'slm' ? 'qwen2.5-coder-7b-instruct' : 'qwen2.5-coder-32b-instruct');
-    const maxTurns = params.maxTurns ?? 6;
+    const maxTurns = params.maxTurns ?? 10;
     const traceId = params.traceId ?? crypto.randomBytes(16).toString('hex');
     const parentSpanId = params.parentSpanId ?? null;
 
     const spans: TraceSpan[] = [];
-    const historyManager = params.historyManager ?? new ConversationHistoryManager(tier);
+    const isGroq = Boolean(process.env.GROQ_API_KEY);
+    const historyManager =
+      params.historyManager ??
+      new ConversationHistoryManager(
+        tier,
+        isGroq
+          ? { maxTotalTokens: 5500, reservedOutputTokens: 1000 }
+          : tier === 'slm'
+            ? { maxTotalTokens: 5500 }
+            : undefined,
+      );
 
     // Initialize conversation history if new
     if (historyManager.getMessages().length === 0) {
       const promptBuilder = new PromptBuilder({
         customGuidelines: [
           'Think step-by-step before selecting an action.',
-          'Output exactly one Action and Action Input per step, or Final Answer when complete.',
+          'You may call multiple tools or batch actions in one turn if needed to gather context or make changes efficiently.',
           'Always verify files and test outcomes before concluding.',
         ],
       });
 
       const systemPrompt = params.systemPrompt ?? promptBuilder.buildSystemPrompt();
-      const userPrompt = promptBuilder.buildSubtaskPrompt(params.task, params.subtask);
+      const userPrompt = promptBuilder.buildSubtaskPrompt(
+        params.task,
+        params.subtask,
+        params.previousContext,
+      );
 
       historyManager.addMessage('system', systemPrompt);
       historyManager.addMessage('user', userPrompt);
@@ -110,51 +124,103 @@ export class ReactAgent {
         break;
       }
 
-      if (parsed.toolCall) {
-        const toolStartIso = new Date().toISOString();
-        const { result, spanAttributes } = await this.toolExecutor.execute(
-          parsed.toolCall,
-          params.context,
-        );
-        const toolEndIso = new Date().toISOString();
-        toolCallsExecuted += 1;
+      const callsToExecute =
+        parsed.toolCalls && parsed.toolCalls.length > 0
+          ? parsed.toolCalls
+          : parsed.toolCall
+            ? [parsed.toolCall]
+            : [];
 
-        // Record ToolCallSpan telemetry
-        const toolSpan = TraceSpanSchema.parse({
-          schema_version: SCHEMA_VERSION,
-          span_id: crypto.randomBytes(8).toString('hex'),
-          trace_id: traceId,
-          parent_span_id: parentSpanId,
-          name: 'tool_call',
-          start_ts: toolStartIso,
-          end_ts: toolEndIso,
-          status: spanAttributes.status,
-          attributes: spanAttributes,
-          links: [],
-        });
-        spans.push(toolSpan);
+      if (callsToExecute.length > 0) {
+        const observationSections: string[] = [];
 
-        if (parsed.toolCall.toolName === 'run_tests' && result.data) {
-          lastTestSummary = result.data as { passed?: number; failed?: number; errors?: number };
+        for (const call of callsToExecute) {
+          const toolStartIso = new Date().toISOString();
+          const { result, spanAttributes } = await this.toolExecutor.execute(
+            call,
+            params.context,
+          );
+          const toolEndIso = new Date().toISOString();
+          toolCallsExecuted += 1;
+          console.log(`🔧 [Tool: ${call.toolName}] -> ${result.status} (${result.latencyMs ?? 0}ms)`);
+
+          // Record ToolCallSpan telemetry
+          const toolSpan = TraceSpanSchema.parse({
+            schema_version: SCHEMA_VERSION,
+            span_id: crypto.randomBytes(8).toString('hex'),
+            trace_id: traceId,
+            parent_span_id: parentSpanId,
+            name: 'tool_call',
+            start_ts: toolStartIso,
+            end_ts: toolEndIso,
+            status: spanAttributes.status,
+            attributes: spanAttributes,
+            links: [],
+          });
+          spans.push(toolSpan);
+
+          if (call.toolName === 'run_tests' && result.data) {
+            lastTestSummary = result.data as { passed?: number; failed?: number; errors?: number };
+          }
+
+          const compactedObs = compactToolOutput(result.output, call.toolName);
+          if (callsToExecute.length === 1) {
+            observationSections.push(
+              result.status === 'ok'
+                ? `Observation: ${compactedObs}`
+                : `Observation (Tool Error): ${result.error ?? compactedObs}`,
+            );
+          } else {
+            const label = `${call.toolName}(${JSON.stringify(call.args)})`;
+            observationSections.push(
+              result.status === 'ok'
+                ? `--- [Result: ${label}] ---\n${compactedObs}`
+                : `--- [Error: ${label}] ---\n${result.error ?? compactedObs}`,
+            );
+          }
+
+          if (result.status === 'error') {
+            lastError = result.error ?? 'Tool execution failed';
+          }
         }
 
-        // 6. Compact tool observation and record in history
-        const compactedObs = compactToolOutput(result.output, parsed.toolCall.toolName);
-        const observationText =
-          result.status === 'ok'
-            ? `Observation: ${compactedObs}`
-            : `Observation (Tool Error): ${result.error ?? compactedObs}`;
+        const promptNote =
+          turn === maxTurns - 1
+            ? '\n\nCRITICAL: This is your final turn for this subtask. Do NOT call any more tools. Conclude immediately with **Thought** and **Final Answer**.'
+            : '';
 
-        historyManager.addMessage('user', observationText);
+        const fullObs =
+          callsToExecute.length === 1
+            ? `${observationSections[0]}${promptNote}`
+            : `Observation (Multi-Tool Results):\n${observationSections.join('\n\n')}${promptNote}`;
 
-        if (result.status === 'error') {
-          lastError = result.error ?? 'Tool execution failed';
-        }
+        historyManager.addMessage('user', fullObs);
       } else {
-        // No tool call and no explicit final answer - treat response as resolution
-        success = true;
-        finalAnswer = response.content;
-        break;
+        // No tool call detected
+        if (parsed.finalAnswer) {
+          success = true;
+          finalAnswer = parsed.finalAnswer;
+          break;
+        }
+
+        // Check if the model attempted an Action but got cut off or lacked valid tool name
+        const hasActionAttempt = /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?:/i.test(response.content);
+        if (hasActionAttempt) {
+          historyManager.addMessage(
+            'user',
+            'Observation (Invalid Action): An Action was indicated but no valid tool call was recognized. Available tools: read_file, write_file, edit_file, run_command, run_tests, retrieve_context, list_directory, grep_search. Please output Action: <tool_name> followed by Action Input: <json_args>, or state Final Answer if done.',
+          );
+        } else if (response.content.trim()) {
+          // If the model gave a pure conclusion without the literal words "Final Answer:"
+          success = true;
+          finalAnswer = response.content.trim();
+          break;
+        } else {
+          historyManager.addMessage(
+            'user',
+            'Please follow the ReAct format: state your Thought and select an Action (with Action Input) to proceed, or state Final Answer if done.',
+          );
+        }
       }
     }
 

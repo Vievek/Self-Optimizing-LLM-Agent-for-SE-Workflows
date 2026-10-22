@@ -7,29 +7,44 @@ export const TOOL_DEFINITIONS = {
   read_file: {
     name: 'read_file',
     description:
-      'Read the contents of a file in the workspace with optional line offset and limit.',
+      'Read file contents from workspace. Supports reading a single file via "path" or batch-reading multiple files via "paths: string[]".',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to the file in the workspace' },
+        path: { type: 'string', description: 'Relative path to a single file in the workspace' },
+        paths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of relative file paths to batch-read in a single call',
+        },
         offset: { type: 'number', description: '1-based line number to start reading from' },
         limit: { type: 'number', description: 'Maximum number of lines to read' },
       },
-      required: ['path'],
     },
     timeout_s: 30,
   },
   write_file: {
     name: 'write_file',
     description:
-      'Write complete content to a file in the workspace, creating parent directories if needed.',
+      'Write complete content to one or multiple files in workspace. Supports single file ("path" and "content") or batch writing ("files: Array<{ path, content }>").',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to the file to create or overwrite' },
+        path: { type: 'string', description: 'Relative path to a single file to create or overwrite' },
         content: { type: 'string', description: 'Full UTF-8 text content to write' },
+        files: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string', description: 'Relative file path' },
+              content: { type: 'string', description: 'Full UTF-8 text content' },
+            },
+            required: ['path', 'content'],
+          },
+          description: 'Array of files to batch write in one turn (recommended: 2-3 files per batch)',
+        },
       },
-      required: ['path', 'content'],
     },
     timeout_s: 30,
   },

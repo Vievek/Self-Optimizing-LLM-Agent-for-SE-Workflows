@@ -18,9 +18,9 @@ export class RequestQueue {
 
   constructor(options: RequestQueueOptions = {}) {
     this.maxConcurrency = options.maxConcurrency ?? 4;
-    this.maxRetries = options.maxRetries ?? 3;
+    this.maxRetries = options.maxRetries ?? 5;
     this.baseDelayMs = options.baseDelayMs ?? 200;
-    this.maxDelayMs = options.maxDelayMs ?? 3000;
+    this.maxDelayMs = options.maxDelayMs ?? 10000;
     this.retryPredicate =
       options.retryPredicate ??
       ((err: unknown) => {
@@ -28,7 +28,12 @@ export class RequestQueue {
         const msg = String(err);
         return (
           msg.includes('429') ||
+          msg.includes('413') ||
+          msg.includes('rate_limit') ||
           msg.includes('rate limit') ||
+          msg.includes('tokens') ||
+          msg.includes('ITPM') ||
+          msg.includes('OTPM') ||
           msg.includes('500') ||
           msg.includes('502') ||
           msg.includes('503') ||
@@ -84,10 +89,25 @@ export class RequestQueue {
         }
 
         // Exponential backoff with random jitter: base * 2^(attempt-1) + jitter
-        const delay = Math.min(
+        let delay = Math.min(
           this.baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 100,
           this.maxDelayMs,
         );
+
+        // If provider explicitly specified a retry delay (e.g. Groq "try again in 2.87s")
+        const msg = String(err);
+        const retryAfterMatch = msg.match(/try again in ([\d.]+)s/i);
+        if (retryAfterMatch?.[1]) {
+          const waitSec = parseFloat(retryAfterMatch[1]);
+          if (!isNaN(waitSec) && waitSec > 0) {
+            delay = Math.ceil(waitSec * 1000) + 500;
+          }
+        } else if (msg.includes('OTPM') || msg.includes('output tokens per minute')) {
+          delay = 10000;
+        } else if (msg.includes('ITPM') || msg.includes('input tokens per minute') || msg.includes('413')) {
+          delay = 15000;
+        }
+
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

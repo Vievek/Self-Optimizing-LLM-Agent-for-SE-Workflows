@@ -94,7 +94,12 @@ export class AgentRunner {
 
     // 2. Initialize Components
     const planGenerator = new PlanGenerator({ config: options.config?.planning });
-    const modelSelector = new ModelSelector({ config: options.config?.routing });
+    const activeModelsConfig = options.providerRegistry?.getConfig();
+    const modelSelector = new ModelSelector({
+      config: options.config?.routing,
+      slmModel: activeModelsConfig?.small?.model,
+      llmModel: activeModelsConfig?.large?.model,
+    });
     const toolExecutor = new ToolExecutor(
       this.registry,
       (options.config?.planning?.subtask_timeout_s ?? 60) * 1000,
@@ -112,6 +117,7 @@ export class AgentRunner {
     let iterations = 0;
     let lastTestPassed = 0;
     let lastTestFailed = 0;
+    const stepMemory: string[] = [];
 
     // 4. Main Subtask Execution Loop
     while (!planManager.isCompleted() && iterations < maxIterations) {
@@ -155,6 +161,12 @@ export class AgentRunner {
           llmCaller: reactCaller,
           traceId,
           parentSpanId: rootSpanId,
+          maxTurns:
+            options.maxTurnsPerSubtask ??
+            ((options.config?.planning as Record<string, unknown> | undefined)
+              ?.max_turns_per_subtask as number) ??
+            10,
+          previousContext: stepMemory.length > 0 ? stepMemory.join('\n') : undefined,
         });
 
         for (const span of subtaskResult.spans) {
@@ -163,6 +175,12 @@ export class AgentRunner {
 
         totalTokensIn += subtaskResult.totalTokensIn;
         totalTokensOut += subtaskResult.totalTokensOut;
+
+        if (subtaskResult.finalAnswer) {
+          stepMemory.push(
+            `• Step ${subtask.stepIndex + 1} (${subtask.type}): ${subtaskResult.finalAnswer.slice(0, 3000)}`,
+          );
+        }
 
         if (subtaskResult.testSummary?.passed !== undefined) {
           lastTestPassed = subtaskResult.testSummary.passed;
@@ -173,8 +191,21 @@ export class AgentRunner {
         }
 
         if (!subtaskResult.success) {
-          subtaskFailed = true;
-          failureError = subtaskResult.lastError ?? 'Subtask execution failed';
+          if (
+            (subtask.type === 'explore' || subtask.type === 'localize') &&
+            subtaskResult.toolCallsExecuted > 0
+          ) {
+            // Context retrieval succeeded: actions were executed and information was gathered.
+            // Carry the gathered context forward into stepMemory rather than failing the run.
+            subtaskFailed = false;
+            const fallbackSummary =
+              subtaskResult.finalAnswer ??
+              `Completed ${subtask.type} phase with ${subtaskResult.toolCallsExecuted} tool queries executed.`;
+            stepMemory.push(`• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`);
+          } else {
+            subtaskFailed = true;
+            failureError = subtaskResult.lastError ?? 'Subtask execution failed';
+          }
         }
       } else {
         totalTokensIn += subtask.estimatedTokens;
