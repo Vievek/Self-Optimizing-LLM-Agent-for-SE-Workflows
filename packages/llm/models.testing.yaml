@@ -1,0 +1,20 @@
+# Testing models configuration using Google Gemini API (OpenAI-compatible endpoint)
+# Single GEMINI_API_KEY covers both SLM (Flash) and LLM (Pro) tiers
+small:
+  provider: openai_compat
+  baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: gemini-2.5-flash
+  apiKeyEnv: GEMINI_API_KEY
+
+large:
+  provider: openai_compat
+  baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: gemini-2.5-pro
+  apiKeyEnv: GEMINI_API_KEY
+
+embed:
+  provider: openai_compat
+  baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: text-embedding-004
+  apiKeyEnv: GEMINI_API_KEY
+

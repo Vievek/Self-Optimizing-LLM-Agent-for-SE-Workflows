@@ -104,6 +104,7 @@ export function parseModelsYaml(content: string): ModelsConfig {
 export function loadModelsConfig(filePath?: string): ModelsConfig {
   const candidates = [
     filePath,
+    process.env['MODELS_CONFIG_PATH'],
     path.resolve(process.cwd(), 'packages/llm/models.yaml'),
     path.resolve(process.cwd(), 'models.yaml'),
     new URL('../models.yaml', import.meta.url).pathname,
