@@ -24,6 +24,8 @@ import { PlanManager } from './planning/plan-manager.js';
 import { ModelSelector } from '../routing/model-selector.js';
 import { createDefaultToolRegistry, ToolRegistry } from './tools/tool-registry.js';
 import { ToolExecutor } from './tools/tool-executor.js';
+import { ReactAgent } from './react/react-agent.js';
+import { createReActLlmCaller } from './llm-bridge.js';
 
 export class AgentRunner {
   private readonly registry: ToolRegistry;
@@ -129,42 +131,86 @@ export class AgentRunner {
         }),
       );
 
-      totalTokensIn += subtask.estimatedTokens;
-      totalTokensOut += 200;
-
-      // Determine Tool Calls: from LLM hook or deterministic fallback
-      let toolCalls: ToolCallRequest[] = [];
-
-      if (options.llmCaller) {
-        toolCalls = await options.llmCaller(
-          task.problemStatement,
-          subtask,
-          routingDecision.tier,
-          routingDecision.model,
-        );
-      } else {
-        toolCalls = this.generateDeterministicToolCalls(subtask);
-      }
-
       let subtaskFailed = false;
       let failureError = '';
 
-      for (const call of toolCalls) {
-        const { result, spanAttributes } = await toolExecutor.execute(call, context);
+      if (options.reactLlmCaller || options.providerRegistry) {
+        const reactCaller =
+          options.reactLlmCaller ??
+          createReActLlmCaller({
+            registry: options.providerRegistry,
+          });
 
-        recordSpan('tool_call', spanAttributes, spanAttributes.status);
+        const reactAgent = new ReactAgent(
+          this.registry,
+          (options.config?.planning?.subtask_timeout_s ?? 60) * 1000,
+        );
 
-        if (call.toolName === 'run_tests' && result.data) {
-          const testData = result.data as { passed?: number; failed?: number; errors?: number };
-          if (typeof testData.passed === 'number') lastTestPassed = testData.passed;
-          if (typeof testData.failed === 'number')
-            lastTestFailed = testData.failed + (testData.errors ?? 0);
+        const subtaskResult = await reactAgent.executeSubtask({
+          task,
+          subtask,
+          context,
+          tier: routingDecision.tier,
+          model: routingDecision.model,
+          llmCaller: reactCaller,
+          traceId,
+          parentSpanId: rootSpanId,
+        });
+
+        for (const span of subtaskResult.spans) {
+          spans.push(span);
         }
 
-        if (result.status === 'error') {
+        totalTokensIn += subtaskResult.totalTokensIn;
+        totalTokensOut += subtaskResult.totalTokensOut;
+
+        if (subtaskResult.testSummary?.passed !== undefined) {
+          lastTestPassed = subtaskResult.testSummary.passed;
+        }
+        if (subtaskResult.testSummary?.failed !== undefined) {
+          lastTestFailed =
+            subtaskResult.testSummary.failed + (subtaskResult.testSummary.errors ?? 0);
+        }
+
+        if (!subtaskResult.success) {
           subtaskFailed = true;
-          failureError = result.error ?? 'Tool execution failed';
-          break;
+          failureError = subtaskResult.lastError ?? 'Subtask execution failed';
+        }
+      } else {
+        totalTokensIn += subtask.estimatedTokens;
+        totalTokensOut += 200;
+
+        // Determine Tool Calls: from LLM hook or deterministic fallback
+        let toolCalls: ToolCallRequest[] = [];
+
+        if (options.llmCaller) {
+          toolCalls = await options.llmCaller(
+            task.problemStatement,
+            subtask,
+            routingDecision.tier,
+            routingDecision.model,
+          );
+        } else {
+          toolCalls = this.generateDeterministicToolCalls(subtask);
+        }
+
+        for (const call of toolCalls) {
+          const { result, spanAttributes } = await toolExecutor.execute(call, context);
+
+          recordSpan('tool_call', spanAttributes, spanAttributes.status);
+
+          if (call.toolName === 'run_tests' && result.data) {
+            const testData = result.data as { passed?: number; failed?: number; errors?: number };
+            if (typeof testData.passed === 'number') lastTestPassed = testData.passed;
+            if (typeof testData.failed === 'number')
+              lastTestFailed = testData.failed + (testData.errors ?? 0);
+          }
+
+          if (result.status === 'error') {
+            subtaskFailed = true;
+            failureError = result.error ?? 'Tool execution failed';
+            break;
+          }
         }
       }
 

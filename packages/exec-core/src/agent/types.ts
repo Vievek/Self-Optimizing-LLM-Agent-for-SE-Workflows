@@ -8,9 +8,11 @@ import {
   TraceSpanSchema,
   FullAgentConfig,
 } from '@soa/contracts';
+import { ProviderRegistry } from '@soa/llm';
 import { SandboxService, WorkspaceId } from '@soa/sandbox';
 import { SubtaskType, SubtaskRoutingFeatures, ModelTier } from '../routing/types.js';
 import { GraphRetriever } from '../retrieval/graph/graph-retriever.js';
+import { ReActLlmCaller } from './react/types.js';
 
 export type PlanSpanAttributes = z.infer<typeof PlanSpanAttributesSchema>;
 export type ToolCallSpanAttributes = z.infer<typeof ToolCallSpanAttributesSchema>;
@@ -117,6 +119,8 @@ export interface AgentRunnerOptions {
   config?: Partial<FullAgentConfig>;
   condition?: 'baseline' | 'amem' | 'focus' | 'memory_full' | 'orch_off' | 'orch_on';
   llmCaller?: LLMCaller;
+  reactLlmCaller?: ReActLlmCaller;
+  providerRegistry?: ProviderRegistry;
   maxIterations?: number;
   baseCommit?: string;
 }

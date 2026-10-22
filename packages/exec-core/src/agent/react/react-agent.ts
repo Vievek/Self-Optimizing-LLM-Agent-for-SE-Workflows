@@ -53,6 +53,7 @@ export class ReactAgent {
     let totalTokensIn = 0;
     let totalTokensOut = 0;
     let toolCallsExecuted = 0;
+    let lastTestSummary: { passed?: number; failed?: number; errors?: number } | undefined;
     let lastError: string | undefined;
     let finalAnswer: string | undefined;
     let success = false;
@@ -133,6 +134,10 @@ export class ReactAgent {
         });
         spans.push(toolSpan);
 
+        if (parsed.toolCall.toolName === 'run_tests' && result.data) {
+          lastTestSummary = result.data as { passed?: number; failed?: number; errors?: number };
+        }
+
         // 6. Compact tool observation and record in history
         const compactedObs = compactToolOutput(result.output, parsed.toolCall.toolName);
         const observationText =
@@ -169,6 +174,7 @@ export class ReactAgent {
       finalAnswer,
       lastError,
       spans,
+      testSummary: lastTestSummary,
     };
   }
 }

@@ -54,5 +54,5 @@ export interface ExecuteSubtaskResult {
   finalAnswer?: string;
   lastError?: string;
   spans: TraceSpan[];
+  testSummary?: { passed?: number; failed?: number; errors?: number };
 }
-
