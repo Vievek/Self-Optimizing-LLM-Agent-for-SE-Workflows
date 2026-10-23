@@ -1,12 +1,12 @@
 /**
- * Split Layout / Two-Column Responsive Component (termcn style)
+ * Split Layout / Two-Column Component
  *
- * Automatically splits available width, sizes left and right panels,
- * and merges them line-by-line with consistent spacing.
+ * Splits the available width by `ratio` and merges two blocks line by line.
+ * Every output line is exactly `width` columns wide.
  */
 
-import { getTheme, type ThemeColors } from '../theme/theme.js';
-import { visibleLength } from '../theme/box.js';
+import type { ThemeColors } from '../theme/theme.js';
+import { joinColumns, splitWidth, toLines } from '../theme/layout.js';
 
 export interface SplitLayoutOptions {
   width: number;
@@ -20,28 +20,9 @@ export function renderSplitLayout(
   rightBox: string,
   options: SplitLayoutOptions,
 ): string {
-  const ratio = options.ratio ?? 0.65;
   const gap = options.gap ?? 2;
-  const leftWidth = Math.floor(options.width * ratio);
-  const rightWidth = options.width - leftWidth - gap;
-
-  const leftLines = leftBox.split('\n');
-  const rightLines = rightBox.split('\n');
-  const maxRows = Math.max(leftLines.length, rightLines.length);
-
-  const out: string[] = [];
-  const gapStr = ' '.repeat(gap);
-
-  for (let i = 0; i < maxRows; i++) {
-    const leftPart = leftLines[i] ?? '';
-    const rightPart = rightLines[i] ?? '';
-
-    const leftLen = visibleLength(leftPart);
-    const leftPad = Math.max(0, leftWidth - leftLen);
-
-    out.push(`${leftPart}${' '.repeat(leftPad)}${gapStr}${rightPart}`);
-  }
-
-  return out.join('\n');
+  const [leftWidth, rightWidth] = splitWidth(options.width, options.ratio ?? 0.65, gap);
+  return joinColumns([toLines(leftBox), toLines(rightBox)], [leftWidth, rightWidth], gap).join(
+    '\n',
+  );
 }
-

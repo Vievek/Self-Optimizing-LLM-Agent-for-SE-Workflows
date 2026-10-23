@@ -1,28 +1,117 @@
-import type { DashboardView, TuiState } from '../types.js';
+import type { DashboardView, TuiState, ViewAction } from '../types.js';
 import {
   ANSI,
   getTheme,
-  renderBox,
-  renderStatusBar,
+  sectionLabel,
+  renderPanels,
   renderTopHeader,
+  spacer,
+  toLines,
+  vstack,
+  type BadgeVariant,
 } from '../../theme/index.js';
 import {
+  STAGE_CARD_HEIGHT,
   renderControlBar,
   renderMetricList,
-  renderSplitLayout,
   renderStageCard,
 } from '../../components/index.js';
+
+interface Stage {
+  name: string;
+  done: boolean;
+  badgeText: string;
+  badgeVariant: BadgeVariant;
+  desc: string;
+  isHeadline?: boolean;
+  /** Busy verb shown when the stage is run. */
+  verb: string;
+  doneMessage: string;
+}
+
+const STAGES: Stage[] = [
+  {
+    done: true,
+    name: 'Focus working memory',
+    badgeText: 'BUILT',
+    badgeVariant: 'built',
+    desc: 'start_focus -> explore -> complete_focus. Raw steps are dropped, learned summaries are kept.',
+    verb: 'Running focus loop',
+    doneMessage: 'Focus loop complete',
+  },
+  {
+    done: true,
+    name: 'Note construction',
+    badgeText: 'BUILT',
+    badgeVariant: 'built',
+    desc: 'The small model writes Task / Problem / Cause / Files / Fix / Evidence. Retry once, then a rule-based fallback.',
+    verb: 'Building note',
+    doneMessage: 'Note built',
+  },
+  {
+    done: true,
+    name: 'Linking',
+    badgeText: 'BUILT',
+    badgeVariant: 'built',
+    desc: 'Links related cards by shared keywords, tags and files, same repo only.',
+    verb: 'Linking notes',
+    doneMessage: 'Notes linked',
+  },
+  {
+    done: true,
+    name: 'Code-grounded verification',
+    badgeText: 'HEADLINE · BUILT',
+    badgeVariant: 'headline',
+    desc: 'Fix line in the file + evidence tests at the task commit -> verified / stale / unverifiable / not applicable.',
+    isHeadline: true,
+    verb: 'Verifying memory',
+    doneMessage: 'Verification complete',
+  },
+  {
+    done: false,
+    name: 'Reflection scoring',
+    badgeText: 'NEXT PHASE',
+    badgeVariant: 'phase',
+    desc: 'Correctness and freshness from verification, plus relevance, evidence and task contribution.',
+    verb: 'Scoring',
+    doneMessage: 'Scoring complete',
+  },
+  {
+    done: false,
+    name: 'Adaptive retention',
+    badgeText: 'NEXT PHASE',
+    badgeVariant: 'phase',
+    desc: 'KEEP / STRENGTHEN / COMPRESS / DELETE based on status and score.',
+    verb: 'Re-checking commit',
+    doneMessage: 'Commit re-checked',
+  },
+];
 
 export class MemoryDashboardView implements DashboardView {
   id = 'memory';
   name = 'Memory Agent';
   title = 'Code-grounded Memory Agent · P. Deepatharshan · IT23190184';
   tabs = ['Pipeline', 'Memories', 'Verify', 'Focus loop', 'Retrieve', 'Decision log'];
+  actionLabel = 'run';
+
+  itemCount(): number {
+    return STAGES.length;
+  }
+
+  activate(state: TuiState): ViewAction {
+    const stage = STAGES[state.selectedItemIndex] ?? STAGES[0]!;
+    return { type: 'busy', verb: stage.verb, durationMs: 1200, done: stage.doneMessage };
+  }
+
+  status(state: TuiState): string {
+    const tab = this.tabs[state.activeTab % this.tabs.length] ?? 'Pipeline';
+    return `${tab} · 4 of 6 stages built · scoring and retention next`;
+  }
 
   render(state: TuiState): string {
     const theme = getTheme(state.theme);
-    const availableWidth = state.width ? state.width - 4 : 100;
-    const width = Math.max(92, Math.min(availableWidth, 140));
+    const { width, height } = state;
+    const selected = state.selectedItemIndex;
 
     // 1. Header
     const header = renderTopHeader(
@@ -33,145 +122,77 @@ export class MemoryDashboardView implements DashboardView {
       width,
     );
 
-    // 2. Control Row (Theme selector + View tabs)
+    // 2. Control row (theme selector + view tabs)
     const controlRow = renderControlBar({
       themeName: state.theme,
       tabs: this.tabs,
       activeTab: state.activeTab,
       theme,
-    });
-
-    // 3. Left Column: Standardized Stage Cards
-    const leftWidth = Math.floor(width * 0.68);
-    const rightWidth = width - leftWidth - 3;
-    const cardWidth = leftWidth - 4;
-
-    const stageCards = [
-      renderStageCard({
-        done: true,
-        name: 'Focus working memory',
-        badgeText: 'BUILT',
-        badgeVariant: 'built',
-        desc: 'start_focus -> explore -> complete_focus. Raw steps are dropped, learned summaries are kept.',
-        width: cardWidth,
-        theme,
-      }),
-      renderStageCard({
-        done: true,
-        name: 'Note construction',
-        badgeText: 'BUILT',
-        badgeVariant: 'built',
-        desc: 'The small model writes Task / Problem / Cause / Files / Fix / Evidence. Retry once, then a rule-based fallback.',
-        width: cardWidth,
-        theme,
-      }),
-      renderStageCard({
-        done: true,
-        name: 'Linking',
-        badgeText: 'BUILT',
-        badgeVariant: 'built',
-        desc: 'Links related cards by shared keywords, tags and files, same repo only.',
-        width: cardWidth,
-        theme,
-      }),
-      renderStageCard({
-        done: true,
-        name: 'Code-grounded verification',
-        badgeText: 'HEADLINE · BUILT',
-        badgeVariant: 'headline',
-        desc: 'Fix line in the file + evidence tests at the task commit -> verified / stale / unverifiable / not applicable.',
-        isHeadline: true,
-        width: cardWidth,
-        theme,
-      }),
-      renderStageCard({
-        done: false,
-        name: 'Reflection scoring',
-        badgeText: 'NEXT PHASE',
-        badgeVariant: 'phase',
-        desc: 'Correctness and freshness from verification, plus relevance, evidence and task contribution.',
-        width: cardWidth,
-        theme,
-      }),
-      renderStageCard({
-        done: false,
-        name: 'Adaptive retention',
-        badgeText: 'NEXT PHASE',
-        badgeVariant: 'phase',
-        desc: 'KEEP / STRENGTHEN / COMPRESS / DELETE based on status and score.',
-        width: cardWidth,
-        theme,
-      }),
-    ];
-
-    const leftBox = renderBox(stageCards.join('\n').split('\n'), {
-      title: 'Pipeline',
-      width: leftWidth,
-      rounded: true,
-      theme,
-    });
-
-    // 4. Right Column: Store Metrics & Repo Status
-    const storeMetrics = renderMetricList(
-      [
-        { badge: 'VERIFIED', variant: 'built', value: 2 },
-        { badge: 'STALE', variant: 'warn', value: 2 },
-        { badge: 'UNVERIFIABLE', variant: 'warn', value: 1 },
-        { badge: 'NOT APPLICABLE', variant: 'info', value: 1 },
-      ],
-      rightWidth - 6,
-      theme,
-    );
-
-    const rightContent = [
-      `${theme.accent}${ANSI.bold}Store${ANSI.reset}`,
-      '',
-      ...storeMetrics,
-      '',
-      `  ${theme.fgMuted}memories${' '.repeat(Math.max(1, rightWidth - 18))}6${ANSI.reset}`,
-      '',
-      `${theme.border}${'─'.repeat(Math.max(20, rightWidth - 4))}${ANSI.reset}`,
-      '',
-      `${theme.accent}${ANSI.bold}Repo status${ANSI.reset}`,
-      '',
-      `  ${theme.badgeBuiltBg} ✓ ${ANSI.reset} ${theme.fg}feat/memory-agent-core${ANSI.reset} · ${theme.fgMuted}merged${ANSI.reset}`,
-      `  ${theme.fgMuted}  (PR #15)${ANSI.reset}`,
-      `  ${theme.accent} • ${ANSI.reset} ${theme.fg}feat/memory-verification${ANSI.reset} · ${theme.badgeWarnBg} in review ${ANSI.reset}`,
-      `  ${theme.fgDim} - scoring, retention · next phase${ANSI.reset}`,
-    ];
-
-    const rightBox = renderBox(rightContent, {
-      width: rightWidth,
-      rounded: true,
-      theme,
-    });
-
-    // 5. Two-column Responsive Split Layout (Reused Component)
-    const body = renderSplitLayout(leftBox, rightBox, {
       width,
-      ratio: 0.68,
-      gap: 3,
-      theme,
     });
 
-    // 6. Bottom Status Bar
-    const activeTabIdx = state.activeTab % this.tabs.length;
-    const activeTabName = this.tabs[activeTabIdx] ?? 'Pipeline';
-    const statusBar = renderStatusBar(
-      `soa memory · ${activeTabName}`,
-      [
-        { key: 'tab', label: 'views' },
-        { key: '↵', label: 'run' },
-        { key: 'm', label: 'menu' },
-        { key: '?', label: 'help' },
-        { key: 't', label: 'theme' },
-        { key: 'q', label: 'quit' },
-      ],
-      '4 of 6 stages built · scoring and retention next',
-      width,
-      theme,
-    );
+    // 3. Left panel: stage cards (selected one highlighted and kept in view)
+    const buildCards = (innerWidth: number) =>
+      STAGES.flatMap((stage, i) =>
+        toLines(
+          renderStageCard({
+            ...stage,
+            selected: i === selected,
+            width: Math.max(4, innerWidth - 2),
+            theme,
+          }),
+        ).map((line) => ` ${line}`),
+      );
 
-    return [header, '', controlRow, '', body, '', statusBar].join('\n');
+    // 4. Right panel: store metrics & repo status
+    const buildStore = (innerWidth: number) => {
+      const rightWidth = innerWidth + 2;
+      const storeMetrics = renderMetricList(
+        [
+          { badge: 'VERIFIED', variant: 'built', value: 2 },
+          { badge: 'STALE', variant: 'warn', value: 2 },
+          { badge: 'UNVERIFIABLE', variant: 'warn', value: 1 },
+          { badge: 'NOT APPLICABLE', variant: 'info', value: 1 },
+        ],
+        rightWidth - 6,
+        theme,
+        { total: 6 },
+      );
+      return [
+        sectionLabel('Store', theme),
+        '',
+        ...storeMetrics,
+        '',
+        `  ${theme.fgMuted}memories${' '.repeat(Math.max(1, rightWidth - 18))}6${ANSI.reset}`,
+        '',
+        `${theme.border}${'─'.repeat(Math.max(0, innerWidth))}${ANSI.reset}`,
+        '',
+        sectionLabel('Repo status', theme),
+        '',
+        `  ${theme.badgeBuiltBg}${theme.badgeBuiltFg} ✓ ${ANSI.reset} ${theme.fg}feat/memory-agent-core${ANSI.reset} · ${theme.fgMuted}merged${ANSI.reset}`,
+        `  ${theme.fgMuted}  (PR #15)${ANSI.reset}`,
+        `  ${theme.accent} • ${ANSI.reset} ${theme.fg}feat/memory-verification${ANSI.reset} · ${theme.badgeWarnBg}${theme.badgeWarnFg} in review ${ANSI.reset}`,
+        `  ${theme.fgDim} - scoring, retention · next phase${ANSI.reset}`,
+      ];
+    };
+
+    const panels = (h: number) =>
+      renderPanels(
+        {
+          title: 'Pipeline',
+          active: true,
+          build: buildCards,
+          focus: [selected * STAGE_CARD_HEIGHT, (selected + 1) * STAGE_CARD_HEIGHT],
+        },
+        { build: buildStore },
+        { width, height: h, ratio: 0.68, theme },
+      );
+
+    const gap = spacer(height);
+    return vstack(
+      [toLines(header), gap, toLines(controlRow), gap, { grow: 1, render: panels }],
+      width,
+      height,
+    ).join('\n');
   }
 }

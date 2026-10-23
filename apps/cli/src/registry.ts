@@ -1,18 +1,10 @@
-import {
-  SCHEMA_VERSION,
-  OUTCOME_EVIDENCE_SCHEMA_VERSION,
-  OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-  REFINED_MEMORY_SCHEMA_VERSION,
-  CONFIG_SCHEMA_VERSION,
-} from '@soa/contracts';
+import { OUTCOME_EVIDENCE_SCHEMA_VERSION } from '@soa/contracts';
 import { TaskLoader } from '@soa/eval-harness';
 import { MockExecCore, MockHeae, MockMemoryAgent } from '@soa/mocks';
 import { renderRecordTable } from './components/record-table.js';
 import { renderStageProgress, StageItem } from './components/stage-progress.js';
-import {
-  renderContractCheckPanel,
-  ContractCheckResult,
-} from './components/contract-check-panel.js';
+import { renderContractCheckPanel } from './components/contract-check-panel.js';
+import { runContractHealthCheck } from './contract-health.js';
 import { runOrchCommand } from './commands/orch/index.js';
 import { TuiApp } from './tui/app.js';
 
@@ -44,33 +36,7 @@ export class CommandRegistry {
   private registerDefaults(): void {
     // 1. soa check - Run contract validation checks
     this.register('check', async () => {
-      const results: ContractCheckResult[] = [
-        {
-          contract: 'TraceSpan (OTel Spans)',
-          version: SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'OutcomeEvidence (HEAE -> Memory)',
-          version: OUTCOME_EVIDENCE_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'OptimizationSignal (HEAE -> Orch)',
-          version: OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'RefinedMemory (Memory -> Store)',
-          version: REFINED_MEMORY_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'FullAgentConfig (Orch -> Exec)',
-          version: CONFIG_SCHEMA_VERSION,
-          valid: true,
-        },
-      ];
+      const results = runContractHealthCheck();
       return renderContractCheckPanel(results);
     });
 

@@ -1,27 +1,52 @@
-import type { DashboardView, TuiState } from '../types.js';
+import type { DashboardView, TuiState, ViewAction } from '../types.js';
 import {
   ANSI,
   getTheme,
+  sectionLabel,
+  highlightRow,
   renderBadge,
   renderBox,
-  renderStatusBar,
+  renderPanels,
   renderTopHeader,
+  spacer,
+  toLines,
+  visibleLength,
+  vstack,
 } from '../../theme/index.js';
-import {
-  renderControlBar,
-  renderSplitLayout,
-} from '../../components/index.js';
+import { renderControlBar } from '../../components/index.js';
+
+const AXIS_ROWS_START = 2;
+const AXIS_COUNT = 6;
 
 export class OrchDashboardView implements DashboardView {
   id = 'orch';
   name = 'Optimization Orchestrator';
   title = 'Optimization Orchestrator · Config Evolution & Stability';
   tabs = ['Live Pipeline', '6-Axes Config', 'Signal Queue', 'Audit Log'];
+  actionLabel = 'optimize';
+
+  itemCount(): number {
+    return AXIS_COUNT;
+  }
+
+  activate(): ViewAction {
+    return {
+      type: 'busy',
+      verb: 'Optimizing config',
+      durationMs: 1200,
+      done: 'Candidate validated',
+    };
+  }
+
+  status(state: TuiState): string {
+    const tab = this.tabs[state.activeTab % this.tabs.length] ?? 'Live Pipeline';
+    return `${tab} · 1 pending signal · 0 rollbacks recorded`;
+  }
 
   render(state: TuiState): string {
     const theme = getTheme(state.theme);
-    const availableWidth = state.width ? state.width - 4 : 100;
-    const width = Math.max(92, Math.min(availableWidth, 140));
+    const { width, height } = state;
+    const selected = state.selectedItemIndex;
 
     // 1. Header
     const header = renderTopHeader(
@@ -32,7 +57,7 @@ export class OrchDashboardView implements DashboardView {
       width,
     );
 
-    // 2. Control Row
+    // 2. Control row
     const configVersion = `${theme.accent}${ANSI.bold}CONFIG SNAPSHOT:${ANSI.reset} ${renderBadge('cfg_0002', 'built', theme)}  ${theme.fgMuted}Stability: Active${ANSI.reset}`;
     const controlRow = renderControlBar({
       themeName: state.theme,
@@ -40,94 +65,86 @@ export class OrchDashboardView implements DashboardView {
       activeTab: state.activeTab,
       leftBadge: configVersion,
       theme,
-    });
-
-    // 3. Pipeline Stages Banner
-    const stages = [
-      `${theme.badgeBuiltBg} ✔ ${ANSI.reset} Config Seed`,
-      `${theme.badgeBuiltBg} ✔ ${ANSI.reset} Signal Intake`,
-      `${theme.badgeWarnBg} ● ${ANSI.reset} Fix Generation`,
-      `${theme.badgeBuiltBg} ✔ ${ANSI.reset} Validation`,
-      `${theme.badgeBuiltBg} ✔ ${ANSI.reset} Deploy`,
-      `${theme.badgeBuiltBg} ✔ ${ANSI.reset} Audit`,
-    ];
-    const stageBanner = renderBox([` ${stages.join('  ───  ')} `], {
       width,
-      rounded: true,
-      active: true,
-      theme,
     });
 
-    // 4. Two columns: 6-Axes table on left, Candidate & Audit on right
-    const leftWidth = Math.floor(width * 0.55);
-    const rightWidth = width - leftWidth - 3;
-
-    const axesLines = [
-      ` ${theme.fg}${ANSI.bold}Axis        Config Path                    Value${ANSI.reset}`,
-      ` ${theme.border}────────────────────────────────────────────────────────${ANSI.reset}`,
-      ` prompt      prompts.system_prompt_version  1.0`,
-      ` tool        tools.apply_patch.description  ${theme.accent}refined${ANSI.reset}`,
-      ` planning    planning.backtrack_depth       2`,
-      ` workflow    workflow.max_iterations        10`,
-      ` retrieval   retrieval.top_k                ${theme.accent}5 -> 7${ANSI.reset}`,
-      ` routing     routing.small_tier_threshold   0.40`,
+    // 3. Pipeline stages banner (one line when it fits, two otherwise)
+    const done = `${theme.badgeBuiltBg}${theme.badgeBuiltFg} ✔ ${ANSI.reset}`;
+    const running = `${theme.badgeWarnBg}${theme.badgeWarnFg} ● ${ANSI.reset}`;
+    const stages = [
+      `${done} Config Seed`,
+      `${done} Signal Intake`,
+      `${running} Fix Generation`,
+      `${done} Validation`,
+      `${done} Deploy`,
+      `${done} Audit`,
     ];
+    const sep = `  ${theme.border}───${ANSI.reset}  `;
+    const oneLine = ` ${stages.join(sep)} `;
+    const bannerLines =
+      visibleLength(oneLine) <= width - 2
+        ? [oneLine]
+        : [` ${stages.slice(0, 3).join(sep)} `, ` ${stages.slice(3).join(sep)} `];
+    const stageBanner = renderBox(bannerLines, { width, style: 'hud', active: true, theme });
 
-    const leftBox = renderBox(axesLines, {
-      title: 'Current 6-Axis Configuration (cfg_0002)',
-      width: leftWidth,
-      rounded: true,
-      theme,
-    });
+    // 4. Left panel: 6-axis table (selected axis highlighted)
+    const buildAxes = (innerWidth: number) => {
+      const rows = [
+        ` ${theme.fg}${ANSI.bold}Axis        Config Path                    Value${ANSI.reset}`,
+        ` ${theme.border}────────────────────────────────────────────────────────${ANSI.reset}`,
+        ` prompt      prompts.system_prompt_version  1.0`,
+        ` tool        tools.apply_patch.description  ${theme.accent}refined${ANSI.reset}`,
+        ` planning    planning.backtrack_depth       2`,
+        ` workflow    workflow.max_iterations        10`,
+        ` retrieval   retrieval.top_k                ${theme.accent}5 -> 7${ANSI.reset}`,
+        ` routing     routing.small_tier_threshold   0.40`,
+      ];
+      const row = AXIS_ROWS_START + selected;
+      if (rows[row] !== undefined) rows[row] = highlightRow(rows[row]!, innerWidth, theme);
+      return rows;
+    };
 
-    const candidateLines = [
-      `${theme.accent}${ANSI.bold}Candidate Mutation (Tool Axis)${ANSI.reset}`,
+    // 5. Right panel: candidate mutation & audit log
+    const buildCandidate = (innerWidth: number) => [
+      sectionLabel('Candidate Mutation (Tool Axis)', theme),
       `  Path: tools.apply_patch.description`,
       `  Old: Apply a unified diff patch.`,
       `  New: Apply a unified diff patch. Paths`,
       `       must be repo-relative.`,
       `  Validation: ${renderBadge('PASS', 'built', theme)} (in range)`,
       '',
-      `${theme.border}${'─'.repeat(Math.max(20, rightWidth - 4))}${ANSI.reset}`,
+      `${theme.border}${'─'.repeat(Math.max(0, innerWidth))}${ANSI.reset}`,
       '',
-      `${theme.accent}${ANSI.bold}Audit Log${ANSI.reset}`,
+      sectionLabel('Audit Log', theme),
       `  store/logs/orch-audit.jsonl`,
       `  cfg(tool): sig_20261015T1000_django_01`,
     ];
 
-    const rightBox = renderBox(candidateLines, {
-      title: 'Candidate Mutation & Deploy',
-      width: rightWidth,
-      rounded: true,
-      theme,
-    });
+    const panels = (h: number) =>
+      renderPanels(
+        {
+          title: 'Current 6-Axis Configuration (cfg_0002)',
+          active: true,
+          build: buildAxes,
+          focus: [AXIS_ROWS_START + selected, AXIS_ROWS_START + selected + 1],
+        },
+        { title: 'Candidate Mutation & Deploy', build: buildCandidate },
+        { width, height: h, ratio: 0.55, theme },
+      );
 
-    // 5. Two-column Responsive Split Layout (Reused Component)
-    const body = renderSplitLayout(leftBox, rightBox, {
-      width,
-      ratio: 0.55,
-      gap: 3,
-      theme,
-    });
-
-    // 6. Status Bar
-    const activeTabIdx = state.activeTab % this.tabs.length;
-    const activeTabName = this.tabs[activeTabIdx] ?? 'Live Pipeline';
-    const statusBar = renderStatusBar(
-      `soa orch · ${activeTabName}`,
+    const gap = spacer(height);
+    return vstack(
       [
-        { key: 'm', label: 'menu' },
-        { key: 'tab', label: 'views' },
-        { key: '↵', label: 'optimize' },
-        { key: '?', label: 'help' },
-        { key: 't', label: 'theme' },
-        { key: 'q', label: 'quit' },
+        toLines(header),
+        gap,
+        toLines(controlRow),
+        gap,
+        toLines(stageBanner),
+        gap,
+        { grow: 1, render: panels },
       ],
-      '1 pending signal · 0 rollbacks recorded',
       width,
-      theme,
-    );
-
-    return [header, '', controlRow, '', stageBanner, '', body, '', statusBar].join('\n');
+      height,
+    ).join('\n');
   }
 }

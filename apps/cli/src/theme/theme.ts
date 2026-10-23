@@ -1,34 +1,81 @@
 /**
- * Central CSS-like Theme File for SOA TUI
+ * Central theme file for the SOA TUI.
  *
- * All color tokens, box borders, badges, pill styles, and typography
- * are centralized in this single file. Any visual styling change across
- * the entire CLI application should be modified here.
+ * Each theme is a small set of colour tokens (bg, panel, border, text, muted,
+ * accent, success, warning, danger, ...). Every escape sequence the components
+ * use is derived from those tokens in `buildTheme`, so a visual change only
+ * needs to touch the token table below.
+ *
+ * Colours are 24-bit when COLORTERM is "truecolor" or "24bit", otherwise the
+ * nearest xterm 256-colour code is used. NO_COLOR (https://no-color.org) is
+ * respected: `getTheme` then returns a variant with every colour empty.
  */
 
-export type ThemeName = 'nord' | 'catppuccin' | 'light';
+export type ThemeName = 'cyber' | 'nord' | 'catppuccin' | 'light';
+
+/** Order used by the theme cycle (t). */
+export const THEME_ORDER: ThemeName[] = ['cyber', 'nord', 'catppuccin', 'light'];
+
+export const DEFAULT_THEME: ThemeName = 'cyber';
+
+/** Hex colours (#rrggbb) that define a theme. */
+export interface ThemeTokens {
+  bg: string;
+  panel: string;
+  border: string;
+  text: string;
+  muted: string;
+  /** Secondary hints. Still readable on `bg`. */
+  dim: string;
+  accent: string;
+  /** Secondary accent (neon magenta in cyber). */
+  accent2: string;
+  success: string;
+  warning: string;
+  danger: string;
+  /** Used for "headline" badges. */
+  highlight: string;
+  /** Background of the selected list row. */
+  selection: string;
+  /** Background of key badges in the status bar. */
+  chip: string;
+  /** Text drawn on top of accent / status colours. */
+  onAccent: string;
+}
 
 export interface ThemeColors {
   name: string;
-  // Backgrounds & Base
-  bg?: string;
+  /** True for the NO_COLOR variant. */
+  mono: boolean;
+  tokens: ThemeTokens;
+
+  // Backgrounds
+  bg: string;
+  panelBg: string;
+  selectionBg: string;
+  selectionFg: string;
+
+  // Text
   fg: string;
   fgMuted: string;
   fgDim: string;
   accent: string;
   accentSecondary: string;
+  success: string;
+  warning: string;
+  danger: string;
 
-  // Borders & Dividers
+  // Borders
   border: string;
   borderActive: string;
 
-  // Pills & Navigation Tabs
+  // Pills & tabs
   tabActiveBg: string;
   tabActiveFg: string;
   tabInactiveBg: string;
   tabInactiveFg: string;
 
-  // Badges & Status Indicators
+  // Badges
   badgeBuiltBg: string;
   badgeBuiltFg: string;
   badgeHeadlineBg: string;
@@ -42,14 +89,13 @@ export interface ThemeColors {
   badgeInfoBg: string;
   badgeInfoFg: string;
 
-  // Bottom Status Bar
+  // Bars
   statusBarBg: string;
   statusBarFg: string;
   statusBarKeyBg: string;
   statusBarKeyFg: string;
 }
 
-// ANSI Escape Code Helpers
 export const ANSI = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -58,124 +104,249 @@ export const ANSI = {
   underline: '\x1b[4m',
   inverse: '\x1b[7m',
   clearScreen: '\x1b[2J\x1b[H',
-  enterAltScreen: '\x1b[?1049h\x1b[H\x1b]50;Oxanium\x07',
+  home: '\x1b[H',
+  clearLine: '\x1b[K',
+  clearBelow: '\x1b[J',
+  enterAltScreen: '\x1b[?1049h\x1b[H',
   exitAltScreen: '\x1b[?1049l',
   hideCursor: '\x1b[?25l',
   showCursor: '\x1b[?25h',
+  /** Synchronized output: terminals that support it paint the frame at once. */
+  syncStart: '\x1b[?2026h',
+  syncEnd: '\x1b[?2026l',
 };
 
-// Available Themes (Nord, Catppuccin Mocha, Clean Light)
-export const THEMES: Record<ThemeName, ThemeColors> = {
+export const TOKENS: Record<ThemeName, ThemeTokens> = {
+  cyber: {
+    bg: '#0b0f14',
+    panel: '#10161d',
+    border: '#1f6f8b',
+    text: '#d6f4ff',
+    muted: '#7fa7b8',
+    dim: '#6a8fa0',
+    accent: '#00e5ff',
+    accent2: '#ff3df2',
+    success: '#39ff88',
+    warning: '#ffd23f',
+    danger: '#ff4d6d',
+    highlight: '#ff3df2',
+    selection: '#123a4a',
+    chip: '#0e3442',
+    onAccent: '#0b0f14',
+  },
   nord: {
-    name: 'Nord',
-    fg: '\x1b[38;2;236;239;244m',          // #eceff4
-    fgMuted: '\x1b[38;2;129;161;193m',     // #81a1c1
-    fgDim: '\x1b[38;2;76;86;106m',         // #4c566a
-    accent: '\x1b[38;2;136;192;208m',      // #88c0d0 Frost cyan
-    accentSecondary: '\x1b[38;2;143;188;187m', // #8fbcbb Frost teal
-
-    border: '\x1b[38;2;67;76;94m',         // #434c5e
-    borderActive: '\x1b[38;2;136;192;208m', // #88c0d0
-
-    tabActiveBg: '\x1b[48;2;67;76;94m',
-    tabActiveFg: '\x1b[38;2;236;239;244m\x1b[1m',
-    tabInactiveBg: '\x1b[48;2;46;52;64m',
-    tabInactiveFg: '\x1b[38;2;129;161;193m',
-
-    badgeBuiltBg: '\x1b[48;2;163;190;140m', // #a3be8c Nord green
-    badgeBuiltFg: '\x1b[38;2;46;52;64m\x1b[1m',
-    badgeHeadlineBg: '\x1b[48;2;180;142;173m', // #b48ead Nord purple
-    badgeHeadlineFg: '\x1b[38;2;46;52;64m\x1b[1m',
-    badgePhaseBg: '\x1b[48;2;59;66;82m',
-    badgePhaseFg: '\x1b[38;2;216;222;233m\x1b[1m',
-    badgeWarnBg: '\x1b[48;2;235;203;139m',  // #ebcb8b Nord yellow
-    badgeWarnFg: '\x1b[38;2;46;52;64m\x1b[1m',
-    badgeErrorBg: '\x1b[48;2;191;97;106m',  // #bf616a Nord red
-    badgeErrorFg: '\x1b[38;2;236;239;244m\x1b[1m',
-    badgeInfoBg: '\x1b[48;2;129;161;193m',  // #81a1c1 Nord blue
-    badgeInfoFg: '\x1b[38;2;46;52;64m\x1b[1m',
-
-    statusBarBg: '\x1b[48;2;59;66;82m',
-    statusBarFg: '\x1b[38;2;216;222;233m',
-    statusBarKeyBg: '\x1b[48;2;67;76;94m',
-    statusBarKeyFg: '\x1b[38;2;136;192;208m\x1b[1m',
+    bg: '#2e3440',
+    panel: '#3b4252',
+    border: '#4c566a',
+    text: '#eceff4',
+    muted: '#c0c8d6',
+    dim: '#8c98ad',
+    accent: '#88c0d0',
+    accent2: '#b48ead',
+    success: '#a3be8c',
+    warning: '#ebcb8b',
+    danger: '#bf616a',
+    highlight: '#b48ead',
+    selection: '#5e81ac',
+    chip: '#4c566a',
+    onAccent: '#2e3440',
   },
-
   catppuccin: {
-    name: 'Catppuccin',
-    fg: '\x1b[38;2;205;214;244m',          // Text
-    fgMuted: '\x1b[38;2;147;154;183m',     // Subtext0
-    fgDim: '\x1b[38;2;108;112;134m',       // Overlay0
-    accent: '\x1b[38;2;137;180;250m',      // Blue
-    accentSecondary: '\x1b[38;2;180;190;254m', // Lavender
-
-    border: '\x1b[38;2;88;91;112m',        // Surface2
-    borderActive: '\x1b[38;2;137;180;250m',
-
-    tabActiveBg: '\x1b[48;2;69;71;90m',
-    tabActiveFg: '\x1b[38;2;205;214;244m\x1b[1m',
-    tabInactiveBg: '\x1b[48;2;30;30;46m',
-    tabInactiveFg: '\x1b[38;2;147;154;183m',
-
-    badgeBuiltBg: '\x1b[48;2;166;227;161m', // Green
-    badgeBuiltFg: '\x1b[38;2;17;17;27m\x1b[1m',
-    badgeHeadlineBg: '\x1b[48;2;245;194;231m', // Pink
-    badgeHeadlineFg: '\x1b[38;2;17;17;27m\x1b[1m',
-    badgePhaseBg: '\x1b[48;2;49;50;68m',
-    badgePhaseFg: '\x1b[38;2;205;214;244m\x1b[1m',
-    badgeWarnBg: '\x1b[48;2;249;226;175m',  // Yellow
-    badgeWarnFg: '\x1b[38;2;17;17;27m\x1b[1m',
-    badgeErrorBg: '\x1b[48;2;243;139;168m', // Red
-    badgeErrorFg: '\x1b[38;2;17;17;27m\x1b[1m',
-    badgeInfoBg: '\x1b[48;2;137;220;235m',  // Sky
-    badgeInfoFg: '\x1b[38;2;17;17;27m\x1b[1m',
-
-    statusBarBg: '\x1b[48;2;49;50;68m',
-    statusBarFg: '\x1b[38;2;205;214;244m',
-    statusBarKeyBg: '\x1b[48;2;69;71;90m',
-    statusBarKeyFg: '\x1b[38;2;137;180;250m\x1b[1m',
+    bg: '#1e1e2e',
+    panel: '#313244',
+    border: '#585b70',
+    text: '#cdd6f4',
+    muted: '#bac2de',
+    dim: '#9399b2',
+    accent: '#89b4fa',
+    accent2: '#f5c2e7',
+    success: '#a6e3a1',
+    warning: '#f9e2af',
+    danger: '#f38ba8',
+    highlight: '#f5c2e7',
+    selection: '#45475a',
+    chip: '#45475a',
+    onAccent: '#11111b',
   },
-
   light: {
-    name: 'Light',
-    fg: '\x1b[38;2;44;53;64m',
-    fgMuted: '\x1b[38;2;100;110;125m',
-    fgDim: '\x1b[38;2;160;170;185m',
-    accent: '\x1b[38;2;20;110;210m',
-    accentSecondary: '\x1b[38;2;15;140;130m',
-
-    border: '\x1b[38;2;195;205;215m',
-    borderActive: '\x1b[38;2;20;110;210m',
-
-    tabActiveBg: '\x1b[48;2;215;225;240m',
-    tabActiveFg: '\x1b[38;2;15;75;150m\x1b[1m',
-    tabInactiveBg: '\x1b[48;2;240;244;248m',
-    tabInactiveFg: '\x1b[38;2;100;110;125m',
-
-    badgeBuiltBg: '\x1b[48;2;190;230;190m',
-    badgeBuiltFg: '\x1b[38;2;20;80;30m\x1b[1m',
-    badgeHeadlineBg: '\x1b[48;2;230;200;240m',
-    badgeHeadlineFg: '\x1b[38;2;90;20;100m\x1b[1m',
-    badgePhaseBg: '\x1b[48;2;225;230;238m',
-    badgePhaseFg: '\x1b[38;2;70;80;95m\x1b[1m',
-    badgeWarnBg: '\x1b[48;2;255;235;185m',
-    badgeWarnFg: '\x1b[38;2;130;85;10m\x1b[1m',
-    badgeErrorBg: '\x1b[48;2;255;205;210m',
-    badgeErrorFg: '\x1b[38;2;160;30;40m\x1b[1m',
-    badgeInfoBg: '\x1b[48;2;210;230;255m',
-    badgeInfoFg: '\x1b[38;2;15;70;140m\x1b[1m',
-
-    statusBarBg: '\x1b[48;2;220;226;235m',
-    statusBarFg: '\x1b[38;2;44;53;64m',
-    statusBarKeyBg: '\x1b[48;2;200;210;222m',
-    statusBarKeyFg: '\x1b[38;2;15;75;150m\x1b[1m',
+    bg: '#f5f7fa',
+    panel: '#e2e8f0',
+    border: '#aab6c5',
+    text: '#1f2933',
+    muted: '#3e4c5e',
+    dim: '#5c6878',
+    accent: '#1565c0',
+    accent2: '#a3248f',
+    success: '#2e7d32',
+    warning: '#a15c00',
+    danger: '#c62828',
+    highlight: '#7b3fa0',
+    selection: '#c5dcf7',
+    chip: '#c9d3df',
+    onAccent: '#ffffff',
   },
 };
 
-let currentThemeName: ThemeName = 'nord';
+// ---------------------------------------------------------------------------
+// Colour depth
+// ---------------------------------------------------------------------------
+
+export type ColorDepth = 'truecolor' | '256';
+
+let depthOverride: ColorDepth | undefined;
+
+/** 24-bit when COLORTERM says so, otherwise 256 colours. */
+export function getColorDepth(): ColorDepth {
+  if (depthOverride) return depthOverride;
+  const colorterm = (process.env.COLORTERM ?? '').toLowerCase();
+  return colorterm === 'truecolor' || colorterm === '24bit' ? 'truecolor' : '256';
+}
+
+/** Force a colour depth. Pass undefined to go back to reading COLORTERM. */
+export function setColorDepth(depth: ColorDepth | undefined): void {
+  depthOverride = depth;
+}
+
+function parseHex(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+const CUBE_LEVELS = [0, 95, 135, 175, 215, 255];
+
+/** Nearest xterm 256-colour index (6x6x6 cube or grey ramp). */
+export function hexTo256(hex: string): number {
+  const [r, g, b] = parseHex(hex);
+  const cubeIndex = (v: number) => (v < 48 ? 0 : v < 115 ? 1 : Math.floor((v - 35) / 40));
+  const [ri, gi, bi] = [cubeIndex(r), cubeIndex(g), cubeIndex(b)];
+  const cube: [number, number, number] = [CUBE_LEVELS[ri]!, CUBE_LEVELS[gi]!, CUBE_LEVELS[bi]!];
+
+  const avg = Math.round((r + g + b) / 3);
+  const grayIndex = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
+  const grayValue = 8 + grayIndex * 10;
+
+  const dist = ([x, y, z]: [number, number, number]) => (x - r) ** 2 + (y - g) ** 2 + (z - b) ** 2;
+  return dist([grayValue, grayValue, grayValue]) < dist(cube)
+    ? 232 + grayIndex
+    : 16 + 36 * ri + 6 * gi + bi;
+}
+
+function colorCode(hex: string, layer: 38 | 48, depth: ColorDepth): string {
+  if (depth === 'truecolor') return `\x1b[${layer};2;${parseHex(hex).join(';')}m`;
+  return `\x1b[${layer};5;${hexTo256(hex)}m`;
+}
+
+// ---------------------------------------------------------------------------
+// Themes
+// ---------------------------------------------------------------------------
+
+export function buildTheme(
+  name: string,
+  t: ThemeTokens,
+  depth: ColorDepth = 'truecolor',
+): ThemeColors {
+  const fgc = (hex: string) => colorCode(hex, 38, depth);
+  const bgc = (hex: string) => colorCode(hex, 48, depth);
+  const onAccent = fgc(t.onAccent) + ANSI.bold;
+  return {
+    name,
+    mono: false,
+    tokens: t,
+
+    bg: bgc(t.bg),
+    panelBg: bgc(t.panel),
+    selectionBg: bgc(t.selection),
+    selectionFg: fgc(t.text),
+
+    fg: fgc(t.text),
+    fgMuted: fgc(t.muted),
+    fgDim: fgc(t.dim),
+    accent: fgc(t.accent),
+    accentSecondary: fgc(t.accent2),
+    success: fgc(t.success),
+    warning: fgc(t.warning),
+    danger: fgc(t.danger),
+
+    border: fgc(t.border),
+    borderActive: fgc(t.accent),
+
+    tabActiveBg: bgc(t.accent),
+    tabActiveFg: onAccent,
+    tabInactiveBg: bgc(t.panel),
+    tabInactiveFg: fgc(t.muted),
+
+    badgeBuiltBg: bgc(t.success),
+    badgeBuiltFg: onAccent,
+    badgeHeadlineBg: bgc(t.highlight),
+    badgeHeadlineFg: onAccent,
+    badgePhaseBg: bgc(t.border),
+    badgePhaseFg: fgc(t.text) + ANSI.bold,
+    badgeWarnBg: bgc(t.warning),
+    badgeWarnFg: onAccent,
+    badgeErrorBg: bgc(t.danger),
+    badgeErrorFg: onAccent,
+    badgeInfoBg: bgc(t.accent),
+    badgeInfoFg: onAccent,
+
+    statusBarBg: bgc(t.panel),
+    statusBarFg: fgc(t.text),
+    statusBarKeyBg: bgc(t.chip),
+    statusBarKeyFg: fgc(t.accent) + ANSI.bold,
+  };
+}
+
+/** Same shape as a colour theme, with every colour sequence empty. */
+function buildMonoTheme(name: string, t: ThemeTokens): ThemeColors {
+  const colored = buildTheme(name, t);
+  const mono = Object.fromEntries(
+    Object.keys(colored).map((key) => [key, '']),
+  ) as unknown as ThemeColors;
+  return { ...mono, name, mono: true, tokens: t, selectionBg: ANSI.inverse };
+}
+
+const THEME_LABELS: Record<ThemeName, string> = {
+  cyber: 'Cyber',
+  nord: 'Nord',
+  catppuccin: 'Catppuccin',
+  light: 'Light',
+};
+
+function buildAll(make: (name: string, t: ThemeTokens) => ThemeColors) {
+  return Object.fromEntries(
+    THEME_ORDER.map((key) => [key, make(THEME_LABELS[key], TOKENS[key])]),
+  ) as Record<ThemeName, ThemeColors>;
+}
+
+/** 24-bit colour themes. */
+export const THEMES: Record<ThemeName, ThemeColors> = buildAll((n, t) => buildTheme(n, t));
+const THEMES_256 = buildAll((n, t) => buildTheme(n, t, '256'));
+const MONO_THEMES = buildAll(buildMonoTheme);
+
+let currentThemeName: ThemeName = DEFAULT_THEME;
+let colorOverride: boolean | undefined;
+
+/** Colour is on unless NO_COLOR is set to a non-empty value (or overridden). */
+export function isColorEnabled(): boolean {
+  if (colorOverride !== undefined) return colorOverride;
+  const noColor = process.env.NO_COLOR;
+  return noColor === undefined || noColor === '';
+}
+
+/** Force colour on or off. Pass undefined to go back to reading NO_COLOR. */
+export function setColorEnabled(enabled: boolean | undefined): void {
+  colorOverride = enabled;
+}
 
 export function getTheme(name?: ThemeName): ThemeColors {
-  return THEMES[name ?? currentThemeName]!;
+  const key = name ?? currentThemeName;
+  if (!isColorEnabled()) return MONO_THEMES[key]!;
+  return getColorDepth() === 'truecolor' ? THEMES[key]! : THEMES_256[key]!;
+}
+
+/** Foreground colour for any hex value, at the current depth ('' with NO_COLOR). */
+export function fgColor(hex: string): string {
+  if (!isColorEnabled()) return '';
+  return colorCode(hex, 38, getColorDepth());
 }
 
 export function setTheme(name: ThemeName): void {
@@ -185,13 +356,11 @@ export function setTheme(name: ThemeName): void {
 }
 
 export function cycleTheme(): ThemeName {
-  const order: ThemeName[] = ['nord', 'catppuccin', 'light'];
-  const nextIdx = (order.indexOf(currentThemeName) + 1) % order.length;
-  currentThemeName = order[nextIdx]!;
+  const nextIdx = (THEME_ORDER.indexOf(currentThemeName) + 1) % THEME_ORDER.length;
+  currentThemeName = THEME_ORDER[nextIdx]!;
   return currentThemeName;
 }
 
 export function getCurrentThemeName(): ThemeName {
   return currentThemeName;
 }
-

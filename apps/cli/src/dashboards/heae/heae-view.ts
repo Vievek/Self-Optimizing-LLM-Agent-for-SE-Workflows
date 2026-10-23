@@ -1,27 +1,64 @@
-import type { DashboardView, TuiState } from '../types.js';
+import type { DashboardView, TuiState, ViewAction } from '../types.js';
 import {
   ANSI,
   getTheme,
+  sectionLabel,
+  highlightRow,
   renderBadge,
   renderBox,
-  renderStatusBar,
+  renderPanels,
   renderTopHeader,
+  spacer,
+  toLines,
+  vstack,
+  type ThemeColors,
 } from '../../theme/index.js';
-import {
-  renderControlBar,
-  renderSplitLayout,
-} from '../../components/index.js';
+import { renderControlBar } from '../../components/index.js';
+
+/** The attributed failure rules, one box each. */
+function hypothesisLines(theme: ThemeColors): string[][] {
+  return [
+    [
+      ` ${theme.badgeBuiltBg}${theme.badgeBuiltFg} ✔ ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule TOOL-02: Patch Apply Context Mismatch${ANSI.reset}  ${renderBadge('TOOL FAILURE', 'error', theme)}`,
+      `   ${theme.fgMuted}Target Span: span_tool_003 (apply_patch) -> Exit 1 (context offset mismatch)${ANSI.reset}`,
+      `   ${theme.fgMuted}Confidence: 0.92 · Suggested Action: tool_description_refine${ANSI.reset}`,
+    ],
+    [
+      ` ${theme.badgeBuiltBg}${theme.badgeBuiltFg} ✔ ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule WORKFLOW-01: Unverified Code Mutation${ANSI.reset}  ${renderBadge('WORKFLOW', 'warn', theme)}`,
+      `   ${theme.fgMuted}Observed: edit_file succeeded but run_tests was never invoked before task completion${ANSI.reset}`,
+      `   ${theme.fgMuted}Confidence: 0.88 · Suggested Action: workflow_verification_enforce${ANSI.reset}`,
+    ],
+    [
+      ` ${theme.fgDim} [ ] ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule RETRIEVAL-01: Zero Context Yield${ANSI.reset}  ${renderBadge('PASS', 'built', theme)}`,
+      `   ${theme.fgMuted}All 3 retrieval spans yielded valid files with depth <= 3${ANSI.reset}`,
+    ],
+  ];
+}
 
 export class HeaeDashboardView implements DashboardView {
   id = 'heae';
   name = 'HEAE Evaluation';
   title = 'HEAE Evaluation · Hierarchical Attribution Engine';
   tabs = ['Attribution', 'Rule Engine', 'Trace Graph', 'Signals'];
+  actionLabel = 'evaluate';
+
+  itemCount(): number {
+    return 3;
+  }
+
+  activate(): ViewAction {
+    return { type: 'busy', verb: 'Scoring', durationMs: 1100, done: 'Evaluation complete' };
+  }
+
+  status(state: TuiState): string {
+    const tab = this.tabs[state.activeTab % this.tabs.length] ?? 'Attribution';
+    return `${tab} · 2 active hypotheses · 0 duplicate publications`;
+  }
 
   render(state: TuiState): string {
     const theme = getTheme(state.theme);
-    const availableWidth = state.width ? state.width - 4 : 100;
-    const width = Math.max(92, Math.min(availableWidth, 140));
+    const { width, height } = state;
+    const selected = state.selectedItemIndex;
 
     // 1. Header
     const header = renderTopHeader(
@@ -32,7 +69,7 @@ export class HeaeDashboardView implements DashboardView {
       width,
     );
 
-    // 2. Control Row
+    // 2. Control row
     const judgeBadge = `${theme.accent}${ANSI.bold}JUDGE MODE:${ANSI.reset} ${renderBadge('Deterministic Rules (Offline)', 'built', theme)}  ${theme.fgMuted}Ollama Qwen-3B Ready${ANSI.reset}`;
     const controlRow = renderControlBar({
       themeName: state.theme,
@@ -40,61 +77,30 @@ export class HeaeDashboardView implements DashboardView {
       activeTab: state.activeTab,
       leftBadge: judgeBadge,
       theme,
+      width,
     });
 
-    // 3. Layout: Left Box (Attributed Hypotheses), Right Box (Kùzu DB & Graph Metrics)
-    const leftWidth = Math.floor(width * 0.65);
-    const rightWidth = width - leftWidth - 3;
+    // 3. Left panel: attributed hypotheses (selected one highlighted)
+    const hypotheses = hypothesisLines(theme);
+    const boxHeights = hypotheses.map((lines) => lines.length + 2);
+    const focusStart = boxHeights.slice(0, selected).reduce((a, b) => a + b, 0);
 
-    const hypotheses = [
-      renderBox(
-        [
-          ` ${theme.badgeBuiltBg} ✔ ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule TOOL-02: Patch Apply Context Mismatch${ANSI.reset}  ${renderBadge('TOOL FAILURE', 'error', theme)}`,
-          `   ${theme.fgMuted}Target Span: span_tool_003 (apply_patch) -> Exit 1 (context offset mismatch)${ANSI.reset}`,
-          `   ${theme.fgMuted}Confidence: 0.92 · Suggested Action: tool_description_refine${ANSI.reset}`,
-        ],
-        {
-          width: leftWidth - 4,
-          rounded: true,
-          theme,
-        },
-      ),
-      renderBox(
-        [
-          ` ${theme.badgeBuiltBg} ✔ ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule WORKFLOW-01: Unverified Code Mutation${ANSI.reset}  ${renderBadge('WORKFLOW', 'warn', theme)}`,
-          `   ${theme.fgMuted}Observed: edit_file succeeded but run_tests was never invoked before task completion${ANSI.reset}`,
-          `   ${theme.fgMuted}Confidence: 0.88 · Suggested Action: workflow_verification_enforce${ANSI.reset}`,
-        ],
-        {
-          width: leftWidth - 4,
-          rounded: true,
-          theme,
-        },
-      ),
-      renderBox(
-        [
-          ` ${theme.fgDim} [ ] ${ANSI.reset} ${theme.fg}${ANSI.bold}Rule RETRIEVAL-01: Zero Context Yield${ANSI.reset}  ${renderBadge('PASS', 'built', theme)}`,
-          `   ${theme.fgMuted}All 3 retrieval spans yielded valid files with depth <= 3${ANSI.reset}`,
-        ],
-        {
-          width: leftWidth - 4,
-          rounded: true,
-          theme,
-        },
-      ),
-    ];
+    const buildHypotheses = (innerWidth: number) => {
+      const boxWidth = Math.max(4, innerWidth - 2);
+      return hypotheses.flatMap((lines, i) => {
+        const isSelected = i === selected;
+        const content = isSelected
+          ? [highlightRow(lines[0]!, boxWidth - 2, theme), ...lines.slice(1)]
+          : lines;
+        return toLines(
+          renderBox(content, { width: boxWidth, rounded: true, active: isSelected, theme }),
+        ).map((line) => ` ${line}`);
+      });
+    };
 
-    const leftBox = renderBox(hypotheses.join('\n').split('\n'), {
-      title: 'Attributed Diagnostics & Failure Rules',
-      width: leftWidth,
-      rounded: true,
-      active: true,
-      theme,
-    });
-
-    // Right Box: Kùzu Graph DB stats & Contracts Status
-    const graphStats = [
-      `${theme.accent}${ANSI.bold}Kùzu Graph Store${ANSI.reset}`,
+    // 4. Right panel: Kùzu graph stats & contract status
+    const buildGraph = (innerWidth: number) => [
+      sectionLabel('Kùzu Graph Store', theme),
       `  Path: store/graphs/heae.kuzu`,
       '',
       `  PromptNode:        ${theme.fg}3${ANSI.reset}`,
@@ -103,9 +109,9 @@ export class HeaeDashboardView implements DashboardView {
       `  RetrievalNode:     ${theme.fg}2${ANSI.reset}`,
       `  OutputNode:        ${theme.fg}1${ANSI.reset}`,
       '',
-      `${theme.border}${'─'.repeat(Math.max(20, rightWidth - 4))}${ANSI.reset}`,
+      `${theme.border}${'─'.repeat(Math.max(0, innerWidth))}${ANSI.reset}`,
       '',
-      `${theme.accent}${ANSI.bold}Generated Contracts${ANSI.reset}`,
+      sectionLabel('Generated Contracts', theme),
       '',
       `  ${renderBadge('OutcomeEvidence', 'built', theme)}   v2.0 -> Memory`,
       `  ${renderBadge('OptimizationSignal', 'built', theme)} v2.0 -> Orch`,
@@ -113,39 +119,23 @@ export class HeaeDashboardView implements DashboardView {
       `  ${theme.fgDim}SHA-256 Fingerprint: verified${ANSI.reset}`,
     ];
 
-    const rightBox = renderBox(graphStats, {
-      title: 'Graph & Contracts',
-      width: rightWidth,
-      rounded: true,
-      theme,
-    });
+    const panels = (h: number) =>
+      renderPanels(
+        {
+          title: 'Attributed Diagnostics & Failure Rules',
+          active: true,
+          build: buildHypotheses,
+          focus: [focusStart, focusStart + (boxHeights[selected] ?? 0)],
+        },
+        { title: 'Graph & Contracts', build: buildGraph },
+        { width, height: h, ratio: 0.65, theme },
+      );
 
-    // 4. Two-column Responsive Split Layout (Reused Component)
-    const body = renderSplitLayout(leftBox, rightBox, {
+    const gap = spacer(height);
+    return vstack(
+      [toLines(header), gap, toLines(controlRow), gap, { grow: 1, render: panels }],
       width,
-      ratio: 0.65,
-      gap: 3,
-      theme,
-    });
-
-    // 5. Status Bar
-    const activeTabIdx = state.activeTab % this.tabs.length;
-    const activeTabName = this.tabs[activeTabIdx] ?? 'Attribution';
-    const statusBar = renderStatusBar(
-      `soa heae · ${activeTabName}`,
-      [
-        { key: 'm', label: 'menu' },
-        { key: 'tab', label: 'views' },
-        { key: '↵', label: 'evaluate' },
-        { key: '?', label: 'help' },
-        { key: 't', label: 'theme' },
-        { key: 'q', label: 'quit' },
-      ],
-      '2 active hypotheses · 0 duplicate publications',
-      width,
-      theme,
-    );
-
-    return [header, '', controlRow, '', body, '', statusBar].join('\n');
+      height,
+    ).join('\n');
   }
 }

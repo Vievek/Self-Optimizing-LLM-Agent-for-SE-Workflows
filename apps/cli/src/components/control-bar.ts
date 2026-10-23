@@ -1,12 +1,14 @@
 /**
- * Control Bar Component (termcn style)
+ * Control Bar Component
  *
- * Renders the top navigation row containing theme selector pills,
- * active model indicators, and view tab switchers.
+ * Renders the navigation row: theme selector pills (or a custom left badge)
+ * and the view tab pills. When `width` is given and both halves do not fit on
+ * one line, the tabs move to a second line.
  */
 
 import { getTheme, type ThemeColors, type ThemeName } from '../theme/theme.js';
-import { renderPill } from '../theme/box.js';
+import { renderPill, sectionLabel } from '../theme/box.js';
+import { visibleLength } from '../theme/text.js';
 
 export interface ControlBarOptions {
   themeName: ThemeName;
@@ -14,33 +16,31 @@ export interface ControlBarOptions {
   activeTab?: number;
   leftBadge?: string;
   theme?: ThemeColors;
+  width?: number;
 }
 
 export function renderControlBar(options: ControlBarOptions): string {
   const theme = options.theme ?? getTheme(options.themeName);
 
-  // Left side: Theme selector pills (or custom badge if provided)
-  let leftSide = '';
-  if (options.leftBadge) {
-    leftSide = options.leftBadge;
-  } else {
-    leftSide = [
-      'Theme',
+  const leftSide =
+    options.leftBadge ??
+    [
+      sectionLabel('Theme', theme),
+      renderPill('Cyber', options.themeName === 'cyber', theme),
       renderPill('Catppuccin', options.themeName === 'catppuccin', theme),
       renderPill('Nord', options.themeName === 'nord', theme),
       renderPill('Light', options.themeName === 'light', theme),
-    ].join('   ');
-  }
+    ].join(' ');
 
-  // Right side: View tabs
   let rightSide = '';
   if (options.tabs && options.tabs.length > 0) {
     const activeIdx = (options.activeTab ?? 0) % options.tabs.length;
     const tabPills = options.tabs.map((tab, idx) => renderPill(tab, idx === activeIdx, theme));
-    rightSide = `Views     ${tabPills.join('   ')}`;
+    rightSide = `${sectionLabel('Views', theme)} ${tabPills.join(' ')}`;
   }
 
   if (!rightSide) return leftSide;
-  return `${leftSide}     ${rightSide}`;
+  const oneLine = `${leftSide}     ${rightSide}`;
+  if (options.width === undefined || visibleLength(oneLine) <= options.width) return oneLine;
+  return `${leftSide}\n${rightSide}`;
 }
-
