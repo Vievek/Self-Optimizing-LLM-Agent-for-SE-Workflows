@@ -49,35 +49,35 @@ export class PlanGenerator {
     );
 
     if (isCreationTask) {
-      // Step 0: Exploration — quick layout check
+      // Step 0: Reconnaissance (SLM Tier) - discover layout and identify missing files in 1-2 turns max
       const step0Type: SubtaskType = 'explore';
-      const retrievalFeatures: SubtaskRoutingFeatures = {
+      const exploreFeatures: SubtaskRoutingFeatures = {
         step_type: step0Type,
-        estimated_tokens: 600,
+        estimated_tokens: 500,
         file_count: Math.max(1, extractedFiles.length),
         prior_failures: 0,
         requires_cross_file_reasoning: false,
-        symbol_count: 2,
+        symbol_count: 1,
       };
 
       subtasks.push({
-        id: `${task.taskId}_step_0_explore`,
+        id: `${task.taskId}_step_0_recon`,
         stepIndex: 0,
         type: step0Type,
-        goal: `Inspect workspace layout with list_directory to see existing structure and identify missing files. Complete within 1-2 tool calls.`,
+        goal: `Inspect workspace layout with list_directory once. Identify which required files exist and which are missing. Conclude immediately within 1-2 turns. Do NOT read file contents.`,
         targetFiles: extractedFiles,
-        estimatedTokens: retrievalFeatures.estimated_tokens,
+        estimatedTokens: exploreFeatures.estimated_tokens,
         status: 'pending',
         retryCount: 0,
-        features: retrievalFeatures,
+        features: exploreFeatures,
       });
 
-      // Step 1: Implementation & Scaffolding — write all required files
+      // Step 1: Implementation & Scaffolding (LLM Tier) - write all missing files
       const step1Type: SubtaskType = 'edit_multi_file';
-      const editFeatures: SubtaskRoutingFeatures = {
+      const scaffoldFeatures: SubtaskRoutingFeatures = {
         step_type: step1Type,
-        estimated_tokens: 2500,
-        file_count: Math.max(1, extractedFiles.length),
+        estimated_tokens: 3500,
+        file_count: Math.max(3, extractedFiles.length),
         prior_failures: 0,
         requires_cross_file_reasoning: true,
         symbol_count: 5,
@@ -87,31 +87,31 @@ export class PlanGenerator {
         id: `${task.taskId}_step_1_scaffold`,
         stepIndex: 1,
         type: step1Type,
-        goal: `Scaffold and write all missing project files (configs, source code, components, .env.example) using write_file. Do NOT re-explore files already checked.`,
+        goal: `Scaffold and write all missing project files (configs, server/client code, components, .env.example) using write_file in batches of 2-3 files. Do NOT re-explore or read files already checked.`,
         targetFiles: extractedFiles,
-        estimatedTokens: editFeatures.estimated_tokens,
+        estimatedTokens: scaffoldFeatures.estimated_tokens,
         status: 'pending',
         retryCount: 0,
-        features: editFeatures,
+        features: scaffoldFeatures,
       });
 
-      // Step 2: Verification — ensure requirements are satisfied
+      // Step 2: Verification (SLM Tier) - ensure all required files exist on disk
       if (this.config.verify_after_edit) {
         const step2Type: SubtaskType = 'plan';
         const verifyFeatures: SubtaskRoutingFeatures = {
           step_type: step2Type,
-          estimated_tokens: 900,
+          estimated_tokens: 500,
           file_count: Math.max(1, extractedFiles.length),
           prior_failures: 0,
           requires_cross_file_reasoning: false,
-          symbol_count: 2,
+          symbol_count: 1,
         };
 
         subtasks.push({
           id: `${task.taskId}_step_2_verify`,
           stepIndex: 2,
           type: step2Type,
-          goal: `Inspect created workspace files and verify that all requested features and components are complete.`,
+          goal: `Verify that all requested project files exist on disk using list_directory and conclude.`,
           targetFiles: extractedFiles,
           estimatedTokens: verifyFeatures.estimated_tokens,
           status: 'pending',

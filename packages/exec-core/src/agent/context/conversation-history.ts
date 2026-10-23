@@ -65,6 +65,41 @@ export class ConversationHistory {
   }
 
   /**
+   * Replaces older bulky tool observations (> 300 chars) with concise receipts
+   * once the model has already acknowledged and reasoned about them in its Thought.
+   */
+  pruneHistoricalObservations(): void {
+    if (this.messages.length <= 4) return;
+
+    // Keep the most recent 2 messages (last assistant turn and latest user observation) untouched
+    const boundary = this.messages.length - 2;
+
+    for (let i = 2; i < boundary; i++) {
+      const msg = this.messages[i];
+      if (!msg) continue;
+
+      if (msg.role === 'user' && msg.content.length > 300) {
+        if (
+          msg.content.startsWith('Observation:') ||
+          msg.content.startsWith('--- [Result:') ||
+          msg.content.includes('=== File:') ||
+          msg.content.includes('Observation (Multi-Tool Results):')
+        ) {
+          const fileMatch = (msg.content.match(/=== File: ([^\n\s]+)/g) || []).map((m) =>
+            m.replace('=== File: ', '').trim(),
+          );
+          if (fileMatch.length > 0) {
+            msg.content = `Observation: [Inspected ${fileMatch.length} file(s): ${fileMatch.join(', ')}. Details summarized in thought above.]`;
+          } else {
+            const firstLine = msg.content.split('\n')[0]?.substring(0, 100) ?? 'Observation:';
+            msg.content = `${firstLine}\n[Tool output processed in previous turn (${msg.content.length} chars).]`;
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Compresses or prunes intermediate turns to ensure total input tokens stay strictly
    * within the available budget for the active model tier.
    *
@@ -74,6 +109,9 @@ export class ConversationHistory {
    * 3. Most recent turns leading up to current decision
    */
   getCompactedMessages(): ChatMessage[] {
+    // 1. Prune older raw file observations to prevent context bloating and amnesia
+    this.pruneHistoricalObservations();
+
     const inputBudget = this.getAvailableInputBudget();
     const currentTokens = this.getTotalTokens();
 

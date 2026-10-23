@@ -4,15 +4,21 @@ import { formatToolsForReActPrompt } from './tool-schema-bridge.js';
 export interface PromptBuilderOptions {
   systemPromptVersion?: string;
   customGuidelines?: string[];
+  maxBatchWriteFiles?: number;
+  maxBatchReadFiles?: number;
 }
 
 export class PromptBuilder {
   private readonly systemPromptVersion: string;
   private readonly customGuidelines: string[];
+  private readonly maxBatchWriteFiles: number;
+  private readonly maxBatchReadFiles: number;
 
   constructor(options: PromptBuilderOptions = {}) {
     this.systemPromptVersion = options.systemPromptVersion ?? 'v1.0';
     this.customGuidelines = options.customGuidelines ?? [];
+    this.maxBatchWriteFiles = options.maxBatchWriteFiles ?? 3;
+    this.maxBatchReadFiles = options.maxBatchReadFiles ?? 8;
   }
 
   /**
@@ -37,9 +43,9 @@ ${toolManual}
 
 ## Critical Operational Rules
 1. For existing codebases, never guess file contents or function signatures. Use \`retrieve_context\` (AST search) or \`read_file\` to inspect relevant code.
-2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`.
-3. You can write multiple files at once in a single turn using \`write_file\` with \`{ "files": [{ "path": "...", "content": "..." }, { "path": "...", "content": "..." }] }\`. IMPORTANT: Limit each batch to 2 to 3 files to stay within output token limits and prevent truncation. Do not attempt to write more than 3 files in a single turn.
-4. When reading multiple files at once, use \`read_file\` with \`{ "paths": ["file1", "file2"] }\`.
+2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first (which recursively lists directories up to depth 4 by default). Do NOT query subdirectories individually. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`.
+3. You can write multiple files at once in a single turn using \`write_file\` with \`{ "files": [{ "path": "...", "content": "..." }, { "path": "...", "content": "..." }] }\`. Limit each batch to up to ${this.maxBatchWriteFiles} files to stay within output token limits and prevent truncation.
+4. When reading multiple files at once, use \`read_file\` with \`{ "paths": ["file1", "file2"] }\` (up to ${this.maxBatchReadFiles} files per call).
 5. Always provide \`Action Input:\` with valid JSON arguments whenever you specify an \`Action:\`. Example:
    **Action**: list_directory
    **Action Input**: { "path": "." }
@@ -72,6 +78,15 @@ ${this.customGuidelines.map((g, idx) => `${7 + idx}. ${g}`).join('\n')}`;
 
     if (previousContext) {
       sections.push(`\n# Relevant Context & Discoveries\n${previousContext}`);
+
+      if (
+        (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') &&
+        previousContext.toLowerCase().includes('explore')
+      ) {
+        sections.push(
+          `\n🚨 CRITICAL OPERATIONAL DIRECTIVE:\nRepository exploration has ALREADY been completed in Step 1. DO NOT call list_directory. Use the file layout documented above in "Relevant Context & Discoveries" and begin IMMEDIATELY by calling write_file to create the missing files.`,
+        );
+      }
     }
 
     sections.push(

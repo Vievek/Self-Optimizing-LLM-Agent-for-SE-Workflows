@@ -66,13 +66,21 @@ export class ReadFileHandler implements ToolHandler {
     // Batch file read execution
     const results: string[] = [];
     let hasError = false;
+    const MAX_BATCH_LINES_PER_FILE = 60;
 
     for (const filePath of paths) {
       try {
         const content = await context.sandbox.readFile(context.workspaceId, filePath);
         const lines = content.split('\n');
-        const numbered = lines.map((line, idx) => `${idx + 1} | ${line}`).join('\n');
-        results.push(`=== File: ${filePath} (${lines.length} lines) ===\n${numbered}`);
+        const isTruncated = lines.length > MAX_BATCH_LINES_PER_FILE;
+        const selected = isTruncated ? lines.slice(0, MAX_BATCH_LINES_PER_FILE) : lines;
+        const numbered = selected.map((line, idx) => `${idx + 1} | ${line}`).join('\n');
+        const truncationNotice = isTruncated
+          ? `\n... [${lines.length - MAX_BATCH_LINES_PER_FILE} lines omitted in batch mode. Use single read_file with offset/limit to read specific section] ...`
+          : '';
+        results.push(
+          `=== File: ${filePath} (${lines.length} lines) ===\n${numbered}${truncationNotice}`,
+        );
       } catch (err: unknown) {
         hasError = true;
         const message = err instanceof Error ? err.message : String(err);

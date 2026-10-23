@@ -45,6 +45,8 @@ export class ReactAgent {
     // Initialize conversation history if new
     if (historyManager.getMessages().length === 0) {
       const promptBuilder = new PromptBuilder({
+        maxBatchWriteFiles: params.maxBatchWriteFiles,
+        maxBatchReadFiles: params.maxBatchReadFiles,
         customGuidelines: [
           'Think step-by-step before selecting an action.',
           'You may call multiple tools or batch actions in one turn if needed to gather context or make changes efficiently.',
@@ -71,6 +73,8 @@ export class ReactAgent {
     let lastError: string | undefined;
     let finalAnswer: string | undefined;
     let success = false;
+    const inspectionHistory: Array<{ tool: string; args: string }> = [];
+    let consecutiveInspections = 0;
 
     while (turn < maxTurns) {
       turn += 1;
@@ -184,6 +188,36 @@ export class ReactAgent {
           }
         }
 
+        // Active steering: detect repeated inspections or inspection loops
+        let loopNotice = '';
+        for (const call of callsToExecute) {
+          if (call.toolName === 'list_directory' || call.toolName === 'read_file') {
+            const argKey = JSON.stringify(call.args);
+            const isDuplicate = inspectionHistory.some(
+              (h) => h.tool === call.toolName && h.args === argKey,
+            );
+            consecutiveInspections += 1;
+            inspectionHistory.push({ tool: call.toolName, args: argKey });
+
+            if (isDuplicate) {
+              loopNotice =
+                '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file in batches.';
+            } else if (
+              (params.subtask.type === 'edit_multi_file' || params.subtask.type === 'edit_single_file') &&
+              call.toolName === 'list_directory' &&
+              params.previousContext
+            ) {
+              loopNotice =
+                '\n\n⚠️ STEERING NOTICE: Exploration is already complete. Do NOT call list_directory again. Proceed immediately to write the required missing files using write_file in batches.';
+            } else if (consecutiveInspections >= 3) {
+              loopNotice =
+                '\n\n⚠️ STEERING NOTICE: You have completed exploration. Do NOT read or list any more files. Immediately begin writing the missing project files using write_file in batches.';
+            }
+          } else if (call.toolName === 'write_file' || call.toolName === 'edit_file') {
+            consecutiveInspections = 0;
+          }
+        }
+
         const promptNote =
           turn === maxTurns - 1
             ? '\n\nCRITICAL: This is your final turn for this subtask. Do NOT call any more tools. Conclude immediately with **Thought** and **Final Answer**.'
@@ -191,8 +225,8 @@ export class ReactAgent {
 
         const fullObs =
           callsToExecute.length === 1
-            ? `${observationSections[0]}${promptNote}`
-            : `Observation (Multi-Tool Results):\n${observationSections.join('\n\n')}${promptNote}`;
+            ? `${observationSections[0]}${loopNotice}${promptNote}`
+            : `Observation (Multi-Tool Results):\n${observationSections.join('\n\n')}${loopNotice}${promptNote}`;
 
         historyManager.addMessage('user', fullObs);
       } else {

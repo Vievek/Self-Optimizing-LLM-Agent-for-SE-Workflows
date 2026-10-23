@@ -49,8 +49,6 @@ async function main() {
 
   // Logging wrapper to show agent thought process in real-time
   const reactLlmCaller = async (messages, opts) => {
-    // 2-second pacing prevents burst token-per-minute rate limits on free tiers
-    await new Promise((r) => setTimeout(r, 2000));
     const tierLabel = opts?.tier?.toUpperCase() ?? 'SLM';
     console.log(`\n🧠 [${tierLabel}] Reasoning with model: ${opts?.model}...`);
     const resp = await baseCaller(messages, opts);
@@ -79,7 +77,7 @@ async function main() {
       providerRegistry: registry,
       reactLlmCaller,
       maxIterations: Number(process.env.MAX_ITERATIONS) || 50,
-      maxTurnsPerSubtask: Number(process.env.MAX_TURNS_PER_SUBTASK) || 12,
+      maxTurnsPerSubtask: Number(process.env.MAX_TURNS_PER_SUBTASK) || 20,
     },
   );
 

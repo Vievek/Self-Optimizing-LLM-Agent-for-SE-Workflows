@@ -104,5 +104,37 @@ describe('Context Management & Output Compaction', () => {
       const totalEstimated = compacted.reduce((acc, m) => acc + estimateTokens(m.content), 0);
       expect(totalEstimated).toBeLessThanOrEqual(250);
     });
+
+    it('prunes older bulky tool observations while preserving recent observations and model thoughts', () => {
+      const history = new ConversationHistory('slm', {
+        maxTotalTokens: 10000,
+        reservedOutputTokens: 1000,
+      });
+
+      history.addMessage('system', 'System prompt');
+      history.addMessage('user', 'Task prompt');
+
+      // Turn 1: Bulky file reading observation
+      history.addMessage('assistant', 'Thought: Reading files to inspect structure.\nAction: read_file');
+      const bulkyFileContent = Array.from({ length: 50 }, (_, i) => `=== File: src/file${i}.ts ===\nconst x = ${i};`).join('\n');
+      history.addMessage('user', `Observation: ${bulkyFileContent}`);
+
+      // Turn 2: Model deduced findings, wrote code
+      history.addMessage('assistant', 'Thought: I understand the structure. Now writing files.\nAction: write_file');
+      history.addMessage('user', 'Observation: Successfully wrote 2 files.');
+
+      // Turn 3: Model is deciding next step
+      const messagesBeforeCompaction = history.getMessages();
+      expect(messagesBeforeCompaction[3]?.content.length).toBeGreaterThan(500);
+
+      const compacted = history.getCompactedMessages();
+      // Turn 1's observation should now be pruned to a concise receipt
+      expect(compacted[3]?.content).toContain('[Inspected 50 file(s)');
+      expect(compacted[3]?.content.length).toBeLessThan(1500);
+
+      // Turn 2's recent observation and Turn 2's thought must be preserved
+      expect(compacted[4]?.content).toContain('Now writing files');
+      expect(compacted[5]?.content).toBe('Observation: Successfully wrote 2 files.');
+    });
   });
 });

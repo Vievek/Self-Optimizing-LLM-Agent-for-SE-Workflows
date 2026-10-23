@@ -108,11 +108,16 @@ export const TOOL_DEFINITIONS = {
   },
   list_directory: {
     name: 'list_directory',
-    description: 'List files and subdirectories in the specified workspace directory.',
+    description:
+      'List files and subdirectories recursively up to depth 4 by default, showing full project structure in one call. Avoid querying subdirectories individually.',
     parameters: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Relative directory path (defaults to root ".")' },
+        depth: {
+          type: 'number',
+          description: 'Directory traversal depth (1 to 6, defaults to 4)',
+        },
       },
     },
     timeout_s: 30,

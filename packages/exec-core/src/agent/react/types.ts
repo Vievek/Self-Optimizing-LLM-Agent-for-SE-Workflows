@@ -43,6 +43,8 @@ export interface ExecuteSubtaskParams {
   historyManager?: ConversationHistoryManager;
   systemPrompt?: string;
   previousContext?: string;
+  maxBatchWriteFiles?: number;
+  maxBatchReadFiles?: number;
 }
 
 export interface ExecuteSubtaskResult {

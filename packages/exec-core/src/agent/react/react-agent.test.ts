@@ -256,4 +256,52 @@ Final Answer: Multi-tool batch execution verified successfully.`,
       expect(ToolCallSpanAttributesSchema.safeParse(tSpan.attributes).success).toBe(true);
     }
   });
+
+  it('detects duplicate inspections and injects an active steering notice', async () => {
+    let callCount = 0;
+    let sawSteeringNotice = false;
+
+    const llmCaller: ReActLlmCaller = async (messages) => {
+      callCount += 1;
+      const lastMsg = messages[messages.length - 1];
+
+      if (lastMsg?.content.includes('STEERING NOTICE')) {
+        sawSteeringNotice = true;
+      }
+
+      if (callCount === 1) {
+        return {
+          content: 'Thought: Listing root dir.\nAction: list_directory\nAction Input: {"path": "."}',
+          tokensIn: 300,
+          tokensOut: 40,
+        };
+      } else if (callCount === 2) {
+        // Redundant duplicate call
+        return {
+          content: 'Thought: Listing root dir again.\nAction: list_directory\nAction Input: {"path": "."}',
+          tokensIn: 400,
+          tokensOut: 40,
+        };
+      } else {
+        // Turn 3: Sees steering notice and finishes
+        return {
+          content: 'Thought: Steering notice received. Proceeding.\nFinal Answer: Done.',
+          tokensIn: 500,
+          tokensOut: 30,
+        };
+      }
+    };
+
+    const result = await agent.executeSubtask({
+      task: sampleTask,
+      subtask: sampleSubtask,
+      context,
+      llmCaller,
+      tier: 'slm',
+      maxTurns: 5,
+    });
+
+    expect(result.success).toBe(true);
+    expect(sawSteeringNotice).toBe(true);
+  });
 });

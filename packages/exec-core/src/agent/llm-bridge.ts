@@ -36,6 +36,11 @@ export function createReActLlmCaller(options: LlmBridgeOptions = {}): ReActLlmCa
       (tier === 'slm' ? 'qwen2.5-coder-7b-instruct' : 'qwen2.5-coder-32b-instruct');
 
     const configuredMaxTokens = modelsConfig?.[canonicalTier]?.maxTokens;
+    const pacingMs = modelsConfig?.[canonicalTier]?.pacingMs;
+    if (typeof pacingMs === 'number' && pacingMs > 0) {
+      await new Promise((r) => setTimeout(r, pacingMs));
+    }
+
     const chatResponse = await provider.chat({
       model,
       messages,

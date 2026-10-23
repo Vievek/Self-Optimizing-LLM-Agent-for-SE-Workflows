@@ -262,6 +262,27 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     expect(listResp.result.status).toBe('ok');
     expect(listResp.result.output).toContain('services');
 
+    // List directory with recursive depth
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          path: 'services/nested/deep/file.ts',
+          content: 'export const deep = true;',
+        },
+      },
+      context,
+    );
+    const deepListResp = await executor.execute(
+      {
+        toolName: 'list_directory',
+        args: { path: '.', depth: 4 },
+      },
+      context,
+    );
+    expect(deepListResp.result.status).toBe('ok');
+    expect(deepListResp.result.output).toContain('services/nested/deep/file.ts');
+
     // Grep search
     const grepResp = await executor.execute(
       {

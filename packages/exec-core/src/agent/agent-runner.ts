@@ -152,6 +152,10 @@ export class AgentRunner {
           (options.config?.planning?.subtask_timeout_s ?? 60) * 1000,
         );
 
+        const modelsConfig = options.providerRegistry?.getConfig();
+        const canonicalTier = routingDecision.tier === 'slm' ? 'small' : 'large';
+        const tierConfig = modelsConfig?.[canonicalTier];
+
         const subtaskResult = await reactAgent.executeSubtask({
           task,
           subtask,
@@ -161,11 +165,15 @@ export class AgentRunner {
           llmCaller: reactCaller,
           traceId,
           parentSpanId: rootSpanId,
+          maxBatchWriteFiles: tierConfig?.maxBatchWriteFiles,
+          maxBatchReadFiles: tierConfig?.maxBatchReadFiles,
           maxTurns:
-            options.maxTurnsPerSubtask ??
-            ((options.config?.planning as Record<string, unknown> | undefined)
-              ?.max_turns_per_subtask as number) ??
-            10,
+            subtask.type === 'explore' || subtask.type === 'plan'
+              ? 2
+              : options.maxTurnsPerSubtask ??
+                ((options.config?.planning as Record<string, unknown> | undefined)
+                  ?.max_turns_per_subtask as number) ??
+                12,
           previousContext: stepMemory.length > 0 ? stepMemory.join('\n') : undefined,
         });
 
