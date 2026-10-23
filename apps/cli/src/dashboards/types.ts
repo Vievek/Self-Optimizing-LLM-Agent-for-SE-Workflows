@@ -1,4 +1,5 @@
 import type { ThemeName } from '../theme/theme.js';
+import type { KeyHint } from '../components/app-bars.js';
 
 export interface TuiState {
   activeView: string;
@@ -22,6 +23,27 @@ export type ViewAction =
   /** Behave as if this global key was pressed (e.g. a menu entry). */
   | { type: 'key'; key: string };
 
+export interface TaskOptions {
+  /** Toast text when `fn` resolves without a message of its own. */
+  done?: string;
+  /** Rough length, for the progress meter and whether the SOA-BOT overlay is shown. */
+  expectedMs?: number;
+}
+
+/** What the app offers a view for work that takes time. */
+export interface ViewContext {
+  /**
+   * Runs `fn` with the busy indicator until its promise settles, then redraws and shows
+   * "[ ✔ DONE ] <message>" (the string `fn` resolves with, or options.done) or
+   * "[ ✖ FAIL ] <error>". Resolves to true on success. Only one task runs at a time;
+   * a second call while one runs returns false at once.
+   */
+  runTask(verb: string, fn: () => Promise<string | void>, options?: TaskOptions): Promise<boolean>;
+  /** Asks for a redraw (no-op when the app is not running interactively). */
+  redraw(): void;
+  isBusy(): boolean;
+}
+
 export interface DashboardView {
   id: string;
   name: string;
@@ -37,5 +59,13 @@ export interface DashboardView {
   activate?(state: TuiState): ViewAction | void;
   /** Short status text for the middle of the status bar. */
   status?(state: TuiState): string;
-  handleKey?(key: string, state: TuiState): boolean | void;
+  /**
+   * Called for keys that are not global (q, esc, ?, h, m, space, 1-4, t), before the app
+   * handles tab / arrows / up / down / return. Return true when the view used the key.
+   */
+  handleKey?(key: string, state: TuiState, ctx: ViewContext): boolean | void;
+  /** Key hints for the status bar; when set they replace the default select / return hints. */
+  keyHints?(state: TuiState): KeyHint[];
+  /** Called when the view is shown in the interactive app (e.g. to load data). */
+  enter?(ctx: ViewContext): void;
 }

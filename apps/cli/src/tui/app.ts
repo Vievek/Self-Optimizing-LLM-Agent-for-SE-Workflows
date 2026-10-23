@@ -11,7 +11,7 @@ import {
 } from '../theme/theme.js';
 import { keepStyle, visibleLength } from '../theme/text.js';
 import { MIN_COLS, MIN_ROWS, centerBlock, fitBlock, overlayBlock } from '../theme/layout.js';
-import type { DashboardView, TuiState } from '../dashboards/types.js';
+import type { DashboardView, TaskOptions, TuiState, ViewContext } from '../dashboards/types.js';
 import { ExecCoreDashboardView } from '../dashboards/exec-core/index.js';
 import { HeaeDashboardView } from '../dashboards/heae/index.js';
 import { MemoryDashboardView } from '../dashboards/memory/index.js';
@@ -36,6 +36,8 @@ export const TOAST_MS = 2500;
 export const OVERLAY_MIN_MS = 1000;
 /** Simulated time for loading a dashboard. */
 export const LOADING_MS = 700;
+/** Default expected length of a runTask() task (drives its progress meter). */
+export const TASK_EXPECTED_MS = 1500;
 
 /** Fallback size when stdout is not a terminal (pipes, tests). */
 const DEFAULT_COLUMNS = 120;
@@ -113,6 +115,8 @@ interface BusyState {
   durationMs: number;
   doneMessage: string;
   overlay: boolean;
+  /** Set for runTask() work: it ends when its promise settles, not after durationMs. */
+  taskId?: number;
 }
 
 export class TuiApp {
@@ -131,6 +135,12 @@ export class TuiApp {
   private toast?: { kind: ToastKind; text: string; until: number };
   private frame = 0;
   private lastFrame?: string[];
+  private taskSeq = 0;
+  private readonly viewContext: ViewContext = {
+    runTask: (verb, fn, options) => this.runTask(verb, fn, options),
+    redraw: () => this.requestRedraw(),
+    isBusy: () => this.isBusy(),
+  };
 
   private ticker?: ReturnType<typeof setInterval>;
   private toastTimer?: ReturnType<typeof setTimeout>;
@@ -232,6 +242,7 @@ export class TuiApp {
     this.state.activeView = viewId;
     this.state.selectedItemIndex = this.selections.get(viewId) ?? 0;
     if (resetTab) this.state.activeTab = 0;
+    if (this.isRunning) this.activeView().enter?.(this.viewContext);
   }
 
   setView(viewId: string): void {
@@ -275,6 +286,8 @@ export class TuiApp {
    * in the status bar; longer ones get an overlay box with the PC buddy.
    */
   startBusy(verb: string, durationMs: number, doneMessage = 'Done'): void {
+    // A running task keeps the indicator until it finishes.
+    if (this.busy?.taskId !== undefined) return;
     if (!this.animate) {
       this.busy = undefined;
       this.showToast(doneMessage);
@@ -298,6 +311,49 @@ export class TuiApp {
     this.busy = undefined;
     this.syncTicker();
     this.showToast('Aborted by user', 'fail');
+  }
+
+  /**
+   * Runs real async work with the busy indicator (see ViewContext.runTask). Unlike startBusy
+   * it runs with animation off too; there it just has no timers.
+   */
+  async runTask(
+    verb: string,
+    fn: () => Promise<string | void>,
+    options: TaskOptions = {},
+  ): Promise<boolean> {
+    if (this.busy?.taskId !== undefined) {
+      this.showToast(`Busy: ${this.busy.verb}`, 'info');
+      return false;
+    }
+    const taskId = ++this.taskSeq;
+    const expectedMs = options.expectedMs ?? TASK_EXPECTED_MS;
+    this.busy = {
+      verb,
+      startedAt: Date.now(),
+      durationMs: expectedMs,
+      doneMessage: options.done ?? 'Done',
+      overlay: expectedMs >= OVERLAY_MIN_MS,
+      taskId,
+    };
+    this.frame = 0;
+    this.syncTicker();
+    this.requestRedraw();
+
+    let message: string;
+    let kind: ToastKind = 'done';
+    try {
+      message = (await fn()) || (options.done ?? 'Done');
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+      kind = 'fail';
+    }
+    // Cancelled with Esc (or the app quit): the user already saw "Aborted by user".
+    if (this.busy?.taskId !== taskId) return false;
+    this.busy = undefined;
+    this.syncTicker();
+    this.showToast(message, kind);
+    return kind === 'done';
   }
 
   private finishBusy(): void {
@@ -339,7 +395,11 @@ export class TuiApp {
     this.frame++;
     const now = Date.now();
     if (this.splashUntil !== undefined && now >= this.splashUntil) this.splashUntil = undefined;
-    if (this.busy && now - this.busy.startedAt >= this.busy.durationMs) {
+    if (
+      this.busy &&
+      this.busy.taskId === undefined &&
+      now - this.busy.startedAt >= this.busy.durationMs
+    ) {
       this.finishBusy();
     }
     this.syncTicker();
@@ -349,11 +409,13 @@ export class TuiApp {
   private busyInfo(): BusyInfo | undefined {
     if (!this.busy) return undefined;
     const elapsedMs = Date.now() - this.busy.startedAt;
+    // A task's length is only a guess, so its meter stops short of full until it ends.
+    const cap = this.busy.taskId === undefined ? 1 : 0.95;
     return {
       verb: this.busy.verb,
       elapsedMs,
       frame: this.frame,
-      progress: Math.min(1, elapsedMs / Math.max(1, this.busy.durationMs)),
+      progress: Math.min(cap, elapsedMs / Math.max(1, this.busy.durationMs)),
     };
   }
 
@@ -408,6 +470,8 @@ export class TuiApp {
       return true;
     }
 
+    if (this.activeView().handleKey?.(key, this.state, this.viewContext) === true) return true;
+
     const tabCount = this.activeView().tabs?.length ?? 0;
     if (key === 'tab' || key === 'right') {
       if (tabCount > 0) this.state.activeTab = (this.state.activeTab + 1) % tabCount;
@@ -435,7 +499,6 @@ export class TuiApp {
       return true;
     }
 
-    this.activeView().handleKey?.(key, this.state);
     return true;
   }
 
@@ -534,8 +597,13 @@ export class TuiApp {
     } else {
       hints.push({ key: 'tab', label: 'next tab', priority: 4 });
     }
-    hints.push({ key: '↑↓', label: view.id === 'help' ? 'scroll' : 'select', priority: 3 });
-    if (view.actionLabel) hints.push({ key: '↵', label: view.actionLabel, priority: 6 });
+    const viewHints = view.keyHints?.(this.viewState());
+    if (viewHints) {
+      hints.push(...viewHints);
+    } else {
+      hints.push({ key: '↑↓', label: view.id === 'help' ? 'scroll' : 'select', priority: 3 });
+      if (view.actionLabel) hints.push({ key: '↵', label: view.actionLabel, priority: 6 });
+    }
     hints.push(
       { key: 't', label: 'theme', priority: 2 },
       { key: '?', label: 'help', priority: 7 },
@@ -663,6 +731,7 @@ export class TuiApp {
 
       this.startBootSequence();
       this.scheduleClock();
+      this.activeView().enter?.(this.viewContext);
       this.redraw();
     });
   }

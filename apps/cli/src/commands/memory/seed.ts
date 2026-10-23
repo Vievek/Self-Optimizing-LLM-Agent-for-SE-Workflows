@@ -16,7 +16,7 @@ import { dim } from './colors.js';
 import type { MemoryContext } from './context.js';
 import { renderStatusTable, shorten, statusSummary } from './shared.js';
 
-const SCENARIO_FILE = path.join(FIXTURES_ROOT, 'scenarios/username-regex.json');
+export const SCENARIO_FILE = path.join(FIXTURES_ROOT, 'scenarios/username-regex.json');
 
 /** Stale-set notes added by seed, chosen to give a mix of statuses. */
 export const SEED_CASES = [
@@ -49,12 +49,27 @@ function cannedCardLlm(taskId: string): MockLlmProvider {
   return llm;
 }
 
-export async function seedCommand(ctx: MemoryContext): Promise<string> {
+export interface SeededMemory {
+  memory: RefinedMemory;
+  source: string;
+}
+
+export interface SeedResult {
+  created: SeededMemory[];
+  /** Notes in the replayed scenario summary. */
+  summaryNotes: number;
+  scenarioStored: boolean;
+  /** Model tokens the (mock) model used to write the scenario card. */
+  tokens: number;
+}
+
+/** Clears store/memory and adds the scenario note plus the SEED_CASES stale-set notes. */
+export async function seedMemories(ctx: MemoryContext): Promise<SeedResult> {
   fs.rmSync(path.join(ctx.storeDir, 'memory'), { recursive: true, force: true });
 
   const summary = await loadScenario(SCENARIO_FILE);
   const agent = ctx.agent(cannedCardLlm(summary.taskId));
-  const created: { memory: RefinedMemory; source: string }[] = [];
+  const created: SeededMemory[] = [];
 
   const fromScenario = await agent.consolidateWithResult(summary);
   if (fromScenario) created.push({ memory: fromScenario, source: 'scenario username-regex' });
@@ -71,17 +86,28 @@ export async function seedCommand(ctx: MemoryContext): Promise<string> {
     created.push({ memory, source: `stale-set ${c.id}` });
   }
 
+  return {
+    created,
+    summaryNotes: summary.notes.length,
+    scenarioStored: fromScenario !== null,
+    tokens: agent.usage.tokensIn + agent.usage.tokensOut,
+  };
+}
+
+export async function seedCommand(ctx: MemoryContext): Promise<string> {
+  const { created, summaryNotes, scenarioStored, tokens } = await seedMemories(ctx);
+
   const progress = renderStageProgress([
     { name: 'Clear store/memory', status: 'success' },
     {
       name: 'Replay scenario',
-      status: fromScenario ? 'success' : 'failed',
-      detail: `${summary.notes.length} summary notes from username-regex.json`,
+      status: scenarioStored ? 'success' : 'failed',
+      detail: `${summaryNotes} summary notes from username-regex.json`,
     },
     {
       name: 'Consolidate',
-      status: fromScenario ? 'success' : 'failed',
-      detail: `mock model, ${agent.usage.tokensIn + agent.usage.tokensOut} tokens`,
+      status: scenarioStored ? 'success' : 'failed',
+      detail: `mock model, ${tokens} tokens`,
     },
     {
       name: 'Add stale-set notes',

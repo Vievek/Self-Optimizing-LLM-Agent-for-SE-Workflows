@@ -242,8 +242,9 @@ describe('TuiApp keys (readline keypress names)', () => {
     app.handleInput({ name: 'down' });
     app.handleInput({ name: 'down' }); // Code-grounded verification
     app.handleInput({ name: 'return', sequence: '\r' });
-    expect(app.getToast()).toBe('[ ✔ DONE ] Verification complete');
-    expect(stripAnsi(app.renderCurrent())).toContain('[ ✔ DONE ] Verification complete');
+    // The memory pipeline opens the tab with that stage's live data (Verify).
+    expect(app.getState().activeTab).toBe(2);
+    expect(stripAnsi(app.renderCurrent())).toContain('◢ CODE VERIFIER ◣');
   });
 
   it('opens the selected menu entry on "return"', () => {

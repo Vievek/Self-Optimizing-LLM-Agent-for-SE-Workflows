@@ -4,6 +4,7 @@ import { listCommand } from './list.js';
 import { seedCommand } from './seed.js';
 import { showCommand } from './show.js';
 import { staleEvalCommand } from './stale-eval.js';
+import { tuiPrintCommand } from './tui.js';
 import { verifyCommand } from './verify.js';
 
 export type { MemoryCommandOptions } from './context.js';
@@ -15,6 +16,7 @@ const SUBCOMMANDS: [string, string][] = [
   ['verify <id> <commit>', 'Re-check a memory at a fixture commit, e.g. memtest-v2'],
   ['check', 'Validate every stored memory against RefinedMemorySchema'],
   ['stale-eval', 'Run the stale-memory test set: catch rate, false alarms, accuracy'],
+  ['tui [tab]', 'Print one frame of the live dashboard (use soa memory --tui to interact)'],
   ['help', 'Show this list'],
 ];
 
@@ -36,8 +38,15 @@ export async function runMemoryCommand(
   const [sub = 'help', ...rest] = args;
   const name = sub.toLowerCase();
   if (name === 'help' || name === '--help' || name === '-h') return memoryHelp();
-  const known = ['seed', 'list', 'show', 'verify', 'check', 'stale-eval'];
+  const known = ['seed', 'list', 'show', 'verify', 'check', 'stale-eval', 'tui'];
   if (!known.includes(name)) return memoryHelp(sub);
+  if (name === 'tui') {
+    try {
+      return await tuiPrintCommand(rest, options);
+    } catch (err) {
+      return `memory tui failed: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
 
   const ctx = new MemoryContext(options);
   try {

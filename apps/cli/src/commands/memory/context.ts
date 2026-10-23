@@ -63,6 +63,12 @@ export class MemoryContext {
     return new MemoryAgent({ store: this.store, llm, model: CLI_MODEL, verifier: this.verifier() });
   }
 
+  /** Which test runner the verifier uses; undefined until verifier() is first called. */
+  testRunner(): 'pytest' | 'fake' | undefined {
+    if (!this.fixture) return undefined;
+    return this.usedPytest ? 'pytest' : 'fake';
+  }
+
   /** One dim line naming the test runner. Call after verifier(). */
   runnerLine(): string {
     return dim(
