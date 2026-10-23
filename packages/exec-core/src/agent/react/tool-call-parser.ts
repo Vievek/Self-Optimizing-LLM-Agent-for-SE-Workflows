@@ -232,7 +232,7 @@ export class ToolCallParser {
 
     // 1. Extract explicit Thought if present
     const thoughtMatch =
-      /(?:\*{1,2}|#+\s*)?Thought(?:\*{1,2})?:\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Action|Final\s*Answer)(?:\*{1,2})?:|```|$))/i.exec(
+      /(?:\*{1,2}|#+\s*)?Thought(?:\*{1,2})?:?\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Action|Final\s*Answer)(?:\*{1,2})?:?|```|$))/i.exec(
         trimmed,
       );
     if (thoughtMatch?.[1]) {
@@ -240,72 +240,101 @@ export class ToolCallParser {
     }
 
     // 2. Extract Final Answer if present
-    const finalAnswerMatch = /(?:\*{1,2}|#+\s*)?Final\s*Answer(?:\*{1,2})?:\s*([\s\S]*)$/i.exec(trimmed);
+    const finalAnswerMatch = /(?:\*{1,2}|#+\s*)?Final\s*Answer(?:\*{1,2})?:?\s*([\s\S]*)$/i.exec(trimmed);
     if (finalAnswerMatch?.[1]) {
       finalAnswer = finalAnswerMatch[1].trim();
     }
 
     // 3. Extract ReAct Action & Action Input
-    const actionMatch = /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?:[^\S\r\n]*([^\r\n]+)/i.exec(trimmed);
-    if (actionMatch?.[1]) {
-      const rawAction = actionMatch[1].trim();
-      const toolName = resolveToolName(rawAction);
-      if (toolName && !toolName.startsWith('<')) {
-        const inputMatch =
-          /(?:\*{1,2}|#+\s*)?Action\s*Input(?:\*{1,2})?:\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2})?(?:Observation|Thought|Action|Final\s*Answer):?|$))/i.exec(
-            trimmed,
-          );
+    // Check first if Action block contains an embedded JSON object: { action/tool/name: "...", ...params }
+    const actionJsonMatch =
+      /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?(?::|\s*\n)\s*(`{3}(?:json)?[\s\S]*?`{3}|\{[\s\S]*?\})/i.exec(
+        trimmed,
+      );
+    let embeddedActionTool = '';
+    let embeddedActionArgs: Record<string, unknown> = {};
 
-        let args: Record<string, unknown> = {};
+    if (actionJsonMatch?.[1]) {
+      try {
+        const rawJson = actionJsonMatch[1]
+          .replace(/^`{3}(?:json)?\s*/i, '')
+          .replace(/\s*`{3}$/, '')
+          .trim();
+        const obj = JSON.parse(rawJson);
+        if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+          const rawName = String(obj.action || obj.tool || obj.name || '');
+          embeddedActionTool = resolveToolName(rawName);
+          const copy = { ...obj };
+          delete copy.action;
+          delete copy.tool;
+          delete copy.name;
+          embeddedActionArgs = copy;
+        }
+      } catch {}
+    }
 
-        if (inputMatch?.[1]) {
-          let rawInput = inputMatch[1].trim();
+    const actionMatch =
+      /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?(?::[^\S\r\n]*|\s*\n\s*)([a-zA-Z_][a-zA-Z0-9_-]*)/i.exec(
+        trimmed,
+      );
+    const rawAction = embeddedActionTool || actionMatch?.[1]?.trim() || '';
+    const toolName = resolveToolName(rawAction);
 
-          // Strip outer markdown code block only if rawInput starts with code fences
-          if (rawInput.startsWith('```')) {
-            rawInput = rawInput.replace(/^```(?:json)?\s*/i, '');
-            rawInput = rawInput.replace(/\s*```\s*$/, '');
-            rawInput = rawInput.trim();
+    if (toolName && !toolName.startsWith('<')) {
+      const inputMatch =
+        /(?:\*{1,2}|#+\s*)?Action\s*Input(?:\*{1,2})?(?::|\s*\n)\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Observation|Thought|Action|Final\s*Answer):?|$))/i.exec(
+          trimmed,
+        );
+
+      let args: Record<string, unknown> = { ...embeddedActionArgs };
+
+      if (inputMatch?.[1]) {
+        let rawInput = inputMatch[1].trim();
+
+        // Strip outer markdown code block only if rawInput starts with code fences
+        if (rawInput.startsWith('```')) {
+          rawInput = rawInput.replace(/^```(?:json)?\s*/i, '');
+          rawInput = rawInput.replace(/\s*```\s*$/, '');
+          rawInput = rawInput.trim();
+        }
+
+        // Try direct JSON parse
+        try {
+          const parsed = JSON.parse(rawInput);
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            args = { ...args, ...parsed };
+          } else if (typeof parsed === 'string') {
+            args = mapStringArgsToTool(toolName, parsed);
           }
-
-          // Try direct JSON parse
+        } catch {
+          // Try sanitized JSON parse
           try {
-            const parsed = JSON.parse(rawInput);
+            const sanitized = sanitizeJsonString(rawInput);
+            const parsed = JSON.parse(sanitized);
             if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-              args = parsed as Record<string, unknown>;
+              args = { ...args, ...parsed };
             } else if (typeof parsed === 'string') {
               args = mapStringArgsToTool(toolName, parsed);
             }
           } catch {
-            // Try sanitized JSON parse
-            try {
-              const sanitized = sanitizeJsonString(rawInput);
-              const parsed = JSON.parse(sanitized);
-              if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-                args = parsed as Record<string, unknown>;
-              } else if (typeof parsed === 'string') {
-                args = mapStringArgsToTool(toolName, parsed);
-              }
-            } catch {
-              // Try repairing truncated JSON array or object
-              const repaired = repairTruncatedJson(rawInput);
-              if (repaired) {
-                args = repaired;
-              } else {
-                // Fallback: raw string argument mapping
-                args = mapStringArgsToTool(toolName, rawInput);
-              }
+            // Try repairing truncated JSON array or object
+            const repaired = repairTruncatedJson(rawInput);
+            if (repaired) {
+              args = { ...args, ...repaired };
+            } else {
+              // Fallback: raw string argument mapping
+              args = mapStringArgsToTool(toolName, rawInput);
             }
           }
-        } else {
-          // No explicit Action Input block, check if rawAction has argument clues or defaults
-          if (toolName === 'list_directory') {
-            args = { path: rawAction.includes('.') ? '.' : '.' };
-          }
         }
-
-        detectedCalls.push({ toolName, args });
+      } else {
+        // No explicit Action Input block, check if rawAction has argument clues or defaults
+        if (toolName === 'list_directory') {
+          args = { path: rawAction.includes('.') ? '.' : '.' };
+        }
       }
+
+      detectedCalls.push({ toolName, args });
     }
 
     // 3.5. Extract Qwen-style XML tool calls: <tool_call> ... </tool_call>

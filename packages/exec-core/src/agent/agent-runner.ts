@@ -26,6 +26,7 @@ import { createDefaultToolRegistry, ToolRegistry } from './tools/tool-registry.j
 import { ToolExecutor } from './tools/tool-executor.js';
 import { ReactAgent } from './react/react-agent.js';
 import { createReActLlmCaller } from './llm-bridge.js';
+import { WorkspaceGraphBuilder } from '../retrieval/graph/workspace-graph-builder.js';
 
 export class AgentRunner {
   private readonly registry: ToolRegistry;
@@ -92,13 +93,53 @@ export class AgentRunner {
     });
     recordSpan('task', taskAttrs, 'ok', null);
 
-    // 2. Initialize Components
-    const planGenerator = new PlanGenerator({ config: options.config?.planning });
+    // 2. Initialize AST Code Graph if workingDir provided and not yet attached
+    if (!context.retriever && context.workingDir) {
+      try {
+        const t0 = Date.now();
+        const graphBuilder = new WorkspaceGraphBuilder();
+        const { graph, retriever, parsedFilesCount, fromCache, reindexedFilesCount } =
+          await graphBuilder.buildFromDirectory(context.workingDir);
+        context.graph = graph;
+        context.retriever = retriever;
+        const elapsedMs = Date.now() - t0;
+        if (fromCache) {
+          console.log(
+            `⚡ Loaded cached AST Code Graph: ${parsedFilesCount} files (${reindexedFilesCount} updated) in ${elapsedMs}ms`,
+          );
+        } else {
+          console.log(
+            `✅ Built & cached AST Code Graph: ${parsedFilesCount} files indexed in ${elapsedMs}ms`,
+          );
+        }
+      } catch {
+        // Non-blocking fallback
+      }
+    }
+
+    // 3. Initialize Components
     const activeModelsConfig = options.providerRegistry?.getConfig();
+    const planGenerator = new PlanGenerator({
+      config: options.config?.planning,
+      providerRegistry: options.providerRegistry,
+      slmCaller: options.reactLlmCaller
+        ? async (prompt: string, sysPrompt?: string) => {
+            const resp = await options.reactLlmCaller!(
+              [
+                ...(sysPrompt ? [{ role: 'system' as const, content: sysPrompt }] : []),
+                { role: 'user' as const, content: prompt },
+              ],
+              { tier: 'llm', model: activeModelsConfig?.large?.model },
+            );
+            return resp.content;
+          }
+        : undefined,
+    });
     const modelSelector = new ModelSelector({
       config: options.config?.routing,
       slmModel: activeModelsConfig?.small?.model,
       llmModel: activeModelsConfig?.large?.model,
+      routingRule: 'role_hierarchy',
     });
     const toolExecutor = new ToolExecutor(
       this.registry,

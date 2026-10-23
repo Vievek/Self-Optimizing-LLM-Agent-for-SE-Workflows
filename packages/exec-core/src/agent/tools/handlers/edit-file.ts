@@ -1,4 +1,5 @@
 import { ToolHandler, ToolContext, ToolResult } from '../../types.js';
+import { WorkspaceGraphBuilder } from '../../../retrieval/graph/workspace-graph-builder.js';
 
 export class EditFileHandler implements ToolHandler {
   readonly name = 'edit_file';
@@ -40,8 +41,18 @@ export class EditFileHandler implements ToolHandler {
     try {
       const original = await context.sandbox.readFile(context.workspaceId, filePath);
 
-      // Check occurrences
-      const occurrences = original.split(oldStr).length - 1;
+      // Check occurrences with CRLF tolerance for cross-platform workspaces (WSL / Windows)
+      let searchStr = oldStr;
+      let targetContent = original;
+      const isCrlf = original.includes('\r\n');
+
+      let occurrences = targetContent.split(searchStr).length - 1;
+
+      if (occurrences === 0 && isCrlf) {
+        targetContent = targetContent.replace(/\r\n/g, '\n');
+        searchStr = searchStr.replace(/\r\n/g, '\n');
+        occurrences = targetContent.split(searchStr).length - 1;
+      }
 
       if (occurrences === 0) {
         return {
@@ -61,7 +72,10 @@ export class EditFileHandler implements ToolHandler {
         };
       }
 
-      const updated = original.replace(oldStr, newStr);
+      const replacementStr = isCrlf && !newStr.includes('\r\n') ? newStr.replace(/\n/g, '\r\n') : newStr;
+      const updated = isCrlf
+        ? original.replace(/\r\n/g, '\n').replace(searchStr, newStr).replace(/\n/g, '\r\n')
+        : original.replace(searchStr, replacementStr);
 
       const b64 = Buffer.from(updated, 'utf8').toString('base64');
       const writeCmd = `node -e 'const fs=require("fs"),path=require("path");const p=process.argv[1];fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,Buffer.from(process.argv[2],"base64"));' "${filePath}" "${b64}"`;
@@ -81,6 +95,15 @@ export class EditFileHandler implements ToolHandler {
             error: `Failed to persist edit to "${filePath}": ${res.stderr || pyRes.stderr}`,
             latencyMs: 0,
           };
+        }
+      }
+
+      if (context.graph) {
+        try {
+          const builder = new WorkspaceGraphBuilder();
+          builder.updateFile(filePath, updated, context.graph, context.workingDir);
+        } catch {
+          // ignore delta graph update errors
         }
       }
 

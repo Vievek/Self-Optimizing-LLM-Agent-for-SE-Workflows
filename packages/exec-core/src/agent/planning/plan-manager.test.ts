@@ -58,12 +58,212 @@ describe('PlanGenerator and PlanManager', () => {
       expect(editDec?.decision.tier).toBe('llm');
     });
 
+    it('decomposes multi-bug statements into an atomic subtask queue using SLM caller', async () => {
+      const mockSlmCaller = async () =>
+        JSON.stringify({
+          isMultiBug: true,
+          issues: [
+            {
+              id: 1,
+              title: 'Missing bcryptjs dependency',
+              targetFiles: ['server/package.json'],
+              action: 'Add bcryptjs to server/package.json dependencies',
+            },
+            {
+              id: 2,
+              title: 'Conflicting route setup',
+              targetFiles: ['server/index.js', 'server/server.js'],
+              action: 'Mount auth routes in index.js',
+            },
+            {
+              id: 3,
+              title: 'Schema field mismatch',
+              targetFiles: ['server/models/Project.js', 'server/controllers/projectController.js'],
+              action: 'Change user reference to owner',
+            },
+          ],
+        });
+
+      const generator = new PlanGenerator({ slmCaller: mockSlmCaller });
+      const multiBugTask: AgentTask = {
+        taskId: 'multi-bug-task-1',
+        repo: 'local/workspace',
+        problemStatement:
+          'Missing bcryptjs in server/package.json. Conflicting routes in server/index.js and server/server.js. Schema field mismatch in models/Project.js.',
+      };
+
+      const subtasks = await generator.generatePlan(multiBugTask);
+
+      // Expected: Step 0 (recon) + 3 * (localize + edit) + Step Final (verify) = 1 + 6 + 1 = 8 subtasks
+      expect(subtasks.length).toBe(8);
+
+      expect(subtasks[0]?.id).toContain('step_0_recon');
+      expect(subtasks[0]?.type).toBe('explore');
+
+      // Issue 1
+      expect(subtasks[1]?.id).toContain('issue_1_localize');
+      expect(subtasks[1]?.type).toBe('localize');
+      expect(subtasks[1]?.targetFiles).toEqual(['server/package.json']);
+      expect(subtasks[2]?.id).toContain('issue_1_edit');
+      expect(subtasks[2]?.type).toBe('edit_single_file');
+
+      // Issue 2 (multi-file)
+      expect(subtasks[3]?.id).toContain('issue_2_localize');
+      expect(subtasks[4]?.id).toContain('issue_2_edit');
+      expect(subtasks[4]?.type).toBe('edit_multi_file');
+
+      // Final Verify
+      expect(subtasks[7]?.id).toContain('verify_all');
+      expect(subtasks[7]?.type).toBe('plan');
+    });
+
+    it('coalesces multiple issues targeting the exact same file into a single atomic issue', async () => {
+      const mockSlmCaller = async () =>
+        JSON.stringify({
+          isMultiBug: true,
+          issues: [
+            {
+              id: 1,
+              title: 'Missing bcryptjs',
+              targetFiles: ['server/package.json'],
+              action: 'Add bcryptjs to dependencies',
+            },
+            {
+              id: 2,
+              title: 'Missing dotenv',
+              targetFiles: ['server/package.json'],
+              action: 'Add dotenv to dependencies',
+            },
+            {
+              id: 3,
+              title: 'Route conflict',
+              targetFiles: ['server/server.js'],
+              action: 'Reconcile routes',
+            },
+          ],
+        });
+
+      const generator = new PlanGenerator({ slmCaller: mockSlmCaller });
+      const multiBugTask: AgentTask = {
+        taskId: 'coalesce-test',
+        repo: 'local/workspace',
+        problemStatement: 'Fix dependencies in server/package.json and routes in server/server.js',
+      };
+
+      const subtasks = await generator.generatePlan(multiBugTask);
+
+      // 3 raw issues -> 2 coalesced issues (Issue 1 & 2 merged for server/package.json)
+      // Expected subtasks: recon + 2 * (localize + edit) + verify = 1 + 4 + 1 = 6 subtasks
+      expect(subtasks.length).toBe(6);
+      expect(subtasks[1]?.goal).toContain('Missing bcryptjs & Missing dotenv');
+      expect(subtasks[2]?.goal).toContain('Add bcryptjs to dependencies. Additionally: Add dotenv to dependencies');
+    });
+
+    it('falls back to deterministic multi-bug heuristic when SLM caller is not configured', async () => {
+      const generator = new PlanGenerator();
+      const multiBugTask: AgentTask = {
+        taskId: 'multi-bug-heuristic',
+        repo: 'local/workspace',
+        problemStatement:
+          'Missing bcryptjs in server/package.json.\nConflicting route setup in server/server.js and server/index.js.\nUndefined updateUser in server/controllers/authController.js.',
+      };
+
+      const subtasks = await generator.generatePlan(multiBugTask);
+
+      // Heuristic detects >= 2 distinct issues with file references
+      expect(subtasks.length).toBeGreaterThanOrEqual(5);
+      expect(subtasks[0]?.type).toBe('explore');
+      const editSubtasks = subtasks.filter(
+        (s) => s.type === 'edit_single_file' || s.type === 'edit_multi_file',
+      );
+      expect(editSubtasks.length).toBeGreaterThanOrEqual(2);
+    });
+
     it('respects verify_after_edit: false in planning config', async () => {
       const generator = new PlanGenerator({ config: { verify_after_edit: false } });
       const subtasks = await generator.generatePlan(sampleTask);
 
       expect(subtasks.length).toBe(4);
       expect(subtasks.some((s) => s.id.includes('verify'))).toBe(false);
+    });
+
+    it('classifies full_scaffold and generates phased queue with architectural contract', async () => {
+      const generator = new PlanGenerator();
+      const scaffoldTask: AgentTask = {
+        taskId: 'scaffold-mern-1',
+        repo: 'local/workspace',
+        problemStatement:
+          'Build a full-stack MERN Project Management System with User, Project, Task, and Comment models, JWT auth, and Tailwind CSS.',
+      };
+
+      const intent = await generator.classifyIntent(scaffoldTask);
+      expect(intent).toBe('full_scaffold');
+
+      const subtasks = await generator.generatePlan(scaffoldTask);
+
+      // Phased queue: Recon -> Setup -> Models -> Backend -> Frontend -> Verify (6 phases)
+      expect(subtasks.length).toBe(6);
+      expect(subtasks[0]?.id).toContain('step_0_recon');
+      expect(subtasks[0]?.type).toBe('explore');
+
+      expect(subtasks[1]?.id).toContain('scaffold_phase_1_setup');
+      expect(subtasks[1]?.type).toBe('edit_single_file');
+
+      expect(subtasks[2]?.id).toContain('scaffold_phase_2_models');
+      expect(subtasks[2]?.type).toBe('edit_multi_file');
+
+      expect(subtasks[3]?.id).toContain('scaffold_phase_3_backend');
+      expect(subtasks[4]?.id).toContain('scaffold_phase_4_frontend');
+      expect(subtasks[5]?.id).toContain('scaffold_phase_5_verify');
+
+      // Verify Architectural Contract is attached across subtasks
+      expect(subtasks[0]?.contract).toBeDefined();
+      expect(subtasks[0]?.contract).toContain('ARCHITECTURAL CONTRACT');
+      expect(subtasks[0]?.contract).toContain('Project: { title: String, owner: ObjectId(User)');
+      expect(subtasks[2]?.contract).toBe(subtasks[0]?.contract);
+    });
+
+    it('classifies explain_only and generates read-only investigation plan without edit subtasks', async () => {
+      const generator = new PlanGenerator();
+      const explainTask: AgentTask = {
+        taskId: 'explain-task-1',
+        repo: 'local/workspace',
+        problemStatement:
+          'Explain how authentication and JWT tokens are verified in server/middleware/auth.js',
+      };
+
+      const intent = await generator.classifyIntent(explainTask);
+      expect(intent).toBe('explain_only');
+
+      const subtasks = await generator.generatePlan(explainTask);
+
+      // Read-only plan: Recon -> AST Retrieve -> Conclude (3 steps)
+      expect(subtasks.length).toBe(3);
+      expect(subtasks[0]?.type).toBe('explore');
+      expect(subtasks[1]?.type).toBe('localize');
+      expect(subtasks[2]?.type).toBe('plan');
+
+      // Ensure NO edit or write subtasks are created for explain_only
+      expect(subtasks.some((s) => s.type === 'edit_single_file' || s.type === 'edit_multi_file')).toBe(false);
+    });
+
+    it('classifies tasks using 4-way SLM intent caller', async () => {
+      const mockSlmCaller = async (_prompt: string, sysPrompt?: string) => {
+        if (sysPrompt?.includes('Intent Classifier')) {
+          return JSON.stringify({ intent: 'explain_only', reasoning: 'User is asking for an architectural explanation' });
+        }
+        return JSON.stringify({ isMultiBug: false, issues: [] });
+      };
+
+      const generator = new PlanGenerator({ slmCaller: mockSlmCaller });
+      const task: AgentTask = {
+        taskId: 'slm-intent-check',
+        repo: 'local/workspace',
+        problemStatement: 'Walk me through the database relationships between Project and Task',
+      };
+
+      const intent = await generator.classifyIntent(task);
+      expect(intent).toBe('explain_only');
     });
 
     it('supports custom decomposer override', async () => {

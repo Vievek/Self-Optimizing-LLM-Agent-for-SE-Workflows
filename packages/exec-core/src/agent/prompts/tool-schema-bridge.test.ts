@@ -5,15 +5,16 @@ import { AgentTask, SubTask } from '../types.js';
 
 describe('Tool Schema Bridge & Prompt Builder', () => {
   describe('formatToolsForOpenAi', () => {
-    it('formats all 8 standard tools into OpenAI function calling format', () => {
+    it('formats all 9 standard tools into OpenAI function calling format', () => {
       const openAiTools = formatToolsForOpenAi();
 
-      expect(openAiTools.length).toBe(8);
+      expect(openAiTools.length).toBe(9);
 
       const toolNames = openAiTools.map((t) => t.function.name);
       expect(toolNames).toContain('read_file');
       expect(toolNames).toContain('write_file');
       expect(toolNames).toContain('edit_file');
+      expect(toolNames).toContain('delete_file');
       expect(toolNames).toContain('run_command');
       expect(toolNames).toContain('run_tests');
       expect(toolNames).toContain('retrieve_context');

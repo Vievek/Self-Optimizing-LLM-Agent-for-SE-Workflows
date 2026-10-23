@@ -1,4 +1,5 @@
 import { ToolHandler, ToolContext, ToolResult } from '../../types.js';
+import { WorkspaceGraphBuilder } from '../../../retrieval/graph/workspace-graph-builder.js';
 
 export class WriteFileHandler implements ToolHandler {
   readonly name = 'write_file';
@@ -66,6 +67,17 @@ export class WriteFileHandler implements ToolHandler {
           error: errors.join('\n'),
           latencyMs: 0,
         };
+      }
+
+      if (context.graph) {
+        try {
+          const builder = new WorkspaceGraphBuilder();
+          for (const item of filesList) {
+            builder.updateFile(item.path, item.content, context.graph, context.workingDir);
+          }
+        } catch {
+          // ignore delta graph update errors
+        }
       }
 
       let outputMsg = `Successfully wrote ${written.length} files:\n${written.map((p) => ` - ${p}`).join('\n')}${errors.length > 0 ? `\nErrors:\n${errors.join('\n')}` : ''}`;
@@ -142,6 +154,15 @@ export class WriteFileHandler implements ToolHandler {
 
       const byteCount = Buffer.byteLength(content, 'utf8');
       const lineCount = content.split('\n').length;
+
+      if (context.graph) {
+        try {
+          const builder = new WorkspaceGraphBuilder();
+          builder.updateFile(filePath, content, context.graph, context.workingDir);
+        } catch {
+          // ignore delta graph update errors
+        }
+      }
 
       return {
         status: 'ok',

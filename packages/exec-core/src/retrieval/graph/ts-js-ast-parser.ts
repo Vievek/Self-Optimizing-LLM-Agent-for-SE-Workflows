@@ -95,6 +95,7 @@ export class TsJsAstParser implements LanguageAstParser {
 
     let currentClass: { name: string; id: string; braceDepth: number } | null = null;
     let braceDepth = 0;
+    let lastParsedSchemaFields: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -152,6 +153,67 @@ export class TsJsAstParser implements LanguageAstParser {
         currentClass = { name: className, id: classId, braceDepth: braceDepth + 1 };
       }
 
+      // Mongoose Schema: const ProjectSchema = new mongoose.Schema({ ... })
+      const schemaMatch = line.match(
+        /(?:const|let|var)?\s*([a-zA-Z_$][a-zA-Z0-9_$]*Schema)\s*=\s*new\s+(?:mongoose\.)?Schema/i,
+      );
+      if (schemaMatch) {
+        const schemaName = schemaMatch[1]!;
+        const schemaId = `schema:${moduleName}.${schemaName}`;
+        const block = this.extractBlock(lines, i);
+        const fields = this.extractSchemaFields(block.bodyLines);
+        lastParsedSchemaFields = fields;
+        const fieldsDoc = fields.length > 0 ? ` (fields: ${fields.join(', ')})` : '';
+
+        nodes.push({
+          id: schemaId,
+          name: schemaName,
+          filePath,
+          startLine: i + 1,
+          endLine: block.endLine,
+          kind: 'class',
+          baseClasses: ['mongoose.Schema'],
+          methods: [],
+          docstring: `Mongoose Schema definition for ${schemaName}${fieldsDoc}`,
+        });
+        edges.push({
+          sourceId: moduleId,
+          targetId: schemaId,
+          kind: 'DEFINES',
+        });
+      }
+
+      // Mongoose Model: mongoose.model('Project', ...) or const Project = mongoose.model('Project', ...)
+      const modelMatch = line.match(
+        /(?:(?:const|let|var|module\.exports\s*=|export\s+default)\s+)?(?:([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*)?(?:mongoose\.)?model\s*\(\s*['"`]([a-zA-Z0-9_$]+)['"`]/i,
+      );
+      if (modelMatch) {
+        const modelName = modelMatch[2] || modelMatch[1]!;
+        const modelId = `model:${moduleName}.${modelName}`;
+        const fieldsDoc =
+          lastParsedSchemaFields.length > 0
+            ? ` (fields: ${lastParsedSchemaFields.join(', ')})`
+            : '';
+
+        const modelNode: ClassNode = {
+          id: modelId,
+          name: modelName,
+          filePath,
+          startLine: i + 1,
+          endLine: Math.min(lines.length, i + 35),
+          kind: 'class',
+          baseClasses: ['mongoose.Model'],
+          methods: [],
+          docstring: `Mongoose Database Model for ${modelName}${fieldsDoc}`,
+        };
+        nodes.push(modelNode);
+        edges.push({
+          sourceId: moduleId,
+          targetId: modelId,
+          kind: 'DEFINES',
+        });
+      }
+
       // Test blocks: it('...', ...) or test('...', ...)
       const testMatch = line.match(/(?:it|test)\s*\(\s*['"`]([^'"`]+)['"`]/);
       if (testMatch) {
@@ -198,13 +260,16 @@ export class TsJsAstParser implements LanguageAstParser {
         }
       }
 
-      // Function definition: function foo(...) or const foo = (...) => or methodName(...) {
+      // Function definition: function foo(...) or const foo = (...) => or exports.foo = ... or methodName(...) {
       const funcMatch =
         line.match(
           /(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(([^)]*)\)/,
         ) ||
         line.match(
           /(?:export\s+)?const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*(?::\s*[^=]+)?\s*=>/,
+        ) ||
+        line.match(
+          /(?:module\.)?exports\.([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?(?:function\s*)?\(([^)]*)\)\s*(?::\s*[^=]+)?\s*(?:=>|\{)/,
         ) ||
         (currentClass &&
           line.match(
@@ -253,6 +318,25 @@ export class TsJsAstParser implements LanguageAstParser {
             }
           } else {
             const funcId = `func:${moduleName}.${funcName}`;
+            let docstring: string | undefined;
+
+            const isReactComponent =
+              /^[A-Z]/.test(funcName) ||
+              block.bodyLines.some((l) => /<[A-Za-z0-9]/.test(l) || /return\s*\(/.test(l));
+            if (isReactComponent) {
+              const renderedProps = this.extractReactRenderedProps(block.bodyLines);
+              if (renderedProps.length > 0) {
+                docstring = `React Component: ${funcName} (renders: ${renderedProps.slice(0, 6).join(', ')})`;
+              }
+            }
+
+            const populates = this.extractPopulates(block.bodyLines);
+            if (populates.length > 0) {
+              docstring = docstring
+                ? `${docstring}; populates: ${populates.join(', ')}`
+                : `Controller function: ${funcName} (populates: ${populates.join(', ')})`;
+            }
+
             const funcNode: FunctionNode = {
               id: funcId,
               name: funcName,
@@ -264,6 +348,7 @@ export class TsJsAstParser implements LanguageAstParser {
               params,
               parentClass: currentClass ? currentClass.name : undefined,
               calls,
+              docstring,
             };
             nodes.push(funcNode);
 
@@ -439,5 +524,70 @@ export class TsJsAstParser implements LanguageAstParser {
     }
 
     return Array.from(targets);
+  }
+
+  private extractSchemaFields(bodyLines: string[]): string[] {
+    const fields: string[] = [];
+    const reserved = new Set([
+      'type',
+      'required',
+      'ref',
+      'default',
+      'timestamps',
+      'unique',
+      'trim',
+      'min',
+      'max',
+      'minlength',
+      'maxlength',
+      'enum',
+      'validate',
+      'select',
+      'index',
+      'sparse',
+      'set',
+      'get',
+      'transform',
+      '_id',
+      'id',
+    ]);
+    const fieldRegex = /^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*[{a-zA-Z\[]/;
+    for (const line of bodyLines) {
+      const match = line.match(fieldRegex);
+      if (match) {
+        const field = match[1]!;
+        if (!reserved.has(field) && !fields.includes(field)) {
+          fields.push(field);
+        }
+      }
+    }
+    return fields;
+  }
+
+  private extractReactRenderedProps(bodyLines: string[]): string[] {
+    const props = new Set<string>();
+    const propRegex = /\{([a-zA-Z_$][a-zA-Z0-9_$]*\.[a-zA-Z0-9_$.]+)\}/g;
+    for (const line of bodyLines) {
+      let match: RegExpExecArray | null;
+      while ((match = propRegex.exec(line)) !== null) {
+        props.add(match[1]!);
+      }
+    }
+    return Array.from(props);
+  }
+
+  private extractPopulates(bodyLines: string[]): string[] {
+    const populates: string[] = [];
+    const populateRegex = /\.populate\s*\(\s*['"`]([a-zA-Z0-9_$]+)['"`]\s*\)/g;
+    for (const line of bodyLines) {
+      let match: RegExpExecArray | null;
+      while ((match = populateRegex.exec(line)) !== null) {
+        const popTarget = match[1]!;
+        if (!populates.includes(popTarget)) {
+          populates.push(popTarget);
+        }
+      }
+    }
+    return populates;
   }
 }

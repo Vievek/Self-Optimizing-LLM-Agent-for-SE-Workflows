@@ -62,6 +62,24 @@ export const TOOL_DEFINITIONS = {
     },
     timeout_s: 30,
   },
+  delete_file: {
+    name: 'delete_file',
+    description:
+      'Delete a single file or multiple files from the workspace (e.g. redundant, conflicting, or deprecated files).',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to a single file to delete' },
+        paths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of relative file paths to delete in one call',
+        },
+        reason: { type: 'string', description: 'Optional explanation for deleting the file(s)' },
+      },
+    },
+    timeout_s: 30,
+  },
   run_command: {
     name: 'run_command',
     description:

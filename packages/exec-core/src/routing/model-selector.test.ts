@@ -161,4 +161,69 @@ describe('ModelSelector (Model Selection Module)', () => {
       });
     }).toThrow();
   });
+
+  describe('Role Hierarchy Routing Rule Method (Decision-Making -> LLM, Code Generation -> SLM)', () => {
+    const roleSelector = new ModelSelector({ routingRule: 'role_hierarchy' });
+
+    it('routes decision-making steps (localize, plan, replan, cross-file explore) to LLM', () => {
+      const locDecision = roleSelector.selectTier({
+        step_type: 'localize',
+        estimated_tokens: 700,
+        file_count: 2,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 2,
+      });
+      expect(locDecision.tier).toBe('llm');
+      expect(locDecision.reasoning).toContain('Decision-making step (localize) assigned to LLM');
+
+      const planDecision = roleSelector.selectTier({
+        step_type: 'plan',
+        estimated_tokens: 500,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(planDecision.tier).toBe('llm');
+    });
+
+    it('routes code generation steps (edit_single_file, test) to SLM', () => {
+      const editDecision = roleSelector.selectTier({
+        step_type: 'edit_single_file',
+        estimated_tokens: 1500,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 2,
+      });
+      expect(editDecision.tier).toBe('slm');
+      expect(editDecision.reasoning).toContain(
+        'Code generation / execution step (edit_single_file) assigned to SLM',
+      );
+
+      const testDecision = roleSelector.selectTier({
+        step_type: 'test',
+        estimated_tokens: 1000,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(testDecision.tier).toBe('slm');
+    });
+
+    it('escalates code generation to LLM when prior failures reach threshold', () => {
+      const failedEdit = roleSelector.selectTier({
+        step_type: 'edit_single_file',
+        estimated_tokens: 1500,
+        file_count: 1,
+        prior_failures: 2,
+        requires_cross_file_reasoning: false,
+        symbol_count: 2,
+      });
+      expect(failedEdit.tier).toBe('llm');
+      expect(failedEdit.reasoning).toContain('Escalated to LLM due to 2 prior failures');
+    });
+  });
 });

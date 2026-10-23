@@ -54,7 +54,8 @@ ${toolManual}
    **Action**: list_directory
    **Action Input**: { "path": "." }
 6. Complete exploration efficiently (within 1-2 tool calls). Conclude promptly with **Thought** and **Final Answer**.
-${this.customGuidelines.map((g, idx) => `${7 + idx}. ${g}`).join('\n')}`;
+7. When removing obsolete, conflicting, or duplicate files, call \`delete_file\` with \`{ "path": "path/to/file" }\`.
+${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
   }
 
   /**
@@ -80,18 +81,36 @@ ${this.customGuidelines.map((g, idx) => `${7 + idx}. ${g}`).join('\n')}`;
       );
     }
 
+    if (subtask.contract) {
+      sections.push(`\n# ARCHITECTURAL CONTRACT (IMMUTABLE SCHEMA)\n${subtask.contract}`);
+    }
+
     if (previousContext) {
       sections.push(`\n# Relevant Context & Discoveries\n${previousContext}`);
     }
 
-    if (subtask.type === 'explore') {
+    if (subtask.id.includes('explain') || subtask.goal.toLowerCase().includes('explain')) {
+      sections.push(
+        `\n📖 EXPLANATION-ONLY DIRECTIVE:\nThis is a read-only investigation. Your goal is to inspect the codebase using retrieve_context (AST graph) and read_file, analyze the code, and synthesize a clear, comprehensive explanation with code snippets or architecture flows directly in your Final Answer. Do NOT call write_file, edit_file, or delete_file.`,
+      );
+    } else if (subtask.type === 'explore') {
       sections.push(
         `\n🔍 RECONNAISSANCE DIRECTIVE:\nYour only goal in this step is to inspect the workspace layout with list_directory (once) and identify what exists and what is missing in your Final Answer. Do NOT call write_file, edit_file, or read_file in this recon step. Conclude promptly.`,
       );
-    } else if (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') {
+    } else if (subtask.type === 'localize') {
       sections.push(
-        `\n🚨 IMPLEMENTATION DIRECTIVE:\nRepository exploration has already been completed. DO NOT call list_directory or re-explore. Your very first action MUST be write_file to begin creating the project files.`,
+        `\n🔎 AST-FIRST LOCALIZATION DIRECTIVE:\n1. First call retrieve_context with the symbol, function, or keyword to pinpoint callers, definitions, and line numbers via the AST Code Graph.\n2. If exact lines are needed for precision patching, follow up with a targeted read_file.\n3. Then conclude with **Thought** and **Final Answer** detailing the required modification. Do NOT edit files in this step.`,
       );
+    } else if (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') {
+      if (subtask.id.includes('scaffold')) {
+        sections.push(
+          `\n🚨 IMPLEMENTATION & SCOPE DIRECTIVE:\n1. Repository exploration has already been completed. DO NOT call list_directory or re-explore. Your very first action MUST be write_file to begin creating the project files.\n2. STRICT SCOPE BOUNDARY: Strictly conform to the ARCHITECTURAL CONTRACT above. Only create the files for this specific phase. Do NOT invent extra auxiliary components, edit forms, or sub-pages. Conclude IMMEDIATELY with **Thought** and **Final Answer** once the required files are written.`,
+        );
+      } else {
+        sections.push(
+          `\n⚡ FAST SURGICAL PATCH DIRECTIVE:\nThe target file content and line numbers were already localized and confirmed in the previous step.\n1. Your very first action MUST be edit_file with precision matching (or write_file if creating missing config, or delete_file if removing obsolete conflicting files). Do NOT call read_file or list_directory first.\n2. As soon as the edit/write returns ok, DO NOT call read_file to re-inspect the change. Conclude IMMEDIATELY with **Thought** and **Final Answer**.`,
+        );
+      }
     } else if (subtask.id.includes('verify') || subtask.goal.toLowerCase().includes('verify')) {
       sections.push(
         `\n✅ VERIFICATION DIRECTIVE:\nInspect the directory structure once with list_directory to verify that all created project files exist. Then IMMEDIATELY conclude with **Thought** and **Final Answer** summarizing the verified files. Do NOT edit or rewrite files.`,

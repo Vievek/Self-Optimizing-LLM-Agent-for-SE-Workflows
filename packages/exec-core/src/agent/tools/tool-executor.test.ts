@@ -32,12 +32,13 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     }
   });
 
-  it('initializes default registry with all 8 standard tools', () => {
+  it('initializes default registry with all 9 standard tools', () => {
     const names = registry.getNames();
     expect(names).toEqual([
       'read_file',
       'write_file',
       'edit_file',
+      'delete_file',
       'run_command',
       'run_tests',
       'retrieve_context',
@@ -344,5 +345,77 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     expect(slowResp.result.status).toBe('error');
     expect(slowResp.result.error).toContain('timed out');
     expect(slowResp.spanAttributes.status).toBe('error');
+  });
+
+  it('executes delete_file for single and batch deletion with security validation', async () => {
+    // 1. Create temporary files
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: { path: 'obsolete1.txt', content: 'delete me 1' },
+      },
+      context,
+    );
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: { path: 'obsolete2.txt', content: 'delete me 2' },
+      },
+      context,
+    );
+
+    // 2. Attach a mock CodeGraph to verify delta node removal
+    const graph = new CodeGraph();
+    graph.addNode({
+      id: 'obsolete1.txt::deadFunc',
+      name: 'deadFunc',
+      kind: 'function',
+      isAsync: false,
+      params: [],
+      calls: [],
+      filePath: 'obsolete1.txt',
+      startLine: 1,
+      endLine: 5,
+    });
+    const ctxWithGraph: ToolContext = {
+      ...context,
+      graph,
+    };
+
+    expect(graph.getAllNodes().length).toBe(1);
+
+    // 3. Delete single file
+    const del1 = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { path: 'obsolete1.txt', reason: 'deprecated file' },
+      },
+      ctxWithGraph,
+    );
+
+    expect(del1.result.status).toBe('ok');
+    expect(del1.result.output).toContain('Successfully deleted 1 file');
+    expect(graph.getAllNodes().length).toBe(0); // Node cleanly scrubbed from AST graph
+
+    // 4. Delete second file via batch
+    const del2 = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { paths: ['obsolete2.txt'] },
+      },
+      context,
+    );
+    expect(del2.result.status).toBe('ok');
+
+    // 5. Security check: rejects traversal escaping directory
+    const secDel = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { path: '../../etc/passwd' },
+      },
+      context,
+    );
+    expect(secDel.result.status).toBe('error');
+    expect(secDel.result.error).toContain('Invalid path');
   });
 });

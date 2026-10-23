@@ -5,11 +5,14 @@ import { calculateRoutingScore, DEFAULT_SCORING_WEIGHTS } from './scoring-rule.j
 
 export type RouteSpanAttributes = z.infer<typeof RouteSpanAttributesSchema>;
 
+export type RoutingRuleMethod = 'complexity' | 'role_hierarchy';
+
 export interface ModelSelectorOptions {
   config?: Partial<RoutingConfig>;
   weights?: ScoringWeights;
   slmModel?: string;
   llmModel?: string;
+  routingRule?: RoutingRuleMethod;
 }
 
 export const DEFAULT_ROUTING_CONFIG: RoutingConfig = {
@@ -23,6 +26,7 @@ export class ModelSelector {
   private readonly weights: ScoringWeights;
   private readonly slmModel: string;
   private readonly llmModel: string;
+  private readonly routingRule: RoutingRuleMethod;
 
   constructor(options: ModelSelectorOptions = {}) {
     this.config = {
@@ -32,27 +36,55 @@ export class ModelSelector {
     this.weights = options.weights ?? DEFAULT_SCORING_WEIGHTS;
     this.slmModel = options.slmModel ?? 'Qwen/Qwen2.5-Coder-7B-Instruct';
     this.llmModel = options.llmModel ?? 'Qwen/Qwen2.5-Coder-32B-Instruct';
+    this.routingRule = options.routingRule ?? 'complexity';
   }
 
   /**
    * Deterministically assigns a subtask to either the small model tier (SLM)
-   * or large model tier (LLM) based on quantifiable input features.
+   * or large model tier (LLM) based on quantifiable input features or role hierarchy.
    */
   selectTier(rawFeatures: unknown): RoutingDecision {
     const features = SubtaskRoutingFeaturesSchema.parse(rawFeatures);
     const { score, reasoning } = calculateRoutingScore(features, this.weights);
 
-    // Scoring <= threshold qualifies for SLM tier; higher scores escalate to LLM tier
-    const isSmallTier = score <= this.config.small_tier_threshold;
-    const tier = isSmallTier ? 'slm' : 'llm';
-    const model = isSmallTier ? this.slmModel : this.llmModel;
+    let tier: 'slm' | 'llm';
+    let ruleReason = '';
+
+    if (this.routingRule === 'role_hierarchy') {
+      // Decision-making, planning, and root-cause localization -> LLM
+      if (
+        features.step_type === 'localize' ||
+        features.step_type === 'plan' ||
+        features.step_type === 'replan' ||
+        (features.step_type === 'explore' &&
+          (features.requires_cross_file_reasoning || features.file_count > 1))
+      ) {
+        tier = 'llm';
+        ruleReason = `Role Hierarchy: Decision-making step (${features.step_type}) assigned to LLM`;
+      }
+      // Tactical code generation and test execution -> SLM (unless escalated by failure)
+      else if (features.prior_failures >= 2) {
+        tier = 'llm';
+        ruleReason = `Role Hierarchy: Escalated to LLM due to ${features.prior_failures} prior failures`;
+      } else {
+        tier = 'slm';
+        ruleReason = `Role Hierarchy: Code generation / execution step (${features.step_type}) assigned to SLM`;
+      }
+    } else {
+      // Scoring <= threshold qualifies for SLM tier; higher scores escalate to LLM tier
+      const isSmallTier = score <= this.config.small_tier_threshold;
+      tier = isSmallTier ? 'slm' : 'llm';
+      ruleReason = `Threshold: ${this.config.small_tier_threshold}`;
+    }
+
+    const model = tier === 'slm' ? this.slmModel : this.llmModel;
 
     return {
       tier,
       model,
       score,
       features,
-      reasoning: `Decision: ${tier.toUpperCase()} (${model}) | Threshold: ${this.config.small_tier_threshold} | ${reasoning}`,
+      reasoning: `Decision: ${tier.toUpperCase()} (${model}) | ${ruleReason} | ${reasoning}`,
     };
   }
 

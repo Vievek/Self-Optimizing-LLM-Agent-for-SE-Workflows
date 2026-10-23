@@ -22,6 +22,46 @@ Action Input: {"query": "handleError", "path": "src"}`;
       expect(result.toolCall?.args).toEqual({ query: 'handleError', path: 'src' });
     });
 
+    it('parses ReAct syntax with markdown headers without colons (### Action / ### Action Input)', () => {
+      const output = `### Thought
+I will inspect the workspace layout using list_directory.
+
+### Action
+list_directory
+
+### Action Input
+{ "path": "." }`;
+
+      const result = ToolCallParser.parse(output);
+      expect(result.thought).toContain('I will inspect');
+      expect(result.isFinal).toBe(false);
+      expect(result.toolCall?.toolName).toBe('list_directory');
+      expect(result.toolCall?.args).toEqual({ path: '.' });
+    });
+
+    it('recovers tool arguments when SLM inlines them in a JSON block inside Action', () => {
+      const output = `### Initial Thought
+Inspect callers of owner.
+
+### Action
+\`\`\`json
+{
+  "action": "retrieve_context",
+  "query": "owner",
+  "hops": 3
+}
+\`\`\`
+
+### Action Input
+\`\`\`json
+{}
+\`\`\``;
+
+      const result = ToolCallParser.parse(output);
+      expect(result.toolCall?.toolName).toBe('retrieve_context');
+      expect(result.toolCall?.args).toEqual({ query: 'owner', hops: 3 });
+    });
+
     it('parses ReAct syntax with markdown bolded keywords (**Action**, **Thought**)', () => {
       const output = `**Thought**: Let's check what files exist in the workspace.
 **Action**: list_directory
