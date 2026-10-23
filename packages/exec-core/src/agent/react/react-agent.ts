@@ -25,12 +25,15 @@ export class ReactAgent {
     const tier = params.tier ?? 'slm';
     const model =
       params.model ?? (tier === 'slm' ? 'qwen2.5-coder-7b-instruct' : 'qwen2.5-coder-32b-instruct');
-    const maxTurns = params.maxTurns ?? 10;
+    const isCodeGen =
+      params.subtask.type === 'edit_multi_file' || params.subtask.type === 'edit_single_file';
+    const maxTurns = params.maxTurns ?? (isCodeGen ? 40 : 10);
     const traceId = params.traceId ?? crypto.randomBytes(16).toString('hex');
     const parentSpanId = params.parentSpanId ?? null;
 
     const spans: TraceSpan[] = [];
     const isGroq = Boolean(process.env.GROQ_API_KEY);
+    const writtenFiles = new Set<string>(params.knownWrittenFiles ?? []);
     const historyManager =
       params.historyManager ??
       new ConversationHistoryManager(
@@ -75,6 +78,8 @@ export class ReactAgent {
     let success = false;
     const inspectionHistory: Array<{ tool: string; args: string }> = [];
     let consecutiveInspections = 0;
+    let turnsWithoutProgress = 0;
+    let previousWrittenCount = writtenFiles.size;
 
     while (turn < maxTurns) {
       turn += 1;
@@ -183,6 +188,25 @@ export class ReactAgent {
             );
           }
 
+          if (result.status === 'ok') {
+            if (call.toolName === 'write_file') {
+              if (typeof call.args.path === 'string' && call.args.path) {
+                writtenFiles.add(call.args.path);
+              }
+              if (Array.isArray(call.args.files)) {
+                for (const f of call.args.files as Array<{ path?: string }>) {
+                  if (typeof f?.path === 'string' && f.path) {
+                    writtenFiles.add(f.path);
+                  }
+                }
+              }
+            } else if (call.toolName === 'edit_file') {
+              if (typeof call.args.path === 'string' && call.args.path) {
+                writtenFiles.add(call.args.path);
+              }
+            }
+          }
+
           if (result.status === 'error') {
             lastError = result.error ?? 'Tool execution failed';
           }
@@ -201,32 +225,56 @@ export class ReactAgent {
 
             if (isDuplicate) {
               loopNotice =
-                '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file in batches.';
+                '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file.';
             } else if (
               (params.subtask.type === 'edit_multi_file' || params.subtask.type === 'edit_single_file') &&
               call.toolName === 'list_directory' &&
               params.previousContext
             ) {
               loopNotice =
-                '\n\n⚠️ STEERING NOTICE: Exploration is already complete. Do NOT call list_directory again. Proceed immediately to write the required missing files using write_file in batches.';
+                '\n\n⚠️ STEERING NOTICE: Exploration is already complete. Do NOT call list_directory again. Proceed immediately to write the required missing files using write_file.';
             } else if (consecutiveInspections >= 3) {
               loopNotice =
-                '\n\n⚠️ STEERING NOTICE: You have completed exploration. Do NOT read or list any more files. Immediately begin writing the missing project files using write_file in batches.';
+                '\n\n⚠️ STEERING NOTICE: You have completed exploration. Do NOT read or list any more files. Immediately begin writing the missing project files using write_file.';
             }
           } else if (call.toolName === 'write_file' || call.toolName === 'edit_file') {
             consecutiveInspections = 0;
           }
         }
 
+        // Track forward progress: resetting stagnation if new files are written
+        if (writtenFiles.size > previousWrittenCount) {
+          turnsWithoutProgress = 0;
+          previousWrittenCount = writtenFiles.size;
+        } else {
+          turnsWithoutProgress += 1;
+        }
+
+        let stagnationNotice = '';
+        if (turnsWithoutProgress >= 5) {
+          stagnationNotice =
+            '\n\n⚠️ PROGRESS NOTICE: No new files have been written in the last 5 turns. If all required files for this subtask are complete, conclude immediately with **Thought** and **Final Answer**. Otherwise, proceed to write the next missing file.';
+        }
+        if (turnsWithoutProgress >= 8) {
+          lastError = `Subtask halted after 8 consecutive turns with no new files created or progress made.`;
+          break;
+        }
+
+        const writtenList = Array.from(writtenFiles);
+        const writtenNotice =
+          writtenList.length > 0
+            ? `\n\n📁 Already Created/Modified Files (${writtenList.length}):\n${writtenList.map((f) => `- ${f}`).join('\n')}\n🚨 DO NOT rewrite or duplicate these files. Only write remaining files that are NOT in this list.`
+            : '';
+
         const promptNote =
-          turn === maxTurns - 1
-            ? '\n\nCRITICAL: This is your final turn for this subtask. Do NOT call any more tools. Conclude immediately with **Thought** and **Final Answer**.'
+          turn >= maxTurns - 2
+            ? '\n\nNOTICE: Approaching turn limit. If all required project files are complete, conclude with **Thought** and **Final Answer**.'
             : '';
 
         const fullObs =
           callsToExecute.length === 1
-            ? `${observationSections[0]}${loopNotice}${promptNote}`
-            : `Observation (Multi-Tool Results):\n${observationSections.join('\n\n')}${loopNotice}${promptNote}`;
+            ? `${observationSections[0]}${loopNotice}${writtenNotice}${stagnationNotice}${promptNote}`
+            : `Observation (Multi-Tool Results):\n${observationSections.join('\n\n')}${loopNotice}${writtenNotice}${stagnationNotice}${promptNote}`;
 
         historyManager.addMessage('user', fullObs);
       } else {
@@ -275,6 +323,7 @@ export class ReactAgent {
       lastError,
       spans,
       testSummary: lastTestSummary,
+      writtenFiles: Array.from(writtenFiles),
     };
   }
 }

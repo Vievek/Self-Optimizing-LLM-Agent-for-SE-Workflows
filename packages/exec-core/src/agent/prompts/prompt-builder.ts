@@ -43,8 +43,12 @@ ${toolManual}
 
 ## Critical Operational Rules
 1. For existing codebases, never guess file contents or function signatures. Use \`retrieve_context\` (AST search) or \`read_file\` to inspect relevant code.
-2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first (which recursively lists directories up to depth 4 by default). Do NOT query subdirectories individually. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`.
-3. You can write multiple files at once in a single turn using \`write_file\` with \`{ "files": [{ "path": "...", "content": "..." }, { "path": "...", "content": "..." }] }\`. Limit each batch to up to ${this.maxBatchWriteFiles} files to stay within output token limits and prevent truncation.
+2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first (which recursively lists directories up to depth 4 by default). Do NOT query subdirectories individually. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`. NEVER rewrite files that have already been created.
+3. You can write files using \`write_file\` with \`{ "path": "...", "content": "..." }\` or batch write with \`{ "files": [{ "path": "...", "content": "..." }] }\`. ${
+  this.maxBatchWriteFiles <= 2
+    ? 'IMPORTANT: Write 1 file at a time (or at most 2 small files) using write_file so the entire code fits completely within output token limits without getting truncated.'
+    : `Limit each batch to up to ${this.maxBatchWriteFiles} files to complete scaffolding in fewer round-trips.`
+}
 4. When reading multiple files at once, use \`read_file\` with \`{ "paths": ["file1", "file2"] }\` (up to ${this.maxBatchReadFiles} files per call).
 5. Always provide \`Action Input:\` with valid JSON arguments whenever you specify an \`Action:\`. Example:
    **Action**: list_directory
@@ -78,15 +82,20 @@ ${this.customGuidelines.map((g, idx) => `${7 + idx}. ${g}`).join('\n')}`;
 
     if (previousContext) {
       sections.push(`\n# Relevant Context & Discoveries\n${previousContext}`);
+    }
 
-      if (
-        (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') &&
-        previousContext.toLowerCase().includes('explore')
-      ) {
-        sections.push(
-          `\n🚨 CRITICAL OPERATIONAL DIRECTIVE:\nRepository exploration has ALREADY been completed in Step 1. DO NOT call list_directory. Use the file layout documented above in "Relevant Context & Discoveries" and begin IMMEDIATELY by calling write_file to create the missing files.`,
-        );
-      }
+    if (subtask.type === 'explore') {
+      sections.push(
+        `\n🔍 RECONNAISSANCE DIRECTIVE:\nYour only goal in this step is to inspect the workspace layout with list_directory (once) and identify what exists and what is missing in your Final Answer. Do NOT call write_file, edit_file, or read_file in this recon step. Conclude promptly.`,
+      );
+    } else if (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') {
+      sections.push(
+        `\n🚨 IMPLEMENTATION DIRECTIVE:\nRepository exploration has already been completed. DO NOT call list_directory or re-explore. Your very first action MUST be write_file to begin creating the project files.`,
+      );
+    } else if (subtask.id.includes('verify') || subtask.goal.toLowerCase().includes('verify')) {
+      sections.push(
+        `\n✅ VERIFICATION DIRECTIVE:\nInspect the directory structure once with list_directory to verify that all created project files exist. Then IMMEDIATELY conclude with **Thought** and **Final Answer** summarizing the verified files. Do NOT edit or rewrite files.`,
+      );
     }
 
     sections.push(

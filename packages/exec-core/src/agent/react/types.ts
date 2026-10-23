@@ -45,6 +45,7 @@ export interface ExecuteSubtaskParams {
   previousContext?: string;
   maxBatchWriteFiles?: number;
   maxBatchReadFiles?: number;
+  knownWrittenFiles?: Set<string>;
 }
 
 export interface ExecuteSubtaskResult {
@@ -58,4 +59,5 @@ export interface ExecuteSubtaskResult {
   lastError?: string;
   spans: TraceSpan[];
   testSummary?: { passed?: number; failed?: number; errors?: number };
+  writtenFiles: string[];
 }

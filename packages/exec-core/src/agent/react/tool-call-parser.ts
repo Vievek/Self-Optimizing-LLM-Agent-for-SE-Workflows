@@ -202,7 +202,7 @@ function mapStringArgsToTool(toolName: string, input: string): Record<string, un
       if (input.trim().startsWith('{') || input.includes('"files"') || input.includes('"path"')) {
         return {
           error:
-            'Invalid or truncated JSON syntax in Action Input for write_file. Please provide valid JSON with "path" and "content", or "files: Array<{path, content}>".',
+            'Action Input for write_file was truncated mid-generation due to token limits. Please write 1 file at a time using { "path": "...", "content": "..." } so your response fits inside the token budget.',
           rawInput: input,
         };
       }
@@ -261,10 +261,11 @@ export class ToolCallParser {
         if (inputMatch?.[1]) {
           let rawInput = inputMatch[1].trim();
 
-          // Strip surrounding markdown code block if present inside Action Input
-          const mdBlockMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(rawInput);
-          if (mdBlockMatch?.[1]) {
-            rawInput = mdBlockMatch[1].trim();
+          // Strip outer markdown code block only if rawInput starts with code fences
+          if (rawInput.startsWith('```')) {
+            rawInput = rawInput.replace(/^```(?:json)?\s*/i, '');
+            rawInput = rawInput.replace(/\s*```\s*$/, '');
+            rawInput = rawInput.trim();
           }
 
           // Try direct JSON parse

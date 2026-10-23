@@ -7,7 +7,7 @@ small:
   apiKeyEnv: GROQ_API_KEY
   maxTokens: 1000
   pacingMs: 4000
-  maxBatchWriteFiles: 3
+  maxBatchWriteFiles: 2
   maxBatchReadFiles: 8
 
 large:
@@ -17,7 +17,7 @@ large:
   apiKeyEnv: GROQ_API_KEY
   maxTokens: 1000
   pacingMs: 5000
-  maxBatchWriteFiles: 3
+  maxBatchWriteFiles: 2
   maxBatchReadFiles: 8
 
 embed:

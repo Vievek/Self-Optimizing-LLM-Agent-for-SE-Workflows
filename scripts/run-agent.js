@@ -31,11 +31,15 @@ async function main() {
   console.log('='.repeat(70));
   console.log(`📋 Prompt:     "${prompt}"`);
   console.log(`📁 Target Dir: ${targetDir}`);
-  const keyStatus = process.env.GROQ_API_KEY
-    ? `Groq Key Configured ✅${process.env.GROQ_KEY_COUNT ? ` (Key Pool: ${process.env.GROQ_KEY_COUNT} keys)` : ''}`
-    : process.env.GEMINI_API_KEY
-      ? 'Gemini Key Configured ✅'
-      : 'Missing (Set GROQ_API_KEY in .env) ❌';
+  const keyStatus = (!isGroqTesting && process.env.HF_TOKEN)
+    ? 'Hugging Face Token Configured ✅'
+    : process.env.GROQ_API_KEY
+      ? `Groq Key Configured ✅${process.env.GROQ_KEY_COUNT ? ` (Key Pool: ${process.env.GROQ_KEY_COUNT} keys)` : ''}`
+      : process.env.HF_TOKEN
+        ? 'Hugging Face Token Configured ✅'
+        : process.env.GEMINI_API_KEY
+          ? 'Gemini Key Configured ✅'
+          : 'Missing (Set GROQ_API_KEY or HF_TOKEN in .env) ❌';
   console.log(`🔑 API Key:    ${keyStatus}`);
   console.log(`⚙️  Config:     ${configPath}`);
   console.log('='.repeat(70));
@@ -108,7 +112,7 @@ async function main() {
       providerRegistry: registry,
       reactLlmCaller,
       maxIterations: Number(process.env.MAX_ITERATIONS) || 50,
-      maxTurnsPerSubtask: Number(process.env.MAX_TURNS_PER_SUBTASK) || 20,
+      maxTurnsPerSubtask: Number(process.env.MAX_TURNS_PER_SUBTASK) || 45,
     },
   );
 
@@ -128,16 +132,25 @@ async function main() {
   }
   const isFullyCompliant = validSpans === result.spans.length;
 
+  const promptSpans = result.spans.filter((s) => s.name === 'prompt');
+  const toolSpans = result.spans.filter((s) => s.name === 'tool_call');
+  const planSpans = result.spans.filter((s) => s.name === 'plan');
+  const totalApiCalls = promptSpans.length;
+  const totalToolCalls = toolSpans.length;
+
   console.log('\n' + '='.repeat(70));
   console.log('🏁 Execution Completed!');
   console.log('='.repeat(70));
   console.log(`Status:            ${result.resolved ? 'RESOLVED ✅' : 'COMPLETED / REVIEW NEEDED ⚠️'}`);
-  console.log(`Total Spans:       ${result.spans.length} spans`);
-  console.log(`Contract Validity: ${isFullyCompliant ? `100% Contract-Compliant (${validSpans}/${result.spans.length}) ✅` : 'Contract Mismatch ❌'}`);
   console.log(`Time Taken:        ${totalWallSec}s (${totalWallMin} min)`);
+  console.log(`Total API Calls:   ${totalApiCalls} LLM requests`);
+  console.log(`Total Tool Calls:  ${totalToolCalls} actions executed`);
+  console.log(`Subtasks Executed: ${planSpans.length} plan steps`);
   console.log(`Tokens In:         ${tokensIn.toLocaleString()}`);
   console.log(`Tokens Out:        ${tokensOut.toLocaleString()}`);
   console.log(`Total Tokens:      ${totalTokens.toLocaleString()}`);
+  console.log(`Total Spans:       ${result.spans.length} spans`);
+  console.log(`Contract Validity: ${isFullyCompliant ? `100% Contract-Compliant (${validSpans}/${result.spans.length}) ✅` : 'Contract Mismatch ❌'}`);
 
   console.log('\n📂 Files in workspace:');
   function listFilesRecursively(dir, prefix = '') {
