@@ -5,6 +5,7 @@ import { TraceSpanSchema } from '../packages/contracts/dist/index.js';
 import { AgentRunner, createReActLlmCaller } from '../packages/exec-core/dist/index.js';
 import { ProviderRegistry } from '../packages/llm/dist/index.js';
 import { FixtureSandboxService } from '../packages/sandbox/dist/index.js';
+import { GroqKeyPoolManager } from './groq-key-pool.js';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -15,18 +16,28 @@ async function main() {
     ? path.resolve(process.cwd(), args[1])
     : path.resolve(process.cwd(), 'scratch/sandboxes/demo-app');
 
+  const configPath = process.env.MODELS_CONFIG_PATH ?? 'packages/llm/models.testing.yaml';
+  const isGroqTesting = configPath.includes('models.testing.yaml');
+
+  // Inject Groq multi-key pool only when testing configuration is active
+  let keyPool;
+  if (isGroqTesting && process.env.GROQ_KEY_COUNT) {
+    keyPool = new GroqKeyPoolManager();
+    keyPool.activate();
+  }
+
   console.log('='.repeat(70));
   console.log('🚀 SOA Autonomous Execution Core Runner');
   console.log('='.repeat(70));
   console.log(`📋 Prompt:     "${prompt}"`);
   console.log(`📁 Target Dir: ${targetDir}`);
   const keyStatus = process.env.GROQ_API_KEY
-    ? 'Groq Key Configured ✅'
+    ? `Groq Key Configured ✅${process.env.GROQ_KEY_COUNT ? ` (Key Pool: ${process.env.GROQ_KEY_COUNT} keys)` : ''}`
     : process.env.GEMINI_API_KEY
       ? 'Gemini Key Configured ✅'
       : 'Missing (Set GROQ_API_KEY in .env) ❌';
   console.log(`🔑 API Key:    ${keyStatus}`);
-  console.log(`⚙️  Config:     ${process.env.MODELS_CONFIG_PATH ?? 'packages/llm/models.testing.yaml'}`);
+  console.log(`⚙️  Config:     ${configPath}`);
   console.log('='.repeat(70));
 
   if (!fs.existsSync(targetDir)) {
@@ -44,16 +55,36 @@ async function main() {
   sandbox.registerWorkspace(wsId, targetDir);
 
   // 2. Initialize LLM Provider Registry
-  const registry = new ProviderRegistry();
-  const baseCaller = createReActLlmCaller({ registry });
+  let registry = new ProviderRegistry();
+  let baseCaller = createReActLlmCaller({ registry });
 
-  // Logging wrapper to show agent thought process in real-time
+  // Logging and key-rotation failover wrapper
   const reactLlmCaller = async (messages, opts) => {
     const tierLabel = opts?.tier?.toUpperCase() ?? 'SLM';
     console.log(`\n🧠 [${tierLabel}] Reasoning with model: ${opts?.model}...`);
-    const resp = await baseCaller(messages, opts);
-    console.log(`📝 Output:\n${resp.content.trim()}\n`);
-    return resp;
+
+    while (true) {
+      try {
+        const resp = await baseCaller(messages, opts);
+        console.log(`📝 Output:\n${resp.content.trim()}\n`);
+        return resp;
+      } catch (err) {
+        const errMsg = String(err);
+        if (
+          keyPool &&
+          (errMsg.includes('tokens per day') ||
+            errMsg.includes('TPD') ||
+            errMsg.includes('rate_limit_exceeded'))
+        ) {
+          keyPool.rotateOnDailyLimit();
+          // Refresh registry and caller with newly rotated key in process.env.GROQ_API_KEY
+          registry = new ProviderRegistry();
+          baseCaller = createReActLlmCaller({ registry });
+          continue;
+        }
+        throw err;
+      }
+    }
   };
 
   // 3. Initialize Agent Runner
