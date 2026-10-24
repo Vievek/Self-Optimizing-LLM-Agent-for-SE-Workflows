@@ -11,7 +11,8 @@ export const DEFAULT_PLANNING_CONFIG: PlanningConfig = {
   subtask_timeout_s: 300,
 };
 
-export type TaskIntent = 'full_scaffold' | 'single_bug' | 'multi_bug' | 'explain_only' | 'analyze_bug';
+export type TaskIntent =
+  'full_scaffold' | 'single_bug' | 'multi_bug' | 'explain_only' | 'analyze_bug';
 
 export interface DecomposedIssue {
   id: number;
@@ -277,7 +278,6 @@ export class PlanGenerator {
 
     // 2. Guardrail against SLM confusion (e.g. 3B SLM confusing Project.js with new project scaffolding)
     const heuristicIssues = this.extractMultiBugIssuesHeuristically(text);
-    const targetFiles = this.extractTargetFiles(text);
     const hasBugPatterns =
       /(?:assumes|names the field|populate|mismatch|bug|issue|error|conflict|missing|fails|broken)\b/i.test(
         text,
@@ -364,8 +364,8 @@ export class PlanGenerator {
     const subtasks: SubTask[] = [];
     const existingSet = new Set(existingFiles.map((f) => f.replace(/^\.\//, '')));
 
-    const entities = ['User', 'Project', 'Task', 'Comment', 'Post', 'Order', 'Product'].filter((e) =>
-      new RegExp(`\\b${e}\\b`, 'i').test(task.problemStatement),
+    const entities = ['User', 'Project', 'Task', 'Comment', 'Post', 'Order', 'Product'].filter(
+      (e) => new RegExp(`\\b${e}\\b`, 'i').test(task.problemStatement),
     );
     const entityList = entities.length > 0 ? entities : ['User', 'Project', 'Task', 'Comment'];
 
@@ -876,7 +876,8 @@ export class PlanGenerator {
         return this.buildScaffoldQueueSubtasks(
           task,
           {
-            contract: '# ARCHITECTURAL CONTRACT: All required subsystems are verified complete on disk.',
+            contract:
+              '# ARCHITECTURAL CONTRACT: All required subsystems are verified complete on disk.',
             phases: [],
           },
           existingFiles,
@@ -1404,9 +1405,7 @@ export class PlanGenerator {
       if (Array.isArray(parsed?.phases)) {
         const validPhases = parsed.phases.filter(
           (p) =>
-            typeof p.goal === 'string' &&
-            Array.isArray(p.targetFiles) &&
-            p.targetFiles.length > 0,
+            typeof p.goal === 'string' && Array.isArray(p.targetFiles) && p.targetFiles.length > 0,
         );
         return {
           contract: typeof parsed.contract === 'string' ? parsed.contract : undefined,

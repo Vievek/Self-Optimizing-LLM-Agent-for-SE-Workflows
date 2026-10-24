@@ -231,7 +231,8 @@ describe('ToolExecutor and ACI Standard Tools', () => {
         toolName: 'write_file',
         args: {
           path: 'router.js',
-          content: 'import Switch from "router";\n<Switch>\n  <Route component={Home} />\n</Switch>',
+          content:
+            'import Switch from "router";\n<Switch>\n  <Route component={Home} />\n</Switch>',
         },
       },
       context,

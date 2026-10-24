@@ -147,9 +147,7 @@ export class ReadFileHandler implements ToolHandler {
         const truncationNotice = isTruncated
           ? `\n... [${lines.length - MAX_BATCH_LINES_PER_FILE} lines omitted in batch mode. Use single read_file with offset/limit to read specific section] ...`
           : '';
-        const redirectNotice = wasRedirected
-          ? ` [resolved to: ${resolvedPath}]`
-          : '';
+        const redirectNotice = wasRedirected ? ` [resolved to: ${resolvedPath}]` : '';
         results.push(
           `=== File: ${filePath}${redirectNotice} (${lines.length} lines) ===\n${numbered}${truncationNotice}`,
         );

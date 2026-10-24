@@ -261,7 +261,8 @@ describe('PlanGenerator and PlanManager', () => {
       const scaffoldTask: AgentTask = {
         taskId: 'dynamic-scaffold-1',
         repo: 'local/workspace',
-        problemStatement: 'Build a lightweight Express microservice with routes.js and controllers.js',
+        problemStatement:
+          'Build a lightweight Express microservice with routes.js and controllers.js',
       };
 
       const subtasks = await generator.generatePlan(scaffoldTask);
@@ -305,7 +306,8 @@ describe('PlanGenerator and PlanManager', () => {
       const scaffoldTask: AgentTask = {
         taskId: 'dynamic-scaffold-delta',
         repo: 'local/workspace',
-        problemStatement: 'Build a lightweight Express microservice with routes.js and controllers.js',
+        problemStatement:
+          'Build a lightweight Express microservice with routes.js and controllers.js',
       };
 
       // package.json and index.js are already present
@@ -564,7 +566,9 @@ describe('PlanGenerator and PlanManager', () => {
 
         // Bug fix queries stay single_bug
         expect(
-          generator.classifyIntentHeuristically('Fix TypeError in server/controllers/authController.js'),
+          generator.classifyIntentHeuristically(
+            'Fix TypeError in server/controllers/authController.js',
+          ),
         ).toBe('single_bug');
       });
 
@@ -608,4 +612,3 @@ describe('PlanGenerator and PlanManager', () => {
     });
   });
 });
-

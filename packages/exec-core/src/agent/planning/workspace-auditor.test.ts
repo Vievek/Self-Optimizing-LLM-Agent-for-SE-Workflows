@@ -53,7 +53,9 @@ describe('WorkspaceAuditor', () => {
 
     const formatted = WorkspaceAuditor.formatAuditReport(report, '/path/to/test');
     expect(formatted).toContain('Project Already Complete');
-    expect(formatted).toContain('All core capabilities requested in your prompt are already present');
+    expect(formatted).toContain(
+      'All core capabilities requested in your prompt are already present',
+    );
   });
 
   it('detects a partially complete workspace (backend done, frontend missing) and generates tailored batch prompt', () => {

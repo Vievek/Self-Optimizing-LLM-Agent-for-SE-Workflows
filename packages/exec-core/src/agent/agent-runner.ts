@@ -99,8 +99,14 @@ export class AgentRunner {
       try {
         const t0 = Date.now();
         const graphBuilder = new WorkspaceGraphBuilder();
-        const { graph, retriever, parsedFilesCount, fromCache, reindexedFilesCount, discrepancies } =
-          await graphBuilder.buildFromDirectory(context.workingDir);
+        const {
+          graph,
+          retriever,
+          parsedFilesCount,
+          fromCache,
+          reindexedFilesCount,
+          discrepancies,
+        } = await graphBuilder.buildFromDirectory(context.workingDir);
         context.graph = graph;
         context.retriever = retriever;
         if (discrepancies && discrepancies.length > 0) {
@@ -276,7 +282,10 @@ export class AgentRunner {
             try {
               const content = await context.sandbox.readFile(context.workspaceId, tf);
               const lines = content.split('\n');
-              const snippet = lines.slice(0, 100).map((l, i) => `${i + 1} | ${l}`).join('\n');
+              const snippet = lines
+                .slice(0, 100)
+                .map((l, i) => `${i + 1} | ${l}`)
+                .join('\n');
               fileSnippets.push(`=== File: ${tf} (${lines.length} lines) ===\n${snippet}`);
             } catch {
               // Try server/ or src/ prefix if not found directly
@@ -286,8 +295,13 @@ export class AgentRunner {
                   const candidate = `${p}${tf.replace(/^\/+/, '')}`;
                   const content = await context.sandbox.readFile(context.workspaceId, candidate);
                   const lines = content.split('\n');
-                  const snippet = lines.slice(0, 100).map((l, i) => `${i + 1} | ${l}`).join('\n');
-                  fileSnippets.push(`=== File: ${candidate} (${lines.length} lines) ===\n${snippet}`);
+                  const snippet = lines
+                    .slice(0, 100)
+                    .map((l, i) => `${i + 1} | ${l}`)
+                    .join('\n');
+                  fileSnippets.push(
+                    `=== File: ${candidate} (${lines.length} lines) ===\n${snippet}`,
+                  );
                   break;
                 } catch {
                   // ignore

@@ -73,9 +73,7 @@ export class OpenAiCompatProvider implements LlmProvider {
       };
 
       const timeoutMs =
-        model.toLowerCase().includes('7b') || model.toLowerCase().includes('small')
-          ? 25000
-          : 60000;
+        model.toLowerCase().includes('7b') || model.toLowerCase().includes('small') ? 25000 : 60000;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers,

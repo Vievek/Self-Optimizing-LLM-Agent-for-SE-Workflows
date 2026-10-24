@@ -37,7 +37,10 @@ function applyFuzzyOrExactReplace(
 
   // Fallback: Line-based normalized matching (whitespace and semicolon tolerance)
   const norm = (s: string) => s.trim().replace(/;$/, '').trim();
-  const searchLines = searchStr.split(/\r?\n/).map(norm).filter((l) => l.length > 0);
+  const searchLines = searchStr
+    .split(/\r?\n/)
+    .map(norm)
+    .filter((l) => l.length > 0);
   const contentLines = original.split(/\r?\n/);
 
   if (searchLines.length > 0) {
@@ -109,7 +112,9 @@ export class EditFileHandler implements ToolHandler {
       const editsByFile = new Map<string, Array<{ old_str: string; new_str: string }>>();
       for (const edit of args.edits as Record<string, unknown>[]) {
         const itemPath =
-          (typeof edit.path === 'string' && edit.path.trim().length > 0 ? edit.path.trim() : null) ??
+          (typeof edit.path === 'string' && edit.path.trim().length > 0
+            ? edit.path.trim()
+            : null) ??
           (typeof args.path === 'string' && args.path.trim().length > 0 ? args.path.trim() : '');
         if (!itemPath) {
           return {
@@ -157,7 +162,9 @@ export class EditFileHandler implements ToolHandler {
 
           const b64 = Buffer.from(currentContent, 'utf8').toString('base64');
           const writeCmd = `node -e 'const fs=require("fs"),path=require("path");const p=process.argv[1];fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,Buffer.from(process.argv[2],"base64"));' "${targetPath}" "${b64}"`;
-          const res = await context.sandbox.exec(context.workspaceId, writeCmd, { timeoutMs: 30000 });
+          const res = await context.sandbox.exec(context.workspaceId, writeCmd, {
+            timeoutMs: 30000,
+          });
           if (res.exitCode !== 0) {
             return {
               status: 'error',
@@ -257,7 +264,9 @@ export class EditFileHandler implements ToolHandler {
       const b64 = Buffer.from(updated, 'utf8').toString('base64');
       const writeCmd = `node -e 'const fs=require("fs"),path=require("path");const p=process.argv[1];fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,Buffer.from(process.argv[2],"base64"));' "${filePath}" "${b64}"`;
 
-      const execRes = await context.sandbox.exec(context.workspaceId, writeCmd, { timeoutMs: 30000 });
+      const execRes = await context.sandbox.exec(context.workspaceId, writeCmd, {
+        timeoutMs: 30000,
+      });
 
       if (execRes.exitCode !== 0) {
         const pyFallback = `python3 -c "import sys, base64, os; p=sys.argv[1]; os.makedirs(os.path.dirname(p) or '.', exist_ok=True); open(p, 'wb').write(base64.b64decode(sys.argv[2]))" "${filePath}" "${b64}"`;

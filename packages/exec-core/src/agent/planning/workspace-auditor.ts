@@ -51,15 +51,16 @@ export class WorkspaceAuditor {
       isComplete: modelsComplete,
       matchedFiles: modelFiles,
       summary: modelsComplete
-        ? `Found ${modelFiles.length} model files (${modelFiles.slice(0, 4).map((f) => f.split('/').pop()).join(', ')})`
+        ? `Found ${modelFiles.length} model files (${modelFiles
+            .slice(0, 4)
+            .map((f) => f.split('/').pop())
+            .join(', ')})`
         : 'Missing required entity model files',
     };
 
     // 2. Auth Subsystem
     const authRequested = /(?:jwt|auth|authentication|login|token)\b/i.test(text);
-    const authFiles = allFiles.filter((f) =>
-      /(?:auth|jwt|passport|middleware\/auth)/i.test(f),
-    );
+    const authFiles = allFiles.filter((f) => /(?:auth|jwt|passport|middleware\/auth)/i.test(f));
     const authComplete = authRequested && authFiles.length >= 1;
 
     const authAudit: SubsystemAudit = {
@@ -69,13 +70,17 @@ export class WorkspaceAuditor {
       isComplete: authComplete,
       matchedFiles: authFiles,
       summary: authComplete
-        ? `Found ${authFiles.length} auth files (${authFiles.slice(0, 3).map((f) => f.split('/').pop()).join(', ')})`
+        ? `Found ${authFiles.length} auth files (${authFiles
+            .slice(0, 3)
+            .map((f) => f.split('/').pop())
+            .join(', ')})`
         : 'Missing JWT auth middleware / controller',
     };
 
     // 3. Backend Routes & Controllers
-    const backendRequested =
-      /(?:backend|server|express|api|routes|controllers|endpoints)\b/i.test(text);
+    const backendRequested = /(?:backend|server|express|api|routes|controllers|endpoints)\b/i.test(
+      text,
+    );
     const routeFiles = allFiles.filter((f) => /(?:routes|controllers)\//i.test(f));
     const backendComplete = backendRequested && routeFiles.length >= 2;
 
@@ -91,8 +96,9 @@ export class WorkspaceAuditor {
     };
 
     // 4. Data Persistence & Mock Seeds
-    const persistenceRequested =
-      /(?:persistence|mock|seed|seeds|json-file|database|data)\b/i.test(text);
+    const persistenceRequested = /(?:persistence|mock|seed|seeds|json-file|database|data)\b/i.test(
+      text,
+    );
     const dataFiles = allFiles.filter(
       (f) =>
         /(?:server\/data\/|data\/|seeds?\/)/i.test(f) &&
@@ -108,7 +114,10 @@ export class WorkspaceAuditor {
       isComplete: persistenceComplete,
       matchedFiles: dataFiles,
       summary: persistenceComplete
-        ? `Found ${dataFiles.length} data/seed files (${dataFiles.slice(0, 4).map((f) => f.split('/').pop()).join(', ')})`
+        ? `Found ${dataFiles.length} data/seed files (${dataFiles
+            .slice(0, 4)
+            .map((f) => f.split('/').pop())
+            .join(', ')})`
         : 'Missing persistence data / seed files',
     };
 
@@ -116,7 +125,9 @@ export class WorkspaceAuditor {
     const frontendRequested =
       /(?:frontend|client|react|tailwind|shadcn|ui|components|views|pages)\b/i.test(text);
     const componentFiles = allFiles.filter((f) =>
-      /(?:client\/src\/components\/|src\/components\/|client\/src\/App|client\/src\/index)/i.test(f),
+      /(?:client\/src\/components\/|src\/components\/|client\/src\/App|client\/src\/index)/i.test(
+        f,
+      ),
     );
     const frontendComplete = frontendRequested && componentFiles.length >= 2;
 
@@ -143,7 +154,10 @@ export class WorkspaceAuditor {
       isComplete: testsComplete,
       matchedFiles: testFiles,
       summary: testsComplete
-        ? `Found ${testFiles.length} test files (${testFiles.slice(0, 3).map((f) => f.split('/').pop()).join(', ')})`
+        ? `Found ${testFiles.length} test files (${testFiles
+            .slice(0, 3)
+            .map((f) => f.split('/').pop())
+            .join(', ')})`
         : 'Missing test suites',
     };
 
