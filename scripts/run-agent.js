@@ -152,6 +152,14 @@ async function main() {
   console.log(`Total Spans:       ${result.spans.length} spans`);
   console.log(`Contract Validity: ${isFullyCompliant ? `100% Contract-Compliant (${validSpans}/${result.spans.length}) ✅` : 'Contract Mismatch ❌'}`);
 
+  if (result.finalAnswer) {
+    console.log('\n' + '='.repeat(70));
+    console.log('📝 Agent Analysis & Explanation Output:');
+    console.log('='.repeat(70));
+    console.log(result.finalAnswer);
+    console.log('='.repeat(70));
+  }
+
   console.log('\n📂 Files in workspace:');
   function listFilesRecursively(dir, prefix = '') {
     try {

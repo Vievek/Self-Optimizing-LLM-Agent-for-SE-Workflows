@@ -140,6 +140,7 @@ export interface AgentRunResult {
   outcomeEvidence: OutcomeEvidence;
   spans: TraceSpan[];
   planState: PlanState;
+  finalAnswer?: string;
 }
 
 export { SubtaskType, SubtaskRoutingFeatures, PlanningConfig, ToolsConfig, ModelTier };

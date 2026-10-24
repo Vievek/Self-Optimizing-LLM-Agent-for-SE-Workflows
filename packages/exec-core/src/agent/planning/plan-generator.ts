@@ -11,7 +11,7 @@ export const DEFAULT_PLANNING_CONFIG: PlanningConfig = {
   subtask_timeout_s: 300,
 };
 
-export type TaskIntent = 'full_scaffold' | 'single_bug' | 'multi_bug' | 'explain_only';
+export type TaskIntent = 'full_scaffold' | 'single_bug' | 'multi_bug' | 'explain_only' | 'analyze_bug';
 
 export interface DecomposedIssue {
   id: number;
@@ -35,15 +35,17 @@ Analyze the user prompt and classify it into EXACTLY ONE category:
 - "full_scaffold": Creating, generating, building, or scaffolding a brand new project, stack, or multi-component application from scratch.
 - "single_bug": Fixing a single specific bug, test failure, syntax error, or targeted issue in existing code.
 - "multi_bug": Fixing multiple distinct bugs, field mismatches, schema discrepancies, missing dependencies, conflicting files, or multi-item audit logs across an existing project.
-- "explain_only": Answering questions, explaining code architecture, reviewing or diagnosing an issue without modifying files.
+- "explain_only": Answering conceptual questions, explaining code architecture, or walking through specific files without modifying code.
+- "analyze_bug": Performing a comprehensive project-wide code audit, scanning for bugs, security vulnerabilities, missing route guards, broken imports, or schema discrepancies across backend and frontend without modifying files.
 
 CRITICAL RULES:
-1. If the prompt describes existing files with bugs, discrepancies, field name mismatches (e.g. controller assumes X but model defines Y), missing exports, or errors, classify it as "multi_bug" (or "single_bug").
-2. NEVER classify existing file bug fixes as "full_scaffold", even if the word "project" appears in file names like projectController.js or Project.js! "full_scaffold" is strictly for creating a brand new project from scratch.
+1. If the prompt asks to audit the codebase, analyze the whole project, identify potential bugs or security flaws, classify it as "analyze_bug".
+2. If the prompt describes existing files with bugs, discrepancies, or errors and asks to fix/repair them, classify it as "multi_bug" (or "single_bug").
+3. NEVER classify existing file bug fixes or project audits as "full_scaffold", even if the word "project" appears in file names like projectController.js or Project.js! "full_scaffold" is strictly for creating a brand new project from scratch.
 
 Respond ONLY with a valid JSON object matching this schema, with no markdown code blocks or preamble:
 {
-  "intent": "full_scaffold" | "single_bug" | "multi_bug" | "explain_only",
+  "intent": "full_scaffold" | "single_bug" | "multi_bug" | "explain_only" | "analyze_bug",
   "reasoning": "brief explanation"
 }`;
 
@@ -173,6 +175,10 @@ export class PlanGenerator {
 
     let subtasks: SubTask[];
     switch (intent) {
+      case 'analyze_bug':
+        subtasks = this.generateAnalyzeBugPlan(task);
+        break;
+
       case 'explain_only':
         subtasks = this.generateExplainOnlyPlan(task);
         break;
@@ -287,13 +293,28 @@ export class PlanGenerator {
   classifyIntentHeuristically(text: string): TaskIntent {
     const lower = text.toLowerCase().trim();
 
-    // 1. explain_only: question patterns without modification verbs
+    const hasModificationVerb =
+      /\b(?:fix|create|build|implement|refactor|patch|repair|add|update)\b/i.test(lower);
+
+    // 1. analyze_bug: project-wide code audit, bug scanning, security flaw detection without modification verbs
+    const isAudit =
+      !hasModificationVerb &&
+      /\b(?:analy[sz]e|audit|scan|inspect|review)\b/i.test(lower) &&
+      /\b(?:bugs?|flaws?|vulnerabilit(?:y|ies)|issues?|errors?|mismatch(?:es)?|security|weakness(?:es)?)\b/i.test(
+        lower,
+      );
+
+    if (isAudit) {
+      return 'analyze_bug';
+    }
+
+    // 2. explain_only: question/explanation patterns without modification verbs
     const isQuestion =
-      /^(?:explain|what is|how does|how do|why is|why does|walk me through|where is|describe|analyze)\b/i.test(
+      !hasModificationVerb &&
+      (/^(?:please\s+|can you\s+)?(?:explain|what is|how does|how do|why is|why does|walk me through|where is|describe|tell me about)\b/i.test(
         lower,
       ) ||
-      (/\?$/.test(lower) &&
-        !/\b(?:fix|create|build|implement|refactor|error|bug|issue|missing)\b/i.test(lower));
+        (/\?$/.test(lower) && !/\b(?:bug|bugs|flaw|flaws|error|issue|mismatch)\b/i.test(lower)));
 
     if (isQuestion) {
       return 'explain_only';
@@ -601,12 +622,124 @@ export class PlanGenerator {
       id: `${task.taskId}_explain_2_conclude`,
       stepIndex: 2,
       type: 'plan',
-      goal: `Synthesize a comprehensive technical explanation with code snippets, relationships, or architecture flow directly in your Final Answer.`,
+      goal: `Synthesize a comprehensive technical report, architectural overview, code relationships, and any potential bugs or security flaws identified directly in your Final Answer.`,
       targetFiles: extractedFiles,
       estimatedTokens: 1000,
       status: 'pending',
       retryCount: 0,
       features: explainFeatures,
+    });
+
+    return subtasks;
+  }
+
+  /**
+   * Generates a multi-subsystem, read-only code audit and vulnerability inspection plan.
+   */
+  generateAnalyzeBugPlan(task: AgentTask): SubTask[] {
+    const extractedFiles = this.extractTargetFiles(task.problemStatement);
+    const backendFiles = extractedFiles.filter((f) =>
+      /server|backend|controller|model|route|middleware/i.test(f),
+    );
+    const targetBackend =
+      backendFiles.length > 0
+        ? backendFiles
+        : ['server/index.js', 'server/middleware/authMiddleware.js'];
+
+    const frontendFiles = extractedFiles.filter((f) =>
+      /client|frontend|src|app|component/i.test(f),
+    );
+    const targetFrontend =
+      frontendFiles.length > 0 ? frontendFiles : ['client/src/App.js', 'client/package.json'];
+
+    const subtasks: SubTask[] = [];
+
+    // Step 0: Locate Entry Points & Manifests
+    const exploreFeatures: SubtaskRoutingFeatures = {
+      step_type: 'explore',
+      estimated_tokens: 500,
+      file_count: Math.max(1, extractedFiles.length),
+      prior_failures: 0,
+      requires_cross_file_reasoning: false,
+      symbol_count: 1,
+    };
+
+    subtasks.push({
+      id: `${task.taskId}_audit_0_recon`,
+      stepIndex: 0,
+      type: 'explore',
+      goal: `Inspect workspace layout with list_directory and inspect package.json/manifest files to map entry points (e.g. server/index.js, client/src/App.js), framework versions, and project structure. Conclude immediately.`,
+      targetFiles: extractedFiles,
+      estimatedTokens: 500,
+      status: 'pending',
+      retryCount: 0,
+      features: exploreFeatures,
+    });
+
+    // Step 1: Audit Backend Models, Controllers & Middleware
+    const backendFeatures: SubtaskRoutingFeatures = {
+      step_type: 'localize',
+      estimated_tokens: 1200,
+      file_count: targetBackend.length,
+      prior_failures: 0,
+      requires_cross_file_reasoning: true,
+      symbol_count: 5,
+    };
+
+    subtasks.push({
+      id: `${task.taskId}_audit_1_backend`,
+      stepIndex: 1,
+      type: 'localize',
+      goal: `Audit backend architecture using retrieve_context and read_file: verify all route controllers (*Controller.js) against model schemas (*.js) for field name mismatches (e.g. owner vs userId, title vs name), check whether middleware exports match route import styles (named exports.authMiddleware vs default require), check route authentication guards on /me and CRUD routes, and verify model persistence types (Mongoose schema vs plain object literal). Do NOT edit files.`,
+      targetFiles: targetBackend,
+      estimatedTokens: 1200,
+      status: 'pending',
+      retryCount: 0,
+      features: backendFeatures,
+    });
+
+    // Step 2: Audit Frontend Routing & Component Imports
+    const frontendFeatures: SubtaskRoutingFeatures = {
+      step_type: 'localize',
+      estimated_tokens: 1000,
+      file_count: targetFrontend.length,
+      prior_failures: 0,
+      requires_cross_file_reasoning: true,
+      symbol_count: 4,
+    };
+
+    subtasks.push({
+      id: `${task.taskId}_audit_2_frontend`,
+      stepIndex: 2,
+      type: 'localize',
+      goal: `Audit frontend architecture using retrieve_context and read_file: inspect client routing (client/src/App.js, package.json dependencies), verify all imported component files actually exist on disk, check router syntax compatibility against installed react-router-dom version (e.g. Routes vs Switch), and compare client API call paths against backend routes. Do NOT edit files.`,
+      targetFiles: targetFrontend,
+      estimatedTokens: 1000,
+      status: 'pending',
+      retryCount: 0,
+      features: frontendFeatures,
+    });
+
+    // Step 3: Synthesis & Bug Audit Report
+    const concludeFeatures: SubtaskRoutingFeatures = {
+      step_type: 'plan',
+      estimated_tokens: 1500,
+      file_count: 1,
+      prior_failures: 0,
+      requires_cross_file_reasoning: false,
+      symbol_count: 1,
+    };
+
+    subtasks.push({
+      id: `${task.taskId}_audit_3_conclude`,
+      stepIndex: 3,
+      type: 'plan',
+      goal: `Synthesize a comprehensive, prioritized Bug & Vulnerability Audit Report categorized by severity (Critical / High / Medium), code locations, and exact recommended fixes directly in your Final Answer.`,
+      targetFiles: extractedFiles,
+      estimatedTokens: 1500,
+      status: 'pending',
+      retryCount: 0,
+      features: concludeFeatures,
     });
 
     return subtasks;
@@ -1302,6 +1435,7 @@ export class PlanGenerator {
         'single_bug',
         'multi_bug',
         'explain_only',
+        'analyze_bug',
       ];
       if (validIntents.includes(parsed?.intent)) {
         return parsed;

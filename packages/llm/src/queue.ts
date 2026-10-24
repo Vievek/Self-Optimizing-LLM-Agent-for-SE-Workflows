@@ -40,6 +40,10 @@ export class RequestQueue {
           msg.includes('504') ||
           msg.includes('ECONNRESET') ||
           msg.includes('ETIMEDOUT') ||
+          msg.includes('TimeoutError') ||
+          msg.includes('timeout') ||
+          msg.includes('aborted') ||
+          msg.includes('DOMException') ||
           msg.includes('fetch failed')
         );
       });

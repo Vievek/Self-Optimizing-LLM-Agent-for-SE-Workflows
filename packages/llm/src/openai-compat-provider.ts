@@ -72,10 +72,15 @@ export class OpenAiCompatProvider implements LlmProvider {
         max_tokens: currentMaxTokens,
       };
 
+      const timeoutMs =
+        model.toLowerCase().includes('7b') || model.toLowerCase().includes('small')
+          ? 25000
+          : 60000;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (!res.ok) {

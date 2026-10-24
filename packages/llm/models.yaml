@@ -13,7 +13,7 @@ large:
   baseUrl: https://router.huggingface.co/v1
   model: Qwen/Qwen2.5-Coder-32B-Instruct
   apiKeyEnv: HF_TOKEN
-  maxTokens: 4096
+  maxTokens: 2048
   pacingMs: 300
   maxBatchWriteFiles: 8
   maxBatchReadFiles: 15

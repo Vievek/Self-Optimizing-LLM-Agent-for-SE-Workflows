@@ -525,5 +525,87 @@ describe('PlanGenerator and PlanManager', () => {
       expect(state.replanReason).toBe('Replaced analysis with hotfix due to critical bug');
       expect(manager.getActiveSubtask()?.id).toBe('emergency_patch_step');
     });
+
+    describe('analyze_bug Intent Classification and Plan Generation', () => {
+      it('heuristically classifies code audit and bug scanning queries as analyze_bug', () => {
+        const generator = new PlanGenerator();
+
+        expect(
+          generator.classifyIntentHeuristically(
+            'Explain the architecture of this MERN project, analyze all route controllers against model schemas, and identify any potential bugs or security flaws.',
+          ),
+        ).toBe('analyze_bug');
+
+        expect(
+          generator.classifyIntentHeuristically(
+            'Audit this repository for security vulnerabilities and bugs',
+          ),
+        ).toBe('analyze_bug');
+
+        expect(
+          generator.classifyIntentHeuristically(
+            'Scan the codebase and identify all errors and schema mismatches',
+          ),
+        ).toBe('analyze_bug');
+
+        // Pure explanation queries stay explain_only
+        expect(
+          generator.classifyIntentHeuristically(
+            'Explain how authentication and JWT tokens work in this project',
+          ),
+        ).toBe('explain_only');
+
+        // Scaffold queries stay full_scaffold
+        expect(
+          generator.classifyIntentHeuristically(
+            'Build a full-stack MERN project management app with User, Task, and Project models',
+          ),
+        ).toBe('full_scaffold');
+
+        // Bug fix queries stay single_bug
+        expect(
+          generator.classifyIntentHeuristically('Fix TypeError in server/controllers/authController.js'),
+        ).toBe('single_bug');
+      });
+
+      it('generates a 4-step specialized audit pipeline for analyze_bug', () => {
+        const generator = new PlanGenerator();
+        const auditTask: AgentTask = {
+          taskId: 'audit-task-1',
+          repo: 'local/test',
+          problemStatement:
+            'Explain the architecture of this MERN project, analyze all route controllers against model schemas, and identify any potential bugs or security flaws.',
+        };
+
+        const subtasks = generator.generateAnalyzeBugPlan(auditTask);
+
+        expect(subtasks.length).toBe(4);
+        expect(subtasks[0]?.id).toBe(`${auditTask.taskId}_audit_0_recon`);
+        expect(subtasks[0]?.type).toBe('explore');
+
+        expect(subtasks[1]?.id).toBe(`${auditTask.taskId}_audit_1_backend`);
+        expect(subtasks[1]?.type).toBe('localize');
+        expect(subtasks[1]?.targetFiles).toEqual(
+          expect.arrayContaining(['server/index.js', 'server/middleware/authMiddleware.js']),
+        );
+
+        expect(subtasks[2]?.id).toBe(`${auditTask.taskId}_audit_2_frontend`);
+        expect(subtasks[2]?.type).toBe('localize');
+        expect(subtasks[2]?.targetFiles).toEqual(
+          expect.arrayContaining(['client/src/App.js', 'client/package.json']),
+        );
+
+        expect(subtasks[3]?.id).toBe(`${auditTask.taskId}_audit_3_conclude`);
+        expect(subtasks[3]?.type).toBe('plan');
+
+        // Verify routing tiers
+        const selector = new ModelSelector({ routingRule: 'role_hierarchy' });
+        expect(selector.selectTier(subtasks[0]!.features!).tier).toBe('slm');
+        expect(selector.selectTier(subtasks[1]!.features!).tier).toBe('llm');
+        expect(selector.selectTier(subtasks[2]!.features!).tier).toBe('llm');
+        expect(selector.selectTier(subtasks[3]!.features!).tier).toBe('llm');
+      });
+    });
   });
 });
+

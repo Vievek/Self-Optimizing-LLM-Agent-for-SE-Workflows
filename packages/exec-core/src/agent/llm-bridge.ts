@@ -41,20 +41,60 @@ export function createReActLlmCaller(options: LlmBridgeOptions = {}): ReActLlmCa
       await new Promise((r) => setTimeout(r, pacingMs));
     }
 
-    const chatResponse = await provider.chat({
-      model,
-      messages,
-      temperature,
-      ...(configuredMaxTokens ? { maxTokens: configuredMaxTokens } : {}),
-    });
+    try {
+      const chatResponse = await provider.chat({
+        model,
+        messages,
+        temperature,
+        ...(configuredMaxTokens ? { maxTokens: configuredMaxTokens } : {}),
+      });
 
-    return {
-      content: chatResponse.content,
-      tokensIn: chatResponse.tokensIn,
-      tokensOut: chatResponse.tokensOut,
-      model: chatResponse.model,
-      provider: chatResponse.provider,
-    };
+      return {
+        content: chatResponse.content,
+        tokensIn: chatResponse.tokensIn,
+        tokensOut: chatResponse.tokensOut,
+        model: chatResponse.model,
+        provider: chatResponse.provider,
+      };
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isTimeoutOrDegraded =
+        errMsg.includes('timeout') ||
+        errMsg.includes('TimeoutError') ||
+        errMsg.includes('aborted') ||
+        errMsg.includes('DOMException') ||
+        errMsg.includes('502') ||
+        errMsg.includes('503') ||
+        errMsg.includes('504') ||
+        errMsg.includes('fetch failed');
+
+      if (tier === 'slm' && isTimeoutOrDegraded) {
+        const largeProvider = registry.getProvider('large');
+        const largeModel = modelsConfig?.large?.model ?? 'Qwen/Qwen2.5-Coder-32B-Instruct';
+        const largeMaxTokens = modelsConfig?.large?.maxTokens;
+
+        console.log(
+          `\n⚡ [Tier Escalation] SLM model "${model}" degraded/timed out. Escalating turn to LLM "${largeModel}"...`,
+        );
+
+        const fallbackResponse = await largeProvider.chat({
+          model: largeModel,
+          messages,
+          temperature,
+          ...(largeMaxTokens ? { maxTokens: largeMaxTokens } : {}),
+        });
+
+        return {
+          content: fallbackResponse.content,
+          tokensIn: fallbackResponse.tokensIn,
+          tokensOut: fallbackResponse.tokensOut,
+          model: fallbackResponse.model,
+          provider: fallbackResponse.provider,
+        };
+      }
+
+      throw err;
+    }
   };
 }
 

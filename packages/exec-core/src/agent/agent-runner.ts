@@ -94,14 +94,18 @@ export class AgentRunner {
     recordSpan('task', taskAttrs, 'ok', null);
 
     // 2. Initialize AST Code Graph if workingDir provided and not yet attached
+    let astDiscrepancies: string[] = [];
     if (!context.retriever && context.workingDir) {
       try {
         const t0 = Date.now();
         const graphBuilder = new WorkspaceGraphBuilder();
-        const { graph, retriever, parsedFilesCount, fromCache, reindexedFilesCount } =
+        const { graph, retriever, parsedFilesCount, fromCache, reindexedFilesCount, discrepancies } =
           await graphBuilder.buildFromDirectory(context.workingDir);
         context.graph = graph;
         context.retriever = retriever;
+        if (discrepancies && discrepancies.length > 0) {
+          astDiscrepancies = discrepancies;
+        }
         const elapsedMs = Date.now() - t0;
         if (fromCache) {
           console.log(
@@ -182,7 +186,17 @@ export class AgentRunner {
     let iterations = 0;
     let lastTestPassed = 0;
     let lastTestFailed = 0;
+    let lastFinalAnswer: string | undefined;
     const stepMemory: string[] = [];
+    if (astDiscrepancies.length > 0) {
+      stepMemory.push(
+        `🔍 [AST Graph Static Insights]\nPre-scan detected ${astDiscrepancies.length} structural discrepancies:\n` +
+          astDiscrepancies.map((d) => `- ${d}`).join('\n'),
+      );
+      console.log(
+        `🔍 [AST Code Graph] Flagged ${astDiscrepancies.length} structural discrepancies upfront for agent context.`,
+      );
+    }
     const globalWrittenFiles = new Set<string>(existingWorkspaceFiles);
 
     // 4. Main Subtask Execution Loop
@@ -270,6 +284,7 @@ export class AgentRunner {
         }
 
         if (subtaskResult.finalAnswer) {
+          lastFinalAnswer = subtaskResult.finalAnswer;
           const createdSummary =
             globalWrittenFiles.size > 0
               ? ` (Files created so far: ${Array.from(globalWrittenFiles).join(', ')})`
@@ -439,6 +454,7 @@ export class AgentRunner {
       outcomeEvidence,
       spans,
       planState: planManager.getState(),
+      finalAnswer: lastFinalAnswer,
     };
   }
 

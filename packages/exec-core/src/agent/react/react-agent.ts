@@ -140,7 +140,7 @@ export class ReactAgent {
       if (parsed.isFinal) {
         success = true;
         finalAnswer = parsed.finalAnswer ?? parsed.thought ?? response.content;
-        console.log(`🏁 [Final Answer] ${finalAnswer.slice(0, 120)}...`);
+        console.log(`\n🏁 [Final Answer]\n${finalAnswer}\n`);
         break;
       }
 
@@ -155,6 +155,18 @@ export class ReactAgent {
         const observationSections: string[] = [];
 
         for (const call of callsToExecute) {
+          if (
+            (params.subtask.id.includes('explain') ||
+              params.subtask.id.includes('audit') ||
+              params.subtask.goal.includes('Do NOT edit files')) &&
+            (call.toolName === 'write_file' || call.toolName === 'edit_file')
+          ) {
+            observationSections.push(
+              `Observation (${call.toolName}): Forbidden in explain/audit read-only mode. Do NOT modify or write files. Please conclude with your architectural analysis and bug report in Final Answer.`,
+            );
+            continue;
+          }
+
           const toolStartIso = new Date().toISOString();
           const { result, spanAttributes } = await this.toolExecutor.execute(call, params.context);
           const toolEndIso = new Date().toISOString();
@@ -252,8 +264,19 @@ export class ReactAgent {
               loopNotice =
                 '\n\n⚠️ STEERING NOTICE: Exploration is already complete. Do NOT call list_directory again. Proceed immediately to write the required missing files using write_file.';
             } else if (consecutiveInspections >= 3) {
-              loopNotice =
-                '\n\n⚠️ STEERING NOTICE: You have completed exploration. Do NOT read or list any more files. Immediately begin writing the missing project files using write_file.';
+              if (
+                params.subtask.type === 'localize' ||
+                params.subtask.type === 'explore' ||
+                params.subtask.type === 'plan' ||
+                params.subtask.id.includes('explain') ||
+                params.subtask.id.includes('audit')
+              ) {
+                loopNotice =
+                  '\n\n⚠️ STEERING NOTICE: You have gathered sufficient inspection data. Do NOT read or list any more files, and do NOT write or modify any files. Conclude this subtask now by summarizing your architectural analysis, code relationships, and any potential bugs or security flaws in your **Final Answer**.';
+              } else {
+                loopNotice =
+                  '\n\n⚠️ STEERING NOTICE: You have completed exploration. Do NOT read or list any more files. Immediately begin writing the missing project files using write_file.';
+              }
             }
           } else if (call.toolName === 'write_file' || call.toolName === 'edit_file') {
             consecutiveInspections = 0;
