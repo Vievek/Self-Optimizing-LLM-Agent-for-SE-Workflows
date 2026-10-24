@@ -265,6 +265,46 @@ export class ToolCallParser {
         cleaned = cleaned.trim();
       }
 
+      // If payload starts with { or [ and has unclosed narrative prose appended after closing brace/bracket, slice balanced JSON
+      if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+        const isObject = cleaned.startsWith('{');
+        const openChar = isObject ? '{' : '[';
+        const closeChar = isObject ? '}' : ']';
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        let balancedIndex = -1;
+
+        for (let i = 0; i < cleaned.length; i++) {
+          const ch = cleaned[i];
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (ch === '\\' && inString) {
+            escape = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (!inString) {
+            if (ch === openChar) depth++;
+            else if (ch === closeChar) {
+              depth--;
+              if (depth === 0) {
+                balancedIndex = i;
+                break;
+              }
+            }
+          }
+        }
+        if (balancedIndex !== -1 && balancedIndex < cleaned.length - 1) {
+          cleaned = cleaned.substring(0, balancedIndex + 1).trim();
+        }
+      }
+
       try {
         const parsed = JSON.parse(cleaned);
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {

@@ -139,7 +139,19 @@ export class ReactAgent {
 
       if (parsed.isFinal) {
         success = true;
-        finalAnswer = parsed.finalAnswer ?? parsed.thought ?? response.content;
+        let answerText = parsed.finalAnswer ?? parsed.thought ?? response.content;
+        // In explain or audit subtasks, if thought contains a comprehensive markdown report and finalAnswer is merely a brief recap, preserve the full report
+        if (
+          (params.subtask.id.includes('explain') || params.subtask.id.includes('audit')) &&
+          parsed.thought &&
+          parsed.thought.length > 500 &&
+          parsed.thought.includes('#') &&
+          parsed.finalAnswer &&
+          parsed.finalAnswer.length < 350
+        ) {
+          answerText = `${parsed.thought}\n\n### Summary\n${parsed.finalAnswer}`;
+        }
+        finalAnswer = answerText;
         console.log(`\n🏁 [Final Answer]\n${finalAnswer}\n`);
         break;
       }
@@ -169,10 +181,13 @@ export class ReactAgent {
             (params.subtask.id.includes('explain') ||
               params.subtask.id.includes('audit') ||
               params.subtask.goal.includes('Do NOT edit files')) &&
-            (call.toolName === 'write_file' || call.toolName === 'edit_file')
+            (call.toolName === 'write_file' ||
+              call.toolName === 'edit_file' ||
+              call.toolName === 'delete_file' ||
+              call.toolName === 'run_command')
           ) {
             observationSections.push(
-              `Observation (${call.toolName}): Forbidden in explain/audit read-only mode. Do NOT modify or write files. Please conclude with your architectural analysis and bug report in Final Answer.`,
+              `Observation (${call.toolName}): Forbidden in explain/audit read-only mode. Do NOT modify files or run mutating commands. Please synthesize your complete architectural analysis, code relationships, and findings directly in your Final Answer.`,
             );
             continue;
           }

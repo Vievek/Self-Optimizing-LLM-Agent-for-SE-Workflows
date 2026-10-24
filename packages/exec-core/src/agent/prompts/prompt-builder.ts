@@ -95,9 +95,14 @@ ${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
       );
     }
 
-    if (subtask.id.includes('explain') || subtask.goal.toLowerCase().includes('explain')) {
+    if (
+      subtask.id.includes('explain') ||
+      subtask.id.includes('audit') ||
+      subtask.goal.toLowerCase().includes('explain') ||
+      subtask.goal.toLowerCase().includes('audit')
+    ) {
       sections.push(
-        `\n📖 EXPLANATION-ONLY DIRECTIVE:\nThis is a read-only investigation. Your goal is to inspect the codebase using retrieve_context (AST graph) and read_file, analyze the code, and synthesize a clear, comprehensive explanation with code snippets or architecture flows directly in your Final Answer. Do NOT call write_file, edit_file, or delete_file.`,
+        `\n📖 EXPLANATION & ARCHITECTURAL AUDIT DIRECTIVE:\nThis is a strictly read-only investigation. Your goal is to inspect the codebase using retrieve_context (AST graph) and read_file, analyze the code relationships, and synthesize a comprehensive, beautifully structured technical report with code snippets, architecture flows, and findings.\n- Do NOT call write_file, edit_file, delete_file, or run mutating commands (e.g. npm install, git, rm).\n- Place your complete, detailed markdown report directly under Final Answer so the full analysis is delivered to the user.`,
       );
     } else if (subtask.type === 'explore') {
       sections.push(
