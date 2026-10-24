@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import {
-  HEAE_GRAPH_DATABASE,
-  ReadOnlyHeaeGraphReader,
-} from './heae-data.js';
+import { HEAE_GRAPH_DATABASE, ReadOnlyHeaeGraphReader } from './heae-data.js';
 
 describe('read-only HEAE graph reader', () => {
   it('loads the persisted verification trace through the existing graph schema', async () => {
-    const graph = await new ReadOnlyHeaeGraphReader().loadGraph(
-      '882fc48ada7f4181bdc6dbc94186e44f',
-    );
+    const graph = await new ReadOnlyHeaeGraphReader().loadGraph('882fc48ada7f4181bdc6dbc94186e44f');
 
     expect(HEAE_GRAPH_DATABASE).toMatch(/store[\\/]graphs[\\/]heae\.kuzu$/);
     expect(graph).not.toBeNull();

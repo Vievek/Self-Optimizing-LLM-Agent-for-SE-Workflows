@@ -92,7 +92,12 @@ const supportedEvaluation = {
     ...insufficientEvaluation.result,
     judgment: {
       ...insufficientEvaluation.result.judgment,
-      findings: [{ ...insufficientEvaluation.result.judgment.findings[0]!, assessment: 'supported' as const }],
+      findings: [
+        {
+          ...insufficientEvaluation.result.judgment.findings[0]!,
+          assessment: 'supported' as const,
+        },
+      ],
     },
   },
 };
@@ -120,10 +125,7 @@ const publishedSignal = OptimizationSignalSchema.parse({
   config_version_at_failure: 'cfg_saved',
 });
 
-function allDetailScrollFrames(
-  view: HeaeDashboardView,
-  currentState: typeof state,
-): string {
+function allDetailScrollFrames(view: HeaeDashboardView, currentState: typeof state): string {
   const frames: string[] = [];
   for (let index = 0; index < 64; index += 1) {
     frames.push(stripAnsi(view.render(currentState)));
@@ -183,7 +185,9 @@ describe('HEAE dashboard view', () => {
         ruleReport: {
           ...savedEvaluation.result.ruleReport,
           traceId: 'fedcba9876543210fedcba9876543210',
-          observations: [{ ...savedEvaluation.result.ruleReport.observations[0]!, ruleId: 'WORKFLOW-01' }],
+          observations: [
+            { ...savedEvaluation.result.ruleReport.observations[0]!, ruleId: 'WORKFLOW-01' },
+          ],
         },
       },
     };
@@ -191,10 +195,14 @@ describe('HEAE dashboard view', () => {
     await view.ready();
 
     const selectedState = { ...state, selectedItemIndex: 1 };
-    expect(stripAnsi(view.render({ ...selectedState, activeTab: 2 }))).toContain('fedcba9876543210fedcba9876543210');
+    expect(stripAnsi(view.render({ ...selectedState, activeTab: 2 }))).toContain(
+      'fedcba9876543210fedcba9876543210',
+    );
     const detailState = { ...selectedState, activeTab: 3 };
     expect(stripAnsi(view.render(detailState))).toContain('fedcba9876543210fedcba9876543210');
-    expect(allDetailScrollFrames(view, detailState)).toContain('No completed LLM assessment is recorded.');
+    expect(allDetailScrollFrames(view, detailState)).toContain(
+      'No completed LLM assessment is recorded.',
+    );
   });
 
   it('uses arrows for saved selection but detail scrolling after switching tabs', async () => {
@@ -249,9 +257,7 @@ describe('HEAE dashboard view', () => {
 
     const output = stripAnsi(view.render(resultState));
 
-    expect(output).toContain(
-      `Trace ID: ${insufficientEvaluation.traceId}`,
-    );
+    expect(output).toContain(`Trace ID: ${insufficientEvaluation.traceId}`);
     expect(output).toContain('FAIL');
     expect(output).toContain('Evaluation timestamp: unavailable');
 
@@ -281,9 +287,7 @@ describe('HEAE dashboard view', () => {
 
     view.handleKey('end', wideState);
 
-    expect(stripAnsi(view.render(wideState))).toContain(
-      'Comparative results: unavailable',
-    );
+    expect(stripAnsi(view.render(wideState))).toContain('Comparative results: unavailable');
   });
 
   it('renders unavailable and skipped result sections explicitly', async () => {
@@ -312,9 +316,7 @@ describe('HEAE dashboard view', () => {
 
     expect(output).toContain('Judge status: unavailable');
     expect(output).toContain('UNAVAILABLE');
-    expect(output).toContain(
-      'No completed LLM assessment is recorded.',
-    );
+    expect(output).toContain('No completed LLM assessment is recorded.');
 
     expect(output).toContain('UNAVAILABLE METRICS');
     expect(output).toContain('Benchmark score: unavailable');
@@ -496,7 +498,12 @@ describe('HEAE dashboard view', () => {
       traceId: savedEvaluation.traceId,
       nodes: Array.from({ length: 7 }, (_, index) => ({
         id: `vertical-${index}`,
-        type: index === 5 ? ('ToolCallNode' as const) : index === 6 ? ('OutputNode' as const) : ('TaskNode' as const),
+        type:
+          index === 5
+            ? ('ToolCallNode' as const)
+            : index === 6
+              ? ('OutputNode' as const)
+              : ('TaskNode' as const),
         span: {} as TraceGraph['nodes'][number]['span'],
       })),
       edges: [],
@@ -595,7 +602,9 @@ describe('HEAE dashboard view', () => {
     await view.readySignals();
 
     expect(stripAnsi(view.render(signalState))).toContain('UNAVAILABLE');
-    expect(stripAnsi(view.render(signalState))).toContain('No reviewed optimization proposal is persisted');
+    expect(stripAnsi(view.render(signalState))).toContain(
+      'No reviewed optimization proposal is persisted',
+    );
   });
 
   it('reports the backend skip reason when no hypothesis matches the judgment', async () => {
@@ -605,7 +614,13 @@ describe('HEAE dashboard view', () => {
         ...insufficientEvaluation.result,
         judgment: {
           ...insufficientEvaluation.result.judgment,
-          findings: [{ ...insufficientEvaluation.result.judgment.findings[0]!, category: 'workflow' as const, assessment: 'supported' as const }],
+          findings: [
+            {
+              ...insufficientEvaluation.result.judgment.findings[0]!,
+              category: 'workflow' as const,
+              assessment: 'supported' as const,
+            },
+          ],
         },
       },
     };
@@ -618,7 +633,9 @@ describe('HEAE dashboard view', () => {
     view.render(signalState);
     await view.readySignals();
 
-    expect(stripAnsi(view.render(signalState))).toContain('The hypothesis is not supported by the judge.');
+    expect(stripAnsi(view.render(signalState))).toContain(
+      'The hypothesis is not supported by the judge.',
+    );
   });
 
   it('renders only actual published signal records', async () => {

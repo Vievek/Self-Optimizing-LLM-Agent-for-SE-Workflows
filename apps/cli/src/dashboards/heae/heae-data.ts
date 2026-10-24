@@ -30,18 +30,9 @@ export interface HeaeDataReader {
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(moduleDirectory, '../../../../..');
 
-export const HEAE_HISTORY_DIRECTORY = path.join(
-  repositoryRoot,
-  '.heae',
-  'history',
-);
+export const HEAE_HISTORY_DIRECTORY = path.join(repositoryRoot, '.heae', 'history');
 
-export const HEAE_GRAPH_DATABASE = path.join(
-  repositoryRoot,
-  'store',
-  'graphs',
-  'heae.kuzu',
-);
+export const HEAE_GRAPH_DATABASE = path.join(repositoryRoot, 'store', 'graphs', 'heae.kuzu');
 
 function rowsFrom(result: QueryResult | QueryResult[]): Promise<Row[]> {
   return (async () => {
@@ -93,7 +84,8 @@ export class ReadOnlyHeaeGraphReader {
 
       const execute = async (statement: string): Promise<Row[]> => {
         const prepared = await connection.prepare(statement);
-        if (!prepared.isSuccess()) throw new Error(`Kuzu prepare failed: ${prepared.getErrorMessage()}`);
+        if (!prepared.isSuccess())
+          throw new Error(`Kuzu prepare failed: ${prepared.getErrorMessage()}`);
         return rowsFrom(await connection.execute(prepared, { traceId }));
       };
 
@@ -104,13 +96,18 @@ export class ReadOnlyHeaeGraphReader {
       `);
       if (traces.length === 0) return null;
 
-      const nodes = (await execute(`
+      const nodes = (
+        await execute(`
         MATCH (s:HeaeSpan)
         WHERE s.traceId = $traceId
         RETURN s.spanId AS spanId, s.nodeType AS nodeType,
                s.spanJson AS spanJson, s.position AS position
-      `))
-        .sort((left, right) => requiredNumber(left.position, 'position') - requiredNumber(right.position, 'position'))
+      `)
+      )
+        .sort(
+          (left, right) =>
+            requiredNumber(left.position, 'position') - requiredNumber(right.position, 'position'),
+        )
         .map((row) => ({
           id: requiredString(row.spanId, 'spanId'),
           type: requiredString(row.nodeType, 'nodeType') as TraceGraphNode['type'],
@@ -127,12 +124,14 @@ export class ReadOnlyHeaeGraphReader {
           WHERE a.traceId = $traceId AND b.traceId = $traceId
           RETURN a.spanId AS source, b.spanId AS target, r.edgeOrder AS position
         `);
-        edges.push(...rows.map((row) => ({
-          source: requiredString(row.source, 'source'),
-          target: requiredString(row.target, 'target'),
-          type: relation[1],
-          position: requiredNumber(row.position, 'edge position'),
-        })));
+        edges.push(
+          ...rows.map((row) => ({
+            source: requiredString(row.source, 'source'),
+            target: requiredString(row.target, 'target'),
+            type: relation[1],
+            position: requiredNumber(row.position, 'edge position'),
+          })),
+        );
       }
 
       edges.sort((left, right) => left.position - right.position);
@@ -167,9 +166,7 @@ export class HeaeDataSource implements HeaeDataReader {
   async list(): Promise<StoredEvaluation[]> {
     const evaluations = await this.history.list();
 
-    return evaluations.sort((left, right) =>
-      left.traceId.localeCompare(right.traceId),
-    );
+    return evaluations.sort((left, right) => left.traceId.localeCompare(right.traceId));
   }
 
   loadGraph(traceId: string): Promise<TraceGraph | null> {
