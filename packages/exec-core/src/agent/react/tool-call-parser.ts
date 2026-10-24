@@ -310,6 +310,14 @@ export class ToolCallParser {
           const parsed = JSON.parse(rawInput);
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             args = { ...args, ...parsed };
+          } else if (Array.isArray(parsed)) {
+            if (toolName === 'edit_file') {
+              args = { edits: parsed };
+            } else if (toolName === 'write_file') {
+              args = { files: parsed };
+            } else if (toolName === 'read_file') {
+              args = { paths: parsed };
+            }
           } else if (typeof parsed === 'string') {
             args = mapStringArgsToTool(toolName, parsed);
           }
@@ -320,6 +328,14 @@ export class ToolCallParser {
             const parsed = JSON.parse(sanitized);
             if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
               args = { ...args, ...parsed };
+            } else if (Array.isArray(parsed)) {
+              if (toolName === 'edit_file') {
+                args = { edits: parsed };
+              } else if (toolName === 'write_file') {
+                args = { files: parsed };
+              } else if (toolName === 'read_file') {
+                args = { paths: parsed };
+              }
             } else if (typeof parsed === 'string') {
               args = mapStringArgsToTool(toolName, parsed);
             }
@@ -338,6 +354,22 @@ export class ToolCallParser {
         // No explicit Action Input block, check if rawAction has argument clues or defaults
         if (toolName === 'list_directory') {
           args = { path: rawAction.includes('.') ? '.' : '.' };
+        }
+      }
+
+      // If args has 'input' and it contains stringified JSON (e.g. Span 103 issue), unwrap it
+      if (typeof args.input === 'string' && (args.input.includes('{') || args.input.includes('"path"'))) {
+        const innerJsonMatch = /\{[\s\S]*?\}/.exec(args.input);
+        if (innerJsonMatch?.[0]) {
+          try {
+            const innerParsed = JSON.parse(sanitizeJsonString(innerJsonMatch[0]));
+            if (typeof innerParsed === 'object' && innerParsed !== null && !Array.isArray(innerParsed)) {
+              delete args.input;
+              args = { ...args, ...innerParsed };
+            }
+          } catch {
+            // ignore unpack error
+          }
         }
       }
 

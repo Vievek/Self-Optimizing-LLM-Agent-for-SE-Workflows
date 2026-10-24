@@ -89,6 +89,12 @@ ${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
       sections.push(`\n# Relevant Context & Discoveries\n${previousContext}`);
     }
 
+    if (subtask.targetFiles && subtask.targetFiles.length > 0) {
+      sections.push(
+        `\n🎯 TARGET FILES FOR THIS STEP:\n${subtask.targetFiles.map((f) => `- ${f}`).join('\n')}\nDirectly focus your actions on these target files without generic or redundant searches.`,
+      );
+    }
+
     if (subtask.id.includes('explain') || subtask.goal.toLowerCase().includes('explain')) {
       sections.push(
         `\n📖 EXPLANATION-ONLY DIRECTIVE:\nThis is a read-only investigation. Your goal is to inspect the codebase using retrieve_context (AST graph) and read_file, analyze the code, and synthesize a clear, comprehensive explanation with code snippets or architecture flows directly in your Final Answer. Do NOT call write_file, edit_file, or delete_file.`,

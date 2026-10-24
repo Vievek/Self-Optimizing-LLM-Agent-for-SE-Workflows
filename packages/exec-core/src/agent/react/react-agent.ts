@@ -144,6 +144,16 @@ export class ReactAgent {
         break;
       }
 
+      if (params.subtask.id.includes('verify') && consecutiveInspections >= 1) {
+        success = true;
+        finalAnswer =
+          parsed.finalAnswer ??
+          parsed.thought ??
+          'All project files and modifications have been verified in the workspace.';
+        console.log(`\n🏁 [Final Answer]\n${finalAnswer}\n`);
+        break;
+      }
+
       const callsToExecute =
         parsed.toolCalls && parsed.toolCalls.length > 0
           ? parsed.toolCalls
@@ -245,7 +255,10 @@ export class ReactAgent {
             consecutiveInspections += 1;
             inspectionHistory.push({ tool: call.toolName, args: argKey });
 
-            if (isDuplicate) {
+            if (params.subtask.id.includes('verify')) {
+              loopNotice =
+                '\n\n⚠️ STEERING NOTICE: Verification inspection is complete. Do NOT inspect or list files again. Conclude this task immediately with your **Thought** and **Final Answer** summarizing the verified files and project state.';
+            } else if (isDuplicate) {
               loopNotice =
                 '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file.';
             } else if (

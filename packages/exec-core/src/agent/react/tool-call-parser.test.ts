@@ -340,5 +340,32 @@ This batch action creates all the necessary route files adhering to the contract
         'server/routes/auth.js',
       );
     });
+
+    it('parses array of edit items into { edits: [...] } for edit_file', () => {
+      const output = `Thought: Replacing components and router syntax.
+Action: edit_file
+Action Input: [
+  { "path": "client/src/App.js", "old_str": "</Switch>", "new_str": "</Routes>" },
+  { "path": "client/src/App.js", "old_str": "component={Home}", "new_str": "element={<Home />}" }
+]`;
+
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCall?.toolName).toBe('edit_file');
+      expect(Array.isArray(parsed.toolCall?.args.edits)).toBe(true);
+      expect((parsed.toolCall?.args.edits as Array<unknown>).length).toBe(2);
+    });
+
+    it('unwraps stringified JSON trapped inside an input argument', () => {
+      const output = `Thought: Updating server.js import.
+Action: edit_file
+Action Input: { "input": "{ \\"path\\": \\"server.js\\", \\"old_str\\": \\"// authRoutes\\", \\"new_str\\": \\"const auth = 1;\\" }\\n\\nAdditionally comment removed." }`;
+
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCall?.toolName).toBe('edit_file');
+      expect(parsed.toolCall?.args.path).toBe('server.js');
+      expect(parsed.toolCall?.args.old_str).toBe('// authRoutes');
+      expect(parsed.toolCall?.args.new_str).toBe('const auth = 1;');
+    });
   });
 });
+

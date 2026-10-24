@@ -225,6 +225,46 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     expect(dupResp.result.error).toContain('found 2 times');
   });
 
+  it('executes edit_file with batch edits across files or multiple substitutions', async () => {
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          path: 'router.js',
+          content: 'import Switch from "router";\n<Switch>\n  <Route component={Home} />\n</Switch>',
+        },
+      },
+      context,
+    );
+
+    const batchResp = await executor.execute(
+      {
+        toolName: 'edit_file',
+        args: {
+          path: 'router.js',
+          edits: [
+            { old_str: 'import Switch from "router";', new_str: 'import Routes from "router";' },
+            { old_str: '<Switch>', new_str: '<Routes>' },
+            { old_str: '</Switch>', new_str: '</Routes>' },
+            { old_str: 'component={Home}', new_str: 'element={<Home />}' },
+          ],
+        },
+      },
+      context,
+    );
+
+    expect(batchResp.result.status).toBe('ok');
+    expect(batchResp.result.output).toContain('Successfully applied 4 edits');
+
+    const readResp = await executor.execute(
+      { toolName: 'read_file', args: { path: 'router.js' } },
+      context,
+    );
+    expect(readResp.result.output).toContain('import Routes from "router";');
+    expect(readResp.result.output).toContain('<Routes>');
+    expect(readResp.result.output).toContain('element={<Home />}');
+  });
+
   it('executes run_command and returns stdout and exit status', async () => {
     const cmdResp = await executor.execute(
       {

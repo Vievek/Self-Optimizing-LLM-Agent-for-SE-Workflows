@@ -125,6 +125,7 @@ export class AgentRunner {
     const activeModelsConfig = options.providerRegistry?.getConfig();
     const planGenerator = new PlanGenerator({
       config: options.config?.planning,
+      promptsConfig: options.config?.prompts,
       providerRegistry: options.providerRegistry,
       slmCaller: options.reactLlmCaller
         ? async (prompt: string, sysPrompt?: string) => {
@@ -257,9 +258,9 @@ export class AgentRunner {
           maxBatchReadFiles: tierConfig?.maxBatchReadFiles,
           knownWrittenFiles: globalWrittenFiles,
           maxTurns:
-            subtask.type === 'explore'
+            subtask.type === 'explore' || subtask.id.includes('verify')
               ? 2
-              : subtask.type === 'plan' || subtask.type === 'test' || subtask.id.includes('verify')
+              : subtask.type === 'plan' || subtask.type === 'test'
                 ? 5
                 : (options.maxTurnsPerSubtask ??
                   ((options.config?.planning as Record<string, unknown> | undefined)

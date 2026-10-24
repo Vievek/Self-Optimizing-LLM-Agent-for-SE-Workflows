@@ -1,4 +1,4 @@
-import { PlanningConfig, CONFIG_SCHEMA_VERSION } from '@soa/contracts';
+import { PlanningConfig, PromptsConfig, CONFIG_SCHEMA_VERSION } from '@soa/contracts';
 import type { ProviderRegistry } from '@soa/llm';
 import { AgentTask, SubTask } from '../types.js';
 import { SubtaskRoutingFeatures, SubtaskType } from '../../routing/types.js';
@@ -134,6 +134,7 @@ Respond ONLY with a valid JSON object matching this schema, with no markdown cod
 
 export interface PlanGeneratorOptions {
   config?: Partial<PlanningConfig>;
+  promptsConfig?: Partial<PromptsConfig>;
   customDecomposer?: (task: AgentTask) => Promise<SubTask[]> | SubTask[];
   providerRegistry?: ProviderRegistry;
   slmCaller?: (prompt: string, systemPrompt?: string) => Promise<string>;
@@ -141,6 +142,7 @@ export interface PlanGeneratorOptions {
 
 export class PlanGenerator {
   private readonly config: PlanningConfig;
+  private readonly promptsConfig?: Partial<PromptsConfig>;
   private readonly customDecomposer?: (task: AgentTask) => Promise<SubTask[]> | SubTask[];
   private readonly providerRegistry?: ProviderRegistry;
   private readonly slmCaller?: (prompt: string, systemPrompt?: string) => Promise<string>;
@@ -150,6 +152,7 @@ export class PlanGenerator {
       ...DEFAULT_PLANNING_CONFIG,
       ...options.config,
     };
+    this.promptsConfig = options.promptsConfig;
     this.customDecomposer = options.customDecomposer;
     this.providerRegistry = options.providerRegistry;
     this.slmCaller = options.slmCaller;
@@ -223,9 +226,13 @@ export class PlanGenerator {
     let intent: TaskIntent | undefined;
 
     // 1. Try SLM classification if available
+    const sysPrompt =
+      this.promptsConfig?.templates?.['intent_classification']?.template ??
+      INTENT_CLASSIFICATION_SYSTEM_PROMPT;
+
     if (this.slmCaller) {
       try {
-        const raw = await this.slmCaller(text, INTENT_CLASSIFICATION_SYSTEM_PROMPT);
+        const raw = await this.slmCaller(text, sysPrompt);
         const parsed = this.parseIntentResponse(raw);
         if (parsed?.intent) {
           intent = parsed.intent;
@@ -247,7 +254,7 @@ export class PlanGenerator {
         const response = await largeProvider.chat({
           model,
           messages: [
-            { role: 'system', content: INTENT_CLASSIFICATION_SYSTEM_PROMPT },
+            { role: 'system', content: sysPrompt },
             { role: 'user', content: text },
           ],
           temperature: 0.1,
