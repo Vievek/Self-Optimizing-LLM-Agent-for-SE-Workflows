@@ -192,6 +192,17 @@ export class ReactAgent {
             continue;
           }
 
+          if (
+            params.subtask.type === 'test' &&
+            !params.subtask.goal.toLowerCase().includes('write test') &&
+            (call.toolName === 'write_file' || call.toolName === 'edit_file')
+          ) {
+            observationSections.push(
+              `Observation (${call.toolName}): Modifying test files is forbidden in testing verification phase. Do NOT alter test code. If tests report errors due to external daemons or environment mismatches, report this directly in your Final Answer.`,
+            );
+            continue;
+          }
+
           const toolStartIso = new Date().toISOString();
           const { result, spanAttributes } = await this.toolExecutor.execute(call, params.context);
           const toolEndIso = new Date().toISOString();

@@ -6,7 +6,7 @@ function applyFuzzyOrExactReplace(
   oldStr: string,
   newStr: string,
   filePath: string,
-): { updated: string; error?: string } {
+): { updated: string; error?: string; alreadyApplied?: boolean } {
   let searchStr = oldStr;
   let targetContent = original;
   const isCrlf = original.includes('\r\n');
@@ -77,9 +77,24 @@ function applyFuzzyOrExactReplace(
     }
   }
 
+  // Check if newStr is ALREADY present in the file
+  const trimmedNew = newStr.trim();
+  if (trimmedNew.length > 5 && original.includes(trimmedNew)) {
+    return {
+      updated: original,
+      alreadyApplied: true,
+    };
+  }
+
+  const previewLines = original
+    .split(/\r?\n/)
+    .slice(0, 30)
+    .map((l, idx) => `${idx + 1} | ${l}`)
+    .join('\n');
+
   return {
     updated: original,
-    error: `Target string "old_str" not found in ${filePath}. Ensure exact whitespace and content match.`,
+    error: `Target string "old_str" not found in ${filePath}. Ensure exact whitespace and content match.\n\nCurrent file content preview:\n${previewLines}`,
   };
 }
 
@@ -219,6 +234,15 @@ export class EditFileHandler implements ToolHandler {
     try {
       const original = await context.sandbox.readFile(context.workspaceId, filePath);
       const res = applyFuzzyOrExactReplace(original, oldStr, newStr, filePath);
+
+      if (res.alreadyApplied) {
+        return {
+          status: 'ok',
+          output: `Notice: "${filePath}" already contains the requested update. No further edit needed.`,
+          error: null,
+          latencyMs: 0,
+        };
+      }
 
       if (res.error) {
         return {

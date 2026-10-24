@@ -124,7 +124,7 @@ ${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
       }
     } else if (subtask.type === 'test') {
       sections.push(
-        `\n🧪 TESTING DIRECTIVE:\n1. Verify the fix against the codebase: if automated test suites exist for the modified components (e.g. in tests/ or __tests__/), verify or run the relevant test file.\n2. Conclude promptly with **Thought** and **Final Answer** summarizing the validation outcome. Do NOT re-edit files unless an actual test failure occurs.`,
+        `\n🧪 TESTING DIRECTIVE:\n1. Verify the fix against the codebase: if automated test suites exist for the modified components (e.g. in tests/ or __tests__/), verify or run the relevant test file using run_tests.\n2. Do NOT edit, modify, or rewrite test files in this step. If a test fails due to external database or daemon dependencies (e.g. connection refused), report this in your Final Answer without attempting to alter test code.\n3. Conclude promptly with **Thought** and **Final Answer** summarizing the validation outcome.`,
       );
     } else if (subtask.id.includes('verify') || subtask.goal.toLowerCase().includes('verify')) {
       sections.push(

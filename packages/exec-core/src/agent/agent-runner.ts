@@ -207,7 +207,26 @@ export class AgentRunner {
       if (!subtask) break;
 
       // Model Routing
-      const routingDecision = modelSelector.selectTier(subtask.features);
+      let routingDecision = modelSelector.selectTier(subtask.features);
+      if (
+        routingDecision.tier === 'slm' &&
+        (subtask.lastError || (routingDecision.features?.prior_failures ?? 0) > 0)
+      ) {
+        const largeConfig = options.providerRegistry?.getConfig()?.large;
+        routingDecision = {
+          tier: 'llm',
+          model: largeConfig?.model ?? 'Qwen/Qwen2.5-Coder-32B-Instruct',
+          score: Math.max(routingDecision.score, 0.45),
+          reasoning: 'Escalated to LLM tier to handle recovery from prior failures',
+          features: {
+            ...routingDecision.features,
+            prior_failures: Math.max(routingDecision.features.prior_failures, 1),
+          },
+        };
+        console.log(
+          `⚡ [Routing Escalation] Recovering from failure: escalated subtask tier to LLM (${routingDecision.model})`,
+        );
+      }
       console.log(
         `\n🚀 [Subtask ${subtask.stepIndex + 1}/${initialSubtasks.length}] "${subtask.id}" (${subtask.type})`,
       );

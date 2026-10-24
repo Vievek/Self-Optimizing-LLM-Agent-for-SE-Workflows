@@ -30,6 +30,24 @@ export class ReadFileHandler implements ToolHandler {
         const content = await context.sandbox.readFile(context.workspaceId, targetPath);
         return { content, resolvedPath: targetPath, wasRedirected: false };
       } catch (directErr) {
+        // If a .env file was requested but not found, check .env.example or .env.local
+        if (targetPath.endsWith('.env')) {
+          const envFallbacks = [
+            `${targetPath}.example`,
+            `${targetPath}.local`,
+            `${targetPath}.defaults`,
+            `${targetPath}.sample`,
+          ];
+          for (const cand of envFallbacks) {
+            try {
+              const content = await context.sandbox.readFile(context.workspaceId, cand);
+              return { content, resolvedPath: cand, wasRedirected: true };
+            } catch {
+              // try next
+            }
+          }
+        }
+
         // Try common directory prefixes if path does not start with them
         const cleaned = targetPath.replace(/^\/+/, '');
         const prefixes = ['server/', 'src/', 'client/', 'lib/'];
