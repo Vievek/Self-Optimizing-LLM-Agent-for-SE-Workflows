@@ -1,4 +1,3 @@
-
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
@@ -12,35 +11,31 @@ import {
   type EvaluationSummary,
 } from './multi-label-evaluator.js';
 
-const FailureCategorySchema = z.enum([
-  'prompt',
-  'tool',
-  'retrieval',
-  'planning',
-  'workflow',
-]);
+const FailureCategorySchema = z.enum(['prompt', 'tool', 'retrieval', 'planning', 'workflow']);
 
-const DatasetCaseSchema = z.object({
-  id: z.string().trim().min(1),
-  traceFile: z.string().trim().min(1),
-  expectedCategories: z.array(
-    FailureCategorySchema,
-  ).superRefine((categories, context) => {
-    if (new Set(categories).size !== categories.length) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Duplicate expected category',
-      });
-    }
-  }),
-}).strict();
+const DatasetCaseSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    traceFile: z.string().trim().min(1),
+    expectedCategories: z.array(FailureCategorySchema).superRefine((categories, context) => {
+      if (new Set(categories).size !== categories.length) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Duplicate expected category',
+        });
+      }
+    }),
+  })
+  .strict();
 
-export const ResearchEvaluationManifestSchema =
-  z.object({
+export const ResearchEvaluationManifestSchema = z
+  .object({
     datasetName: z.string().trim().min(1),
     datasetVersion: z.string().trim().min(1),
     cases: z.array(DatasetCaseSchema).min(1),
-  }).strict().superRefine((manifest, context) => {
+  })
+  .strict()
+  .superRefine((manifest, context) => {
     const ids = new Set<string>();
 
     for (const [index, item] of manifest.cases.entries()) {
@@ -56,9 +51,7 @@ export const ResearchEvaluationManifestSchema =
     }
   });
 
-export type ResearchEvaluationManifest = z.infer<
-  typeof ResearchEvaluationManifestSchema
->;
+export type ResearchEvaluationManifest = z.infer<typeof ResearchEvaluationManifestSchema>;
 
 export interface ResearchEvaluationReport {
   datasetName: string;
@@ -71,21 +64,14 @@ export interface ResearchEvaluationReport {
  * Only accept relative JSONL paths inside the
  * configured evaluation dataset directory.
  */
-function resolveTracePath(
-  root: string,
-  traceFile: string,
-): string {
+function resolveTracePath(root: string, traceFile: string): string {
   if (
     path.isAbsolute(traceFile) ||
     traceFile.includes('\\') ||
-    traceFile.split('/').some(
-      (part) => part === '..' || part === '.',
-    ) ||
+    traceFile.split('/').some((part) => part === '..' || part === '.') ||
     !traceFile.endsWith('.jsonl')
   ) {
-    throw new Error(
-      `Unsafe trace path: ${traceFile}`,
-    );
+    throw new Error(`Unsafe trace path: ${traceFile}`);
   }
 
   const resolved = path.resolve(root, traceFile);
@@ -97,9 +83,7 @@ function resolveTracePath(
     relative.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relative)
   ) {
-    throw new Error(
-      `Trace path escapes dataset directory: ${traceFile}`,
-    );
+    throw new Error(`Trace path escapes dataset directory: ${traceFile}`);
   }
 
   return resolved;
@@ -109,10 +93,7 @@ function resolveTracePath(
  * Verify the actual file location, not just its
  * textual path. This prevents symlink escapes.
  */
-async function verifyRealPath(
-  root: string,
-  traceFile: string,
-): Promise<string> {
+async function verifyRealPath(root: string, traceFile: string): Promise<string> {
   const expectedPath = resolveTracePath(root, traceFile);
 
   const actualPath = await realpath(expectedPath);
@@ -124,9 +105,7 @@ async function verifyRealPath(
     relative.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relative)
   ) {
-    throw new Error(
-      `Trace path escapes dataset directory: ${traceFile}`,
-    );
+    throw new Error(`Trace path escapes dataset directory: ${traceFile}`);
   }
 
   return actualPath;
@@ -145,8 +124,7 @@ export async function runResearchEvaluation(
   rawManifest: unknown,
   validateCase?: (testCase: EvaluationCase) => void,
 ): Promise<ResearchEvaluationReport> {
-  const manifest =
-    ResearchEvaluationManifestSchema.parse(rawManifest);
+  const manifest = ResearchEvaluationManifestSchema.parse(rawManifest);
 
   const root = await realpath(datasetDirectory);
 
@@ -156,18 +134,13 @@ export async function runResearchEvaluation(
     let content: string;
 
     try {
-      const tracePath = await verifyRealPath(
-        root,
-        item.traceFile,
-      );
+      const tracePath = await verifyRealPath(root, item.traceFile);
 
       content = await readFile(tracePath, 'utf8');
     } catch (error) {
       throw new Error(
         `Unable to read evaluation case "${item.id}": ${
-          error instanceof Error
-            ? error.message
-            : String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
       );
@@ -176,7 +149,6 @@ export async function runResearchEvaluation(
     try {
       const spans = parseTraceJsonl(content);
       const graph = buildTraceGraph(spans);
-
 
       const evaluationCase: EvaluationCase = {
         id: item.id,
@@ -187,13 +159,10 @@ export async function runResearchEvaluation(
       validateCase?.(evaluationCase);
 
       evaluationCases.push(evaluationCase);
-
     } catch (error) {
       throw new Error(
         `Invalid trace in evaluation case "${item.id}": ${
-          error instanceof Error
-            ? error.message
-            : String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
       );

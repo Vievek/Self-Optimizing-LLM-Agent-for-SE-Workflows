@@ -10,24 +10,24 @@
 
 ## Classification Results
 
-| Metric | Value |
-|---|---:|
-| Total cases | 5 |
-| Exact-match accuracy | 0.80 |
-| Micro-precision | 0.75 |
-| Micro-recall | 1.00 |
-| Micro-F1 | 0.8571 |
-| Macro-F1 | 0.60 |
+| Metric               |  Value |
+| -------------------- | -----: |
+| Total cases          |      5 |
+| Exact-match accuracy |   0.80 |
+| Micro-precision      |   0.75 |
+| Micro-recall         |   1.00 |
+| Micro-F1             | 0.8571 |
+| Macro-F1             |   0.60 |
 
 ## Case-Level Findings
 
-| Case | Expected | Predicted | Result |
-|---|---|---|---|
-| pilot-001 | None | None | Match |
-| pilot-002 | Tool | Tool | Match |
-| pilot-003 | Retrieval | Retrieval | Match |
-| pilot-004 | Planning | Planning | Match |
-| pilot-005 | None | Workflow | Disagreement |
+| Case      | Expected  | Predicted | Result       |
+| --------- | --------- | --------- | ------------ |
+| pilot-001 | None      | None      | Match        |
+| pilot-002 | Tool      | Tool      | Match        |
+| pilot-003 | Retrieval | Retrieval | Match        |
+| pilot-004 | Planning  | Planning  | Match        |
+| pilot-005 | None      | Workflow  | Disagreement |
 
 ## Pilot 005 — WORKFLOW-01
 

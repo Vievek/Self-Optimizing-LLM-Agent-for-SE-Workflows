@@ -1,9 +1,4 @@
-
-import type {
-  ChatRequest,
-  ChatResponse,
-  LlmProvider,
-} from '@soa/llm';
+import type { ChatRequest, ChatResponse, LlmProvider } from '@soa/llm';
 
 interface OllamaChatResponse {
   model: string;
@@ -25,30 +20,23 @@ export class OllamaProvider implements LlmProvider {
   private readonly timeoutMs: number;
 
   constructor(options: OllamaProviderOptions = {}) {
-    const url = new URL(
-      options.baseUrl ?? 'http://127.0.0.1:11434',
-    );
+    const url = new URL(options.baseUrl ?? 'http://127.0.0.1:11434');
 
     if (
       url.protocol !== 'http:' ||
-      !['127.0.0.1', 'localhost', '[::1]'].includes(
-        url.hostname,
-      ) ||
+      !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
       url.username ||
       url.password ||
       url.search ||
       url.hash ||
       url.pathname !== '/'
     ) {
-      throw new Error(
-        'OllamaProvider only allows a local HTTP endpoint.',
-      );
+      throw new Error('OllamaProvider only allows a local HTTP endpoint.');
     }
 
     if (
       options.timeoutMs !== undefined &&
-      (!Number.isFinite(options.timeoutMs) ||
-        options.timeoutMs <= 0)
+      (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)
     ) {
       throw new Error('Invalid Ollama timeout.');
     }
@@ -78,26 +66,19 @@ export class OllamaProvider implements LlmProvider {
           format: 'json',
           options: {
             temperature: req.temperature ?? 0,
-            ...(req.maxTokens !== undefined
-              ? { num_predict: req.maxTokens }
-              : {}),
+            ...(req.maxTokens !== undefined ? { num_predict: req.maxTokens } : {}),
             num_ctx: 4096,
           },
         }),
       });
     } catch (error) {
       throw new Error(
-        'Local Ollama request failed: ' +
-          (error instanceof Error
-            ? error.message
-            : String(error)),
+        'Local Ollama request failed: ' + (error instanceof Error ? error.message : String(error)),
       );
     }
 
     if (!response.ok) {
-      throw new Error(
-        `Ollama HTTP error: ${response.status}`,
-      );
+      throw new Error(`Ollama HTTP error: ${response.status}`);
     }
 
     let body: unknown;
@@ -105,15 +86,11 @@ export class OllamaProvider implements LlmProvider {
     try {
       body = await response.json();
     } catch {
-      throw new Error(
-        'Ollama returned an invalid JSON response.',
-      );
+      throw new Error('Ollama returned an invalid JSON response.');
     }
 
     if (!this.isChatResponse(body)) {
-      throw new Error(
-        'Ollama response is missing required fields.',
-      );
+      throw new Error('Ollama response is missing required fields.');
     }
 
     return {
@@ -127,14 +104,11 @@ export class OllamaProvider implements LlmProvider {
 
   async embed(_texts: string[]): Promise<number[][]> {
     throw new Error(
-      'OllamaProvider is restricted to HEAE chat judgment; ' +
-        'embeddings are not supported.',
+      'OllamaProvider is restricted to HEAE chat judgment; ' + 'embeddings are not supported.',
     );
   }
 
-  private isChatResponse(
-    value: unknown,
-  ): value is OllamaChatResponse {
+  private isChatResponse(value: unknown): value is OllamaChatResponse {
     if (typeof value !== 'object' || value === null) {
       return false;
     }
@@ -149,10 +123,7 @@ export class OllamaProvider implements LlmProvider {
       return false;
     }
 
-    const message = record.message as Record<
-      string,
-      unknown
-    >;
+    const message = record.message as Record<string, unknown>;
 
     return (
       typeof message.content === 'string' &&

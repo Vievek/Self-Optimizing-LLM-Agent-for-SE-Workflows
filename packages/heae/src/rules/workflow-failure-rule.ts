@@ -1,10 +1,7 @@
-
 import type { TraceGraph } from '../trace-graph.js';
 import type { RuleFinding } from './rule-types.js';
 
-export function detectWorkflowFailures(
-  graph: TraceGraph,
-): RuleFinding[] {
+export function detectWorkflowFailures(graph: TraceGraph): RuleFinding[] {
   const findings: RuleFinding[] = [];
 
   const patchTools = graph.nodes.filter(
@@ -17,14 +14,10 @@ export function detectWorkflowFailures(
 
   // Verification requirements may be explicitly recorded
   // on the task span.
-  const taskSpans = graph.nodes.filter(
-    (node) => node.span.name === 'task',
-  );
+  const taskSpans = graph.nodes.filter((node) => node.span.name === 'task');
 
   const verificationOptional = taskSpans.some(
-    (node) =>
-      node.span.name === 'task' &&
-      node.span.attributes.verification_required === false,
+    (node) => node.span.name === 'task' && node.span.attributes.verification_required === false,
   );
 
   for (const node of graph.nodes) {
@@ -51,8 +44,7 @@ export function detectWorkflowFailures(
 
     // Do not classify an external interruption as a
     // deliberate verification omission.
-    const verificationNotReached =
-      output.verification_status === 'not_reached';
+    const verificationNotReached = output.verification_status === 'not_reached';
 
     const interrupted = taskSpans.some(
       (task) =>
@@ -70,12 +62,7 @@ export function detectWorkflowFailures(
       category: 'workflow',
       observation:
         'Patch operation succeeded, but the unsuccessful output reports no tests executed',
-      evidenceNodeIds: [
-        ...new Set([
-          node.id,
-          ...patchTools.map((tool) => tool.id),
-        ]),
-      ],
+      evidenceNodeIds: [...new Set([node.id, ...patchTools.map((tool) => tool.id)])],
       details: {
         result: output.result,
         testsRun: output.tests_run,

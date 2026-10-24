@@ -6,16 +6,11 @@
       "caseId": "workflow-001",
       "traceFile": "traces/workflow-001.jsonl",
       "observedOutcome": "fail",
-      "expectedCategories": [
-        "workflow"
-      ],
+      "expectedCategories": ["workflow"],
       "categoryEvidence": [
         {
           "category": "workflow",
-          "spanIds": [
-            "b100000000000001",
-            "b100000000000005"
-          ],
+          "spanIds": ["b100000000000001", "b100000000000005"],
           "justification": "The task explicitly required tests, but the final output records that verification was skipped."
         }
       ],
@@ -24,10 +19,7 @@
           "category": "workflow",
           "judgment": "supported",
           "explanation": "The final task failure explicitly records omission of mandatory verification.",
-          "evidenceSpanIds": [
-            "b100000000000001",
-            "b100000000000005"
-          ]
+          "evidenceSpanIds": ["b100000000000001", "b100000000000005"]
         }
       ],
       "limitations": [
@@ -72,16 +64,11 @@
       "caseId": "workflow-004",
       "traceFile": "traces/workflow-004.jsonl",
       "observedOutcome": "fail",
-      "expectedCategories": [
-        "tool"
-      ],
+      "expectedCategories": ["tool"],
       "categoryEvidence": [
         {
           "category": "tool",
-          "spanIds": [
-            "b400000000000004",
-            "b400000000000005"
-          ],
+          "spanIds": ["b400000000000004", "b400000000000005"],
           "justification": "The patch tool reports FILE_NOT_FOUND, and the output links the task failure to that tool operation."
         }
       ],
@@ -90,10 +77,7 @@
           "category": "tool",
           "judgment": "supported",
           "explanation": "The output explicitly attributes the unsuccessful execution to the failed patch operation.",
-          "evidenceSpanIds": [
-            "b400000000000004",
-            "b400000000000005"
-          ]
+          "evidenceSpanIds": ["b400000000000004", "b400000000000005"]
         }
       ],
       "limitations": [

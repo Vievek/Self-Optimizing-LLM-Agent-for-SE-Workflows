@@ -1,4 +1,3 @@
-
 import type { TraceGraph } from '../trace-graph.js';
 import { evaluateRules } from '../rules/rule-engine.js';
 import type { FailureCategory } from '../rules/rule-types.js';
@@ -28,7 +27,6 @@ export interface CaseEvaluation {
   ruleIds: string[];
 }
 
-
 export interface CategoryMetrics {
   category: FailureCategory;
   support: number;
@@ -39,7 +37,6 @@ export interface CategoryMetrics {
   recall: number;
   f1: number;
 }
-
 
 export interface EvaluationSummary {
   totalCases: number;
@@ -56,9 +53,7 @@ export interface EvaluationSummary {
   cases: CaseEvaluation[];
 }
 
-export function evaluateMultiLabelCases(
-  cases: readonly EvaluationCase[],
-): EvaluationSummary {
+export function evaluateMultiLabelCases(cases: readonly EvaluationCase[]): EvaluationSummary {
   if (cases.length === 0) {
     throw new Error('Evaluation requires at least one case');
   }
@@ -79,16 +74,10 @@ export function evaluateMultiLabelCases(
       }
     }
 
-    const fp = [...predicted].filter(
-      category => !expected.has(category),
-    );
-    const fn = [...expected].filter(
-      category => !predicted.has(category),
-    );
+    const fp = [...predicted].filter((category) => !expected.has(category));
+    const fn = [...expected].filter((category) => !predicted.has(category));
 
-    truePositives += [...predicted].filter(
-      category => expected.has(category),
-    ).length;
+    truePositives += [...predicted].filter((category) => expected.has(category)).length;
     falsePositives += fp.length;
     falseNegatives += fn.length;
 
@@ -100,88 +89,67 @@ export function evaluateMultiLabelCases(
       falsePositives: fp,
       falseNegatives: fn,
       evidenceNodeIds: [...result.evidenceNodeIds],
-      ruleIds: result.findings.map(f => f.ruleId),
+      ruleIds: result.findings.map((f) => f.ruleId),
     };
   });
 
   const precisionDenominator = truePositives + falsePositives;
   const recallDenominator = truePositives + falseNegatives;
 
-  const microPrecision = precisionDenominator === 0
-    ? 0
-    : truePositives / precisionDenominator;
+  const microPrecision = precisionDenominator === 0 ? 0 : truePositives / precisionDenominator;
 
-  const microRecall = recallDenominator === 0
-    ? 0
-    : truePositives / recallDenominator;
+  const microRecall = recallDenominator === 0 ? 0 : truePositives / recallDenominator;
 
-  const microF1 = microPrecision + microRecall === 0
-    ? 0
-    : 2 * microPrecision * microRecall /
-      (microPrecision + microRecall);
+  const microF1 =
+    microPrecision + microRecall === 0
+      ? 0
+      : (2 * microPrecision * microRecall) / (microPrecision + microRecall);
 
-  const exactMatches = results.filter(
-    result => result.exactMatch,
-  ).length;
+  const exactMatches = results.filter((result) => result.exactMatch).length;
 
+  const perCategory: CategoryMetrics[] = FAILURE_CATEGORIES.map((category) => {
+    let tp = 0;
+    let fp = 0;
+    let fn = 0;
+    let support = 0;
 
-  const perCategory: CategoryMetrics[] =
-    FAILURE_CATEGORIES.map((category) => {
-      let tp = 0;
-      let fp = 0;
-      let fn = 0;
-      let support = 0;
+    for (const item of results) {
+      const expected = item.expectedCategories.includes(category);
 
-      for (const item of results) {
-        const expected =
-          item.expectedCategories.includes(category);
+      const predicted = item.predictedCategories.includes(category);
 
-        const predicted =
-          item.predictedCategories.includes(category);
-
-        if (expected) {
-          support++;
-        }
-
-        if (expected && predicted) {
-          tp++;
-        } else if (!expected && predicted) {
-          fp++;
-        } else if (expected && !predicted) {
-          fn++;
-        }
+      if (expected) {
+        support++;
       }
 
-      const precision =
-        tp + fp === 0 ? 0 : tp / (tp + fp);
+      if (expected && predicted) {
+        tp++;
+      } else if (!expected && predicted) {
+        fp++;
+      } else if (expected && !predicted) {
+        fn++;
+      }
+    }
 
-      const recall =
-        tp + fn === 0 ? 0 : tp / (tp + fn);
+    const precision = tp + fp === 0 ? 0 : tp / (tp + fp);
 
-      const f1 =
-        precision + recall === 0
-          ? 0
-          : (2 * precision * recall) /
-            (precision + recall);
+    const recall = tp + fn === 0 ? 0 : tp / (tp + fn);
 
-      return {
-        category,
-        support,
-        truePositives: tp,
-        falsePositives: fp,
-        falseNegatives: fn,
-        precision,
-        recall,
-        f1,
-      };
-    });
+    const f1 = precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
 
-  const macroF1 =
-    perCategory.reduce(
-      (sum, item) => sum + item.f1,
-      0,
-    ) / perCategory.length;
+    return {
+      category,
+      support,
+      truePositives: tp,
+      falsePositives: fp,
+      falseNegatives: fn,
+      precision,
+      recall,
+      f1,
+    };
+  });
 
+  const macroF1 = perCategory.reduce((sum, item) => sum + item.f1, 0) / perCategory.length;
 
   return {
     totalCases: cases.length,

@@ -20,15 +20,11 @@
       "caseId": "pilot-002",
       "traceFile": "traces/pilot-002.jsonl",
       "observedOutcome": "fail",
-      "expectedCategories": [
-        "tool"
-      ],
+      "expectedCategories": ["tool"],
       "categoryEvidence": [
         {
           "category": "tool",
-          "spanIds": [
-            "a200000000000005"
-          ],
+          "spanIds": ["a200000000000005"],
           "justification": "The apply_patch tool returned FILE_NOT_FOUND for its target file."
         }
       ],
@@ -37,10 +33,7 @@
           "category": "tool",
           "judgment": "supported",
           "explanation": "The unsuccessful final output explicitly references the failed patch operation.",
-          "evidenceSpanIds": [
-            "a200000000000005",
-            "a200000000000006"
-          ]
+          "evidenceSpanIds": ["a200000000000005", "a200000000000006"]
         }
       ],
       "limitations": [
@@ -54,16 +47,11 @@
       "caseId": "pilot-003",
       "traceFile": "traces/pilot-003.jsonl",
       "observedOutcome": "fail",
-      "expectedCategories": [
-        "retrieval"
-      ],
+      "expectedCategories": ["retrieval"],
       "categoryEvidence": [
         {
           "category": "retrieval",
-          "spanIds": [
-            "a300000000000003",
-            "a300000000000005"
-          ],
+          "spanIds": ["a300000000000003", "a300000000000005"],
           "justification": "The required configuration-file retrieval returned no results, and the final output records that the task could not proceed."
         }
       ],
@@ -72,10 +60,7 @@
           "category": "retrieval",
           "judgment": "supported",
           "explanation": "The final failure explicitly records the required file was not found and references the retrieval span.",
-          "evidenceSpanIds": [
-            "a300000000000003",
-            "a300000000000005"
-          ]
+          "evidenceSpanIds": ["a300000000000003", "a300000000000005"]
         }
       ],
       "limitations": [
@@ -89,16 +74,11 @@
       "caseId": "pilot-004",
       "traceFile": "traces/pilot-004.jsonl",
       "observedOutcome": "fail",
-      "expectedCategories": [
-        "planning"
-      ],
+      "expectedCategories": ["planning"],
       "categoryEvidence": [
         {
           "category": "planning",
-          "spanIds": [
-            "a400000000000002",
-            "a400000000000004"
-          ],
+          "spanIds": ["a400000000000002", "a400000000000004"],
           "justification": "The planning operation reports a missing prerequisite, and the output confirms migration was not attempted."
         }
       ],
@@ -107,10 +87,7 @@
           "category": "planning",
           "judgment": "supported",
           "explanation": "The final unsuccessful output explicitly refers to the missing planning prerequisite.",
-          "evidenceSpanIds": [
-            "a400000000000002",
-            "a400000000000004"
-          ]
+          "evidenceSpanIds": ["a400000000000002", "a400000000000004"]
         }
       ],
       "limitations": [

@@ -1,22 +1,13 @@
-
 import { z } from 'zod';
 import type { Store } from '@soa/store';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 import { JudgeResponseSchema } from '../attribution/judge-schema.js';
 
 const TraceIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
 
-const FailureCategorySchema = z.enum([
-  'prompt',
-  'tool',
-  'retrieval',
-  'planning',
-  'workflow',
-]);
+const FailureCategorySchema = z.enum(['prompt', 'tool', 'retrieval', 'planning', 'workflow']);
 
 const RuleFindingSchema = z.object({
   ruleId: z.string(),
@@ -37,12 +28,7 @@ const AttributionHypothesisSchema = z.object({
 
 const AttributionReportSchema = z.object({
   traceId: TraceIdSchema,
-  outcome: z.enum([
-    'pass',
-    'fail',
-    'error',
-    'unknown',
-  ]),
+  outcome: z.enum(['pass', 'fail', 'error', 'unknown']),
   observations: z.array(RuleFindingSchema),
   hypotheses: z.array(AttributionHypothesisSchema),
   warnings: z.array(z.string()),
@@ -57,67 +43,59 @@ const AttributionReportSchema = z.object({
  * Legacy evaluations without a fingerprint remain
  * readable because traceFingerprint is optional.
  */
-export const StoredEvaluationSchema = z.object({
-  schemaVersion: z.literal('1.0'),
+export const StoredEvaluationSchema = z
+  .object({
+    schemaVersion: z.literal('1.0'),
 
-  traceId: TraceIdSchema,
-
-  traceFingerprint: z.string()
-    .regex(/^[0-9a-f]{64}$/)
-    .optional(),
-
-  result: z.object({
     traceId: TraceIdSchema,
-    ruleReport: AttributionReportSchema,
-    judgment: JudgeResponseSchema.nullable(),
 
-    judgeStatus: z.enum([
-      'completed',
-      'skipped',
-      'unavailable',
-    ]),
+    traceFingerprint: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
 
-    warnings: z.array(z.string()),
-  }),
-}).superRefine((record, context) => {
-  // The stored evaluation and rule report must
-  // refer to the same execution trace.
-  if (
-    record.traceId !== record.result.traceId ||
-    record.traceId !== record.result.ruleReport.traceId
-  ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Trace IDs must match.',
-    });
-  }
+    result: z.object({
+      traceId: TraceIdSchema,
+      ruleReport: AttributionReportSchema,
+      judgment: JudgeResponseSchema.nullable(),
 
-  // Completed judgments require a judgment result.
-  if (
-    record.result.judgeStatus === 'completed' &&
-    record.result.judgment === null
-  ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Completed judgment must contain a result.',
-    });
-  }
+      judgeStatus: z.enum(['completed', 'skipped', 'unavailable']),
 
-  // Skipped or unavailable judgments must not
-  // contain a completed model response.
-  if (
-    record.result.judgeStatus !== 'completed' &&
-    record.result.judgment !== null
-  ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Non-completed judgment must be null.',
-    });
-  }
-});
+      warnings: z.array(z.string()),
+    }),
+  })
+  .superRefine((record, context) => {
+    // The stored evaluation and rule report must
+    // refer to the same execution trace.
+    if (
+      record.traceId !== record.result.traceId ||
+      record.traceId !== record.result.ruleReport.traceId
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Trace IDs must match.',
+      });
+    }
 
-export type StoredEvaluation =
-  z.infer<typeof StoredEvaluationSchema>;
+    // Completed judgments require a judgment result.
+    if (record.result.judgeStatus === 'completed' && record.result.judgment === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Completed judgment must contain a result.',
+      });
+    }
+
+    // Skipped or unavailable judgments must not
+    // contain a completed model response.
+    if (record.result.judgeStatus !== 'completed' && record.result.judgment !== null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Non-completed judgment must be null.',
+      });
+    }
+  });
+
+export type StoredEvaluation = z.infer<typeof StoredEvaluationSchema>;
 
 /**
  * Handles HEAE evaluation history.
@@ -129,9 +107,7 @@ export type StoredEvaluation =
  * This class does not overwrite existing evaluations.
  */
 export class EvaluationHistory {
-  constructor(
-    private readonly store: Store,
-  ) {}
+  constructor(private readonly store: Store) {}
 
   /**
    * Construct the storage path after validating
@@ -158,9 +134,7 @@ export class EvaluationHistory {
 
       traceId: result.traceId,
 
-      ...(traceFingerprint !== undefined
-        ? { traceFingerprint }
-        : {}),
+      ...(traceFingerprint !== undefined ? { traceFingerprint } : {}),
 
       result,
     });
@@ -170,9 +144,7 @@ export class EvaluationHistory {
     // Prevent an existing evaluation from
     // being silently overwritten.
     if (await this.store.exists(filePath)) {
-      throw new Error(
-        `Evaluation already exists for trace ${record.traceId}`,
-      );
+      throw new Error(`Evaluation already exists for trace ${record.traceId}`);
     }
 
     await this.store.write(filePath, record);
@@ -186,18 +158,14 @@ export class EvaluationHistory {
    * Returns null when no evaluation exists.
    * Existing records are validated before returning.
    */
-  async load(
-    traceId: string,
-  ): Promise<StoredEvaluation | null> {
+  async load(traceId: string): Promise<StoredEvaluation | null> {
     const filePath = this.pathFor(traceId);
 
     if (!(await this.store.exists(filePath))) {
       return null;
     }
 
-    const raw = await this.store.read<unknown>(
-      filePath,
-    );
+    const raw = await this.store.read<unknown>(filePath);
 
     return StoredEvaluationSchema.parse(raw);
   }
@@ -213,9 +181,7 @@ export class EvaluationHistory {
     const results: StoredEvaluation[] = [];
 
     for (const filePath of paths) {
-      const match =
-        /^heae\/evaluations\/([0-9a-f]{32})\.json$/
-          .exec(filePath);
+      const match = /^heae\/evaluations\/([0-9a-f]{32})\.json$/.exec(filePath);
 
       if (!match?.[1]) {
         continue;

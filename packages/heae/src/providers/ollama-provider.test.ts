@@ -1,15 +1,6 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  afterEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest';
-
-import {
-  OllamaProvider,
-} from './ollama-provider.js';
+import { OllamaProvider } from './ollama-provider.js';
 
 const MODEL = 'qwen2.5-coder:3b';
 
@@ -24,9 +15,7 @@ const messages = [
   },
 ];
 
-function mockOllamaResponse(
-  overrides: Record<string, unknown> = {},
-): Response {
+function mockOllamaResponse(overrides: Record<string, unknown> = {}): Response {
   return new Response(
     JSON.stringify({
       model: MODEL,
@@ -54,9 +43,7 @@ afterEach(() => {
 
 describe('HEAE local Ollama provider', () => {
   it('maps chat requests and responses correctly', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      mockOllamaResponse(),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(mockOllamaResponse());
 
     vi.stubGlobal('fetch', fetchMock);
 
@@ -70,8 +57,7 @@ describe('HEAE local Ollama provider', () => {
     });
 
     expect(result).toEqual({
-      content:
-        '{"findings":[],"overallUncertainty":"None"}',
+      content: '{"findings":[],"overallUncertainty":"None"}',
       tokensIn: 120,
       tokensOut: 40,
       model: MODEL,
@@ -80,14 +66,9 @@ describe('HEAE local Ollama provider', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const [url, options] = fetchMock.mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
 
-    expect(url).toBe(
-      'http://127.0.0.1:11434/api/chat',
-    );
+    expect(url).toBe('http://127.0.0.1:11434/api/chat');
 
     expect(options.method).toBe('POST');
 
@@ -95,9 +76,7 @@ describe('HEAE local Ollama provider', () => {
       'Content-Type': 'application/json',
     });
 
-    const body = JSON.parse(
-      options.body as string,
-    ) as Record<string, unknown>;
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
 
     expect(body.model).toBe(MODEL);
     expect(body.messages).toEqual(messages);
@@ -114,27 +93,42 @@ describe('HEAE local Ollama provider', () => {
   });
 
   it('rejects non-local inference endpoints', () => {
-    expect(() => new OllamaProvider({
-      baseUrl: 'https://example.com',
-    })).toThrow('only allows a local HTTP endpoint');
+    expect(
+      () =>
+        new OllamaProvider({
+          baseUrl: 'https://example.com',
+        }),
+    ).toThrow('only allows a local HTTP endpoint');
 
-    expect(() => new OllamaProvider({
-      baseUrl: 'http://192.168.1.10:11434',
-    })).toThrow('only allows a local HTTP endpoint');
+    expect(
+      () =>
+        new OllamaProvider({
+          baseUrl: 'http://192.168.1.10:11434',
+        }),
+    ).toThrow('only allows a local HTTP endpoint');
 
-    expect(() => new OllamaProvider({
-      baseUrl: 'http://127.0.0.1:11434/other',
-    })).toThrow('only allows a local HTTP endpoint');
+    expect(
+      () =>
+        new OllamaProvider({
+          baseUrl: 'http://127.0.0.1:11434/other',
+        }),
+    ).toThrow('only allows a local HTTP endpoint');
   });
 
   it('rejects invalid timeout configuration', () => {
-    expect(() => new OllamaProvider({
-      timeoutMs: 0,
-    })).toThrow('Invalid Ollama timeout');
+    expect(
+      () =>
+        new OllamaProvider({
+          timeoutMs: 0,
+        }),
+    ).toThrow('Invalid Ollama timeout');
 
-    expect(() => new OllamaProvider({
-      timeoutMs: -1,
-    })).toThrow('Invalid Ollama timeout');
+    expect(
+      () =>
+        new OllamaProvider({
+          timeoutMs: -1,
+        }),
+    ).toThrow('Invalid Ollama timeout');
   });
 
   it('rejects an empty model name', async () => {
@@ -155,12 +149,7 @@ describe('HEAE local Ollama provider', () => {
   });
 
   it('reports a local connection failure', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(
-        new Error('Connection refused'),
-      ),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Connection refused')));
 
     const provider = new OllamaProvider();
 
@@ -169,9 +158,7 @@ describe('HEAE local Ollama provider', () => {
         model: MODEL,
         messages,
       }),
-    ).rejects.toThrow(
-      'Local Ollama request failed: Connection refused',
-    );
+    ).rejects.toThrow('Local Ollama request failed: Connection refused');
   });
 
   it('reports an Ollama HTTP failure', async () => {
@@ -214,9 +201,7 @@ describe('HEAE local Ollama provider', () => {
         model: MODEL,
         messages,
       }),
-    ).rejects.toThrow(
-      'Ollama response is missing required fields',
-    );
+    ).rejects.toThrow('Ollama response is missing required fields');
   });
 
   it('rejects invalid response JSON', async () => {
@@ -236,18 +221,12 @@ describe('HEAE local Ollama provider', () => {
         model: MODEL,
         messages,
       }),
-    ).rejects.toThrow(
-      'Ollama returned an invalid JSON response',
-    );
+    ).rejects.toThrow('Ollama returned an invalid JSON response');
   });
 
   it('does not fabricate embeddings', async () => {
     const provider = new OllamaProvider();
 
-    await expect(
-      provider.embed(['test']),
-    ).rejects.toThrow(
-      'embeddings are not supported',
-    );
+    await expect(provider.embed(['test'])).rejects.toThrow('embeddings are not supported');
   });
 });

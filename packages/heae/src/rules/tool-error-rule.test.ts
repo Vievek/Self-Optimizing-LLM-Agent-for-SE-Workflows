@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -12,15 +11,9 @@ function loadGraph(path: URL) {
   return buildTraceGraph(parseTraceJsonl(content));
 }
 
-const toolFailurePath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolFailurePath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
 describe('HEAE TOOL-02 Rule', () => {
   it('detects a failed tool operation', () => {
@@ -36,21 +29,15 @@ describe('HEAE TOOL-02 Rule', () => {
     const graph = loadGraph(toolFailurePath);
     const findings = detectToolErrors(graph);
 
-    expect(findings[0]?.evidenceNodeIds).toEqual([
-      '1000000000000006',
-    ]);
+    expect(findings[0]?.evidenceNodeIds).toEqual(['1000000000000006']);
   });
 
   it('preserves recorded tool error information', () => {
     const graph = loadGraph(toolFailurePath);
     const findings = detectToolErrors(graph);
 
-    expect(findings[0]?.details.toolName).toBe(
-      'apply_patch',
-    );
-    expect(findings[0]?.details.error).toBe(
-      'PATCH_APPLY_FAILED: context mismatch',
-    );
+    expect(findings[0]?.details.toolName).toBe('apply_patch');
+    expect(findings[0]?.details.error).toBe('PATCH_APPLY_FAILED: context mismatch');
   });
 
   it('does not flag successful tool operations', () => {
@@ -71,10 +58,7 @@ describe('HEAE TOOL-02 Rule', () => {
 
   it('does not flag a completed test run with a failed assertion', () => {
     const graph = loadGraph(
-      new URL(
-        '../../datasets/workflow-contrast-v1/traces/workflow-005.jsonl',
-        import.meta.url,
-      ),
+      new URL('../../datasets/workflow-contrast-v1/traces/workflow-005.jsonl', import.meta.url),
     );
 
     const findings = detectToolErrors(graph);
@@ -84,24 +68,18 @@ describe('HEAE TOOL-02 Rule', () => {
 
   it('still detects test runner infrastructure failures', () => {
     const graph = loadGraph(
-      new URL(
-        '../../datasets/workflow-contrast-v1/traces/workflow-005.jsonl',
-        import.meta.url,
-      ),
+      new URL('../../datasets/workflow-contrast-v1/traces/workflow-005.jsonl', import.meta.url),
     );
 
     const tool = graph.nodes.find(
-      node =>
-        node.span.name === 'tool_call' &&
-        node.span.attributes.tool_name === 'run_tests',
+      (node) => node.span.name === 'tool_call' && node.span.attributes.tool_name === 'run_tests',
     );
 
     if (!tool || tool.span.name !== 'tool_call') {
       throw new Error('Test execution span missing');
     }
 
-    tool.span.attributes.error =
-      'PROCESS_SPAWN_FAILED: test runner executable not found';
+    tool.span.attributes.error = 'PROCESS_SPAWN_FAILED: test runner executable not found';
 
     tool.span.attributes.tests_run = 0;
     tool.span.attributes.tests_failed = 0;

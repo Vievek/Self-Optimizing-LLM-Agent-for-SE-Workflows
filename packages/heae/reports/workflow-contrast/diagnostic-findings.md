@@ -10,27 +10,27 @@
 
 ## Metrics
 
-| Metric | Result |
-|---|---:|
-| Exact matches | 2/5 |
-| Exact-match accuracy | 0.40 |
-| True positives | 2 |
-| False positives | 3 |
-| False negatives | 0 |
-| Micro-precision | 0.40 |
-| Micro-recall | 1.00 |
-| Micro-F1 | 0.5714 |
-| Macro-F1 | 0.2333 |
+| Metric               | Result |
+| -------------------- | -----: |
+| Exact matches        |    2/5 |
+| Exact-match accuracy |   0.40 |
+| True positives       |      2 |
+| False positives      |      3 |
+| False negatives      |      0 |
+| Micro-precision      |   0.40 |
+| Micro-recall         |   1.00 |
+| Micro-F1             | 0.5714 |
+| Macro-F1             | 0.2333 |
 
 ## Case Results
 
-| Case | Expected | Predicted | Triggered rule |
-|---|---|---|---|
-| workflow-001 | workflow | workflow | WORKFLOW-01 |
-| workflow-002 | none | workflow | WORKFLOW-01 |
-| workflow-003 | none | workflow | WORKFLOW-01 |
-| workflow-004 | tool | tool | TOOL-02 |
-| workflow-005 | none | tool | TOOL-02 |
+| Case         | Expected | Predicted | Triggered rule |
+| ------------ | -------- | --------- | -------------- |
+| workflow-001 | workflow | workflow  | WORKFLOW-01    |
+| workflow-002 | none     | workflow  | WORKFLOW-01    |
+| workflow-003 | none     | workflow  | WORKFLOW-01    |
+| workflow-004 | tool     | tool      | TOOL-02        |
+| workflow-005 | none     | tool      | TOOL-02        |
 
 ## Disagreements
 

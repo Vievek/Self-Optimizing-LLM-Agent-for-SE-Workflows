@@ -1,18 +1,11 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { TypedTraceSpan } from '@soa/contracts';
 import { parseTraceJsonl } from './trace-intake.js';
-import {
-  buildTraceGraph,
-  TraceGraphError,
-} from './trace-graph.js';
+import { buildTraceGraph, TraceGraphError } from './trace-graph.js';
 
 const fixture = readFileSync(
-  new URL(
-    '../../../fixtures/traces/success.jsonl',
-    import.meta.url,
-  ),
+  new URL('../../../fixtures/traces/success.jsonl', import.meta.url),
   'utf8',
 );
 
@@ -32,8 +25,7 @@ describe('HEAE Trace Graph Builder', () => {
   });
 
   it('preserves all seven node types', () => {
-    const types = buildTraceGraph(cloneSpans())
-      .nodes.map((node) => node.type);
+    const types = buildTraceGraph(cloneSpans()).nodes.map((node) => node.type);
 
     expect(types).toEqual(
       expect.arrayContaining([
@@ -51,48 +43,32 @@ describe('HEAE Trace Graph Builder', () => {
   it('preserves parent and causal edges', () => {
     const graph = buildTraceGraph(cloneSpans());
 
-    expect(
-      graph.edges.filter(
-        (edge) => edge.type === 'PARENT_OF',
-      ),
-    ).toHaveLength(6);
+    expect(graph.edges.filter((edge) => edge.type === 'PARENT_OF')).toHaveLength(6);
 
-    expect(
-      graph.edges.filter(
-        (edge) => edge.type === 'CAUSED_BY',
-      ),
-    ).toHaveLength(6);
+    expect(graph.edges.filter((edge) => edge.type === 'CAUSED_BY')).toHaveLength(6);
   });
 
   it('preserves original span metadata', () => {
     const graph = buildTraceGraph(cloneSpans());
 
-    const toolNode = graph.nodes.find(
-      (node) => node.type === 'ToolCallNode',
-    );
+    const toolNode = graph.nodes.find((node) => node.type === 'ToolCallNode');
 
     expect(toolNode?.span.name).toBe('tool_call');
 
     if (toolNode?.span.name === 'tool_call') {
-      expect(toolNode.span.attributes.tool_name).toBe(
-        'apply_patch',
-      );
+      expect(toolNode.span.attributes.tool_name).toBe('apply_patch');
     }
   });
 
   it('rejects an empty trace', () => {
-    expect(() => buildTraceGraph([])).toThrow(
-      TraceGraphError,
-    );
+    expect(() => buildTraceGraph([])).toThrow(TraceGraphError);
   });
 
   it('rejects duplicate span IDs', () => {
     const spans = cloneSpans();
     spans.push(structuredClone(spans[0]!));
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'Duplicate span ID',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('Duplicate span ID');
   });
 
   it('rejects mixed trace IDs', () => {
@@ -103,9 +79,7 @@ describe('HEAE Trace Graph Builder', () => {
       trace_id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     };
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'Mixed trace IDs',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('Mixed trace IDs');
   });
 
   it('rejects invalid timestamps', () => {
@@ -117,9 +91,7 @@ describe('HEAE Trace Graph Builder', () => {
       end_ts: '2026-10-18T11:00:00.000Z',
     };
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'Invalid time range',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('Invalid time range');
   });
 
   it('rejects self-parent relationships', () => {
@@ -130,9 +102,7 @@ describe('HEAE Trace Graph Builder', () => {
       parent_span_id: spans[1]!.span_id,
     };
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'cannot be its own parent',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('cannot be its own parent');
   });
 
   it('rejects self-causal relationships', () => {
@@ -148,9 +118,7 @@ describe('HEAE Trace Graph Builder', () => {
       ],
     };
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'cannot cause itself',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('cannot cause itself');
   });
 
   it('detects parent cycles', () => {
@@ -161,9 +129,7 @@ describe('HEAE Trace Graph Builder', () => {
       parent_span_id: spans[1]!.span_id,
     };
 
-    expect(() => buildTraceGraph(spans)).toThrow(
-      'Parent cycle detected',
-    );
+    expect(() => buildTraceGraph(spans)).toThrow('Parent cycle detected');
   });
 
   it('warns when a parent is missing', () => {
@@ -176,9 +142,7 @@ describe('HEAE Trace Graph Builder', () => {
 
     const graph = buildTraceGraph(spans);
 
-    expect(graph.warnings.some(
-      (warning) => warning.includes('Missing parent'),
-    )).toBe(true);
+    expect(graph.warnings.some((warning) => warning.includes('Missing parent'))).toBe(true);
   });
 
   it('warns when a causal reference is missing', () => {
@@ -196,9 +160,7 @@ describe('HEAE Trace Graph Builder', () => {
 
     const graph = buildTraceGraph(spans);
 
-    expect(graph.warnings.some(
-      (warning) => warning.includes('Missing cause'),
-    )).toBe(true);
+    expect(graph.warnings.some((warning) => warning.includes('Missing cause'))).toBe(true);
   });
 
   it('deduplicates repeated causal edges', () => {

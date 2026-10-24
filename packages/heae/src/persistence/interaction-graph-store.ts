@@ -1,10 +1,4 @@
-
-import type {
-  GraphEdgeType,
-  TraceGraph,
-  TraceGraphEdge,
-  TraceGraphNode,
-} from '../trace-graph.js';
+import type { GraphEdgeType, TraceGraph, TraceGraphEdge, TraceGraphNode } from '../trace-graph.js';
 
 export interface EvidenceRelationship {
   source: TraceGraphNode;
@@ -32,10 +26,7 @@ export interface InteractionGraphStore {
    *
    * Both incoming and outgoing edges are included.
    */
-  getEvidenceRelationships(
-    traceId: string,
-    spanId: string,
-  ): Promise<EvidenceRelationship[]>;
+  getEvidenceRelationships(traceId: string, spanId: string): Promise<EvidenceRelationship[]>;
 
   /**
    * Retrieve edges for a whole trace.

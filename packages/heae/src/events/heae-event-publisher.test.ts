@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -10,17 +9,11 @@ import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
-import type {
-  OutcomeEvidenceInput,
-} from '../evidence/outcome-evidence-generator.js';
+import type { OutcomeEvidenceInput } from '../evidence/outcome-evidence-generator.js';
 
-import type {
-  ReviewedOptimizationProposal,
-} from '../signals/optimization-signal-generator.js';
+import type { ReviewedOptimizationProposal } from '../signals/optimization-signal-generator.js';
 
 import {
   OUTCOME_EVENT_PATH,
@@ -32,13 +25,7 @@ import {
 /**
  * Synthetic tool-error execution trace.
  */
-const fixture = readFileSync(
-  new URL(
-    '../../fixtures/tool-error.jsonl',
-    import.meta.url,
-  ),
-  'utf8',
-);
+const fixture = readFileSync(new URL('../../fixtures/tool-error.jsonl', import.meta.url), 'utf8');
 
 /**
  * Test-only externally verified execution information.
@@ -75,8 +62,7 @@ const reviewedProposal: ReviewedOptimizationProposal = {
   taskId: outcomeInput.taskId,
   failureClass: 'tool',
 
-  rootCauseSummary:
-    'Reviewed tool failure requiring further correction.',
+  rootCauseSummary: 'Reviewed tool failure requiring further correction.',
 
   evidenceNodeIds: ['1000000000000006'],
 
@@ -96,15 +82,11 @@ const reviewedProposal: ReviewedOptimizationProposal = {
  * model assessment or proof of root causality.
  */
 function makeSupportedAttribution(): HybridAttributionResult {
-  const graph = buildTraceGraph(
-    parseTraceJsonl(fixture),
-  );
+  const graph = buildTraceGraph(parseTraceJsonl(fixture));
 
   const ruleReport = attributeTrace(graph);
 
-  const hypothesis = ruleReport.hypotheses.find(
-    (item) => item.category === 'tool',
-  );
+  const hypothesis = ruleReport.hypotheses.find((item) => item.category === 'tool');
 
   if (!hypothesis) {
     throw new Error('Expected tool hypothesis');
@@ -120,19 +102,13 @@ function makeSupportedAttribution(): HybridAttributionResult {
         {
           category: 'tool',
           assessment: 'supported',
-          explanation:
-            'Tool failure is supported by trace evidence.',
-          evidenceNodeIds: [
-            ...hypothesis.evidenceNodeIds,
-          ],
-          limitations: [
-            'The exact root cause still requires independent review.',
-          ],
+          explanation: 'Tool failure is supported by trace evidence.',
+          evidenceNodeIds: [...hypothesis.evidenceNodeIds],
+          limitations: ['The exact root cause still requires independent review.'],
         },
       ],
 
-      overallUncertainty:
-        'The evidence supports the hypothesis but does not prove causality.',
+      overallUncertainty: 'The evidence supports the hypothesis but does not prove causality.',
     },
 
     warnings: [...ruleReport.warnings],
@@ -147,24 +123,14 @@ describe('HEAE event publisher', () => {
   it('publishes valid outcome evidence', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    const result = await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    const result = await publishOutcomeEvidence(store, attribution, outcomeInput);
 
     expect(result.status).toBe('published');
-    expect(result.event?.evidence_id).toBe(
-      outcomeInput.evidenceId,
-    );
+    expect(result.event?.evidence_id).toBe(outcomeInput.evidenceId);
 
-    const records = await store.readJsonl(
-      OUTCOME_EVENT_PATH,
-    );
+    const records = await store.readJsonl(OUTCOME_EVENT_PATH);
 
     expect(records).toHaveLength(1);
   });
@@ -176,27 +142,15 @@ describe('HEAE event publisher', () => {
   it('does not append a duplicate outcome', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    await publishOutcomeEvidence(store, attribution, outcomeInput);
 
-    const retry = await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    const retry = await publishOutcomeEvidence(store, attribution, outcomeInput);
 
     expect(retry.status).toBe('already_exists');
 
-    const records = await store.readJsonl(
-      OUTCOME_EVENT_PATH,
-    );
+    const records = await store.readJsonl(OUTCOME_EVENT_PATH);
 
     expect(records).toHaveLength(1);
   });
@@ -208,37 +162,21 @@ describe('HEAE event publisher', () => {
   it('rejects conflicting outcome content', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    await publishOutcomeEvidence(store, attribution, outcomeInput);
 
     await expect(
-      publishOutcomeEvidence(
-        store,
-        attribution,
-        {
-          ...outcomeInput,
-          outcome: {
-            ...outcomeInput.outcome,
-            tests_failed: 3,
-          },
+      publishOutcomeEvidence(store, attribution, {
+        ...outcomeInput,
+        outcome: {
+          ...outcomeInput.outcome,
+          tests_failed: 3,
         },
-      ),
-    ).rejects.toThrow(
-      'OutcomeEvidence publication conflict',
-    );
+      }),
+    ).rejects.toThrow('OutcomeEvidence publication conflict');
 
-    expect(
-      await store.readJsonl(
-        OUTCOME_EVENT_PATH,
-      ),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(1);
   });
 
   /**
@@ -249,34 +187,18 @@ describe('HEAE event publisher', () => {
   it('rejects a different evidence ID for the same execution', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    await publishOutcomeEvidence(store, attribution, outcomeInput);
 
     await expect(
-      publishOutcomeEvidence(
-        store,
-        attribution,
-        {
-          ...outcomeInput,
-          evidenceId: 'ev_test_outcome_002',
-        },
-      ),
-    ).rejects.toThrow(
-      'OutcomeEvidence publication conflict',
-    );
+      publishOutcomeEvidence(store, attribution, {
+        ...outcomeInput,
+        evidenceId: 'ev_test_outcome_002',
+      }),
+    ).rejects.toThrow('OutcomeEvidence publication conflict');
 
-    expect(
-      await store.readJsonl(
-        OUTCOME_EVENT_PATH,
-      ),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(1);
   });
 
   /**
@@ -287,41 +209,28 @@ describe('HEAE event publisher', () => {
   it('skips unreviewed memory evidence', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    const result = await publishOutcomeEvidence(
-      store,
-      attribution,
-      {
-        ...outcomeInput,
+    const result = await publishOutcomeEvidence(store, attribution, {
+      ...outcomeInput,
 
-        memoryUses: [
-          {
-            memory_id: 'mem_test_001',
-            retrieved_span_id:
-              '1000000000000001',
-            cited_by_node_ids: [],
-            implicated_in_failure: false,
-          },
-        ],
+      memoryUses: [
+        {
+          memory_id: 'mem_test_001',
+          retrieved_span_id: '1000000000000001',
+          cited_by_node_ids: [],
+          implicated_in_failure: false,
+        },
+      ],
 
-        memoryUsesReviewed: false,
-      },
-    );
+      memoryUsesReviewed: false,
+    });
 
     expect(result.status).toBe('skipped');
 
-    expect(result.reason).toContain(
-      'external review',
-    );
+    expect(result.reason).toContain('external review');
 
-    expect(
-      await store.readJsonl(
-        OUTCOME_EVENT_PATH,
-      ),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(0);
   });
 
   /**
@@ -331,26 +240,16 @@ describe('HEAE event publisher', () => {
   it('skips an unreviewed optimization proposal', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    const result = await publishOptimizationSignal(
-      store,
-      attribution,
-      {
-        ...reviewedProposal,
-        reviewed: false,
-      },
-    );
+    const result = await publishOptimizationSignal(store, attribution, {
+      ...reviewedProposal,
+      reviewed: false,
+    });
 
     expect(result.status).toBe('skipped');
 
-    expect(
-      await store.readJsonl(
-        OPTIMIZATION_EVENT_PATH,
-      ),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(0);
   });
 
   /**
@@ -361,27 +260,15 @@ describe('HEAE event publisher', () => {
   it('does not publish a signal without completed LLM judgment', async () => {
     const store = new MemoryStore();
 
-    const { attribution } = await evaluateTrace(
-      fixture,
-    );
+    const { attribution } = await evaluateTrace(fixture);
 
-    const result = await publishOptimizationSignal(
-      store,
-      attribution,
-      reviewedProposal,
-    );
+    const result = await publishOptimizationSignal(store, attribution, reviewedProposal);
 
     expect(result.status).toBe('skipped');
 
-    expect(result.reason).toContain(
-      'LLM judgment is unavailable',
-    );
+    expect(result.reason).toContain('LLM judgment is unavailable');
 
-    expect(
-      await store.readJsonl(
-        OPTIMIZATION_EVENT_PATH,
-      ),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(0);
   });
 
   /**
@@ -392,34 +279,19 @@ describe('HEAE event publisher', () => {
   it('publishes a supported optimization signal', async () => {
     const store = new MemoryStore();
 
-    const attribution =
-      makeSupportedAttribution();
+    const attribution = makeSupportedAttribution();
 
-    const result = await publishOptimizationSignal(
-      store,
-      attribution,
-      reviewedProposal,
-    );
+    const result = await publishOptimizationSignal(store, attribution, reviewedProposal);
 
     expect(result.status).toBe('published');
 
-    expect(result.event?.signal_id).toBe(
-      reviewedProposal.signalId,
-    );
+    expect(result.event?.signal_id).toBe(reviewedProposal.signalId);
 
-    expect(result.event?.classifier).toBe(
-      'llm_judge',
-    );
+    expect(result.event?.classifier).toBe('llm_judge');
 
-    expect(
-      OptimizationSignalSchema.safeParse(
-        result.event,
-      ).success,
-    ).toBe(true);
+    expect(OptimizationSignalSchema.safeParse(result.event).success).toBe(true);
 
-    const saved = await store.readJsonl(
-      OPTIMIZATION_EVENT_PATH,
-    );
+    const saved = await store.readJsonl(OPTIMIZATION_EVENT_PATH);
 
     expect(saved).toHaveLength(1);
 
@@ -434,32 +306,19 @@ describe('HEAE event publisher', () => {
   it('does not append a duplicate optimization signal', async () => {
     const store = new MemoryStore();
 
-    const attribution =
-      makeSupportedAttribution();
+    const attribution = makeSupportedAttribution();
 
-    const first = await publishOptimizationSignal(
-      store,
-      attribution,
-      reviewedProposal,
-    );
+    const first = await publishOptimizationSignal(store, attribution, reviewedProposal);
 
     expect(first.status).toBe('published');
 
-    const retry = await publishOptimizationSignal(
-      store,
-      attribution,
-      reviewedProposal,
-    );
+    const retry = await publishOptimizationSignal(store, attribution, reviewedProposal);
 
-    expect(retry.status).toBe(
-      'already_exists',
-    );
+    expect(retry.status).toBe('already_exists');
 
     expect(retry.event).toEqual(first.event);
 
-    const saved = await store.readJsonl(
-      OPTIMIZATION_EVENT_PATH,
-    );
+    const saved = await store.readJsonl(OPTIMIZATION_EVENT_PATH);
 
     expect(saved).toHaveLength(1);
   });
@@ -472,32 +331,18 @@ describe('HEAE event publisher', () => {
   it('rejects conflicting optimization signal content', async () => {
     const store = new MemoryStore();
 
-    const attribution =
-      makeSupportedAttribution();
+    const attribution = makeSupportedAttribution();
 
-    await publishOptimizationSignal(
-      store,
-      attribution,
-      reviewedProposal,
-    );
+    await publishOptimizationSignal(store, attribution, reviewedProposal);
 
     await expect(
-      publishOptimizationSignal(
-        store,
-        attribution,
-        {
-          ...reviewedProposal,
-          rootCauseSummary:
-            'Different reviewed explanation.',
-        },
-      ),
-    ).rejects.toThrow(
-      'OptimizationSignal publication conflict',
-    );
+      publishOptimizationSignal(store, attribution, {
+        ...reviewedProposal,
+        rootCauseSummary: 'Different reviewed explanation.',
+      }),
+    ).rejects.toThrow('OptimizationSignal publication conflict');
 
-    const saved = await store.readJsonl(
-      OPTIMIZATION_EVENT_PATH,
-    );
+    const saved = await store.readJsonl(OPTIMIZATION_EVENT_PATH);
 
     expect(saved).toHaveLength(1);
   });

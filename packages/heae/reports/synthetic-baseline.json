@@ -80,131 +80,63 @@
       },
       {
         "id": "tool-error.jsonl",
-        "expectedCategories": [
-          "tool"
-        ],
-        "predictedCategories": [
-          "tool"
-        ],
+        "expectedCategories": ["tool"],
+        "predictedCategories": ["tool"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000006"
-        ],
-        "ruleIds": [
-          "TOOL-02"
-        ]
+        "evidenceNodeIds": ["1000000000000006"],
+        "ruleIds": ["TOOL-02"]
       },
       {
         "id": "retrieval-empty.jsonl",
-        "expectedCategories": [
-          "retrieval",
-          "workflow"
-        ],
-        "predictedCategories": [
-          "retrieval",
-          "workflow"
-        ],
+        "expectedCategories": ["retrieval", "workflow"],
+        "predictedCategories": ["retrieval", "workflow"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000003",
-          "1000000000000007",
-          "1000000000000006"
-        ],
-        "ruleIds": [
-          "RETRIEVAL-01",
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["1000000000000003", "1000000000000007", "1000000000000006"],
+        "ruleIds": ["RETRIEVAL-01", "WORKFLOW-01"]
       },
       {
         "id": "planning-error.jsonl",
-        "expectedCategories": [
-          "planning",
-          "workflow"
-        ],
-        "predictedCategories": [
-          "planning",
-          "workflow"
-        ],
+        "expectedCategories": ["planning", "workflow"],
+        "predictedCategories": ["planning", "workflow"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000002",
-          "1000000000000007",
-          "1000000000000006"
-        ],
-        "ruleIds": [
-          "PLANNING-01",
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["1000000000000002", "1000000000000007", "1000000000000006"],
+        "ruleIds": ["PLANNING-01", "WORKFLOW-01"]
       },
       {
         "id": "prompt-error.jsonl",
-        "expectedCategories": [
-          "prompt",
-          "workflow"
-        ],
-        "predictedCategories": [
-          "prompt",
-          "workflow"
-        ],
+        "expectedCategories": ["prompt", "workflow"],
+        "predictedCategories": ["prompt", "workflow"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000005",
-          "1000000000000007",
-          "1000000000000006"
-        ],
-        "ruleIds": [
-          "PROMPT-01",
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["1000000000000005", "1000000000000007", "1000000000000006"],
+        "ruleIds": ["PROMPT-01", "WORKFLOW-01"]
       },
       {
         "id": "workflow-unverified.jsonl",
-        "expectedCategories": [
-          "workflow"
-        ],
-        "predictedCategories": [
-          "workflow"
-        ],
+        "expectedCategories": ["workflow"],
+        "predictedCategories": ["workflow"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000007",
-          "1000000000000006"
-        ],
-        "ruleIds": [
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["1000000000000007", "1000000000000006"],
+        "ruleIds": ["WORKFLOW-01"]
       },
       {
         "id": "multi-label-error.jsonl",
-        "expectedCategories": [
-          "retrieval",
-          "tool"
-        ],
-        "predictedCategories": [
-          "retrieval",
-          "tool"
-        ],
+        "expectedCategories": ["retrieval", "tool"],
+        "predictedCategories": ["retrieval", "tool"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "1000000000000006",
-          "1000000000000003"
-        ],
-        "ruleIds": [
-          "TOOL-02",
-          "RETRIEVAL-01"
-        ]
+        "evidenceNodeIds": ["1000000000000006", "1000000000000003"],
+        "ruleIds": ["TOOL-02", "RETRIEVAL-01"]
       }
     ]
   }

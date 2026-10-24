@@ -1,4 +1,3 @@
-
 import {
   OutcomeEvidenceSchema,
   OptimizationSignalSchema,
@@ -8,9 +7,7 @@ import {
 
 import type { Store } from '@soa/store';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 import {
   generateOutcomeEvidence,
@@ -30,16 +27,11 @@ import {
  * store/events/outcome_evidence.jsonl
  * store/events/optimization_signals.jsonl
  */
-export const OUTCOME_EVENT_PATH =
-  'events/outcome_evidence.jsonl';
+export const OUTCOME_EVENT_PATH = 'events/outcome_evidence.jsonl';
 
-export const OPTIMIZATION_EVENT_PATH =
-  'events/optimization_signals.jsonl';
+export const OPTIMIZATION_EVENT_PATH = 'events/optimization_signals.jsonl';
 
-export type PublicationStatus =
-  | 'published'
-  | 'already_exists'
-  | 'skipped';
+export type PublicationStatus = 'published' | 'already_exists' | 'skipped';
 
 export interface PublicationResult<T> {
   status: PublicationStatus;
@@ -53,10 +45,7 @@ export interface PublicationResult<T> {
  * This assumes stable serialization of records
  * produced and validated through the shared schemas.
  */
-function sameRecord(
-  left: unknown,
-  right: unknown,
-): boolean {
+function sameRecord(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
@@ -78,10 +67,7 @@ export async function publishOutcomeEvidence(
   input: OutcomeEvidenceInput,
 ): Promise<PublicationResult<OutcomeEvidence>> {
   // STEP 1: Generate outcome evidence.
-  const generated = generateOutcomeEvidence(
-    attribution,
-    input,
-  );
+  const generated = generateOutcomeEvidence(attribution, input);
 
   if (generated.status === 'skipped') {
     return {
@@ -92,10 +78,7 @@ export async function publishOutcomeEvidence(
   }
 
   // STEP 2: Validate the new evidence record.
-  const candidate: OutcomeEvidence =
-    OutcomeEvidenceSchema.parse(
-      generated.evidence,
-    );
+  const candidate: OutcomeEvidence = OutcomeEvidenceSchema.parse(generated.evidence);
 
   // STEP 3: Read and validate all previously
   // published OutcomeEvidence records.
@@ -106,15 +89,12 @@ export async function publishOutcomeEvidence(
   //
   // Parse the returned unknown records separately.
   const existing = OutcomeEvidenceSchema.array().parse(
-    await store.readJsonl<unknown>(
-      OUTCOME_EVENT_PATH,
-    ),
+    await store.readJsonl<unknown>(OUTCOME_EVENT_PATH),
   );
 
   // STEP 4: Check for duplicates and conflicts.
   for (const record of existing) {
-    const sameId =
-      record.evidence_id === candidate.evidence_id;
+    const sameId = record.evidence_id === candidate.evidence_id;
 
     const sameExecution =
       record.trace_id === candidate.trace_id &&
@@ -138,8 +118,8 @@ export async function publishOutcomeEvidence(
     // evidence for the same execution.
     throw new Error(
       'OutcomeEvidence publication conflict: ' +
-      'an existing record has the same event ID ' +
-      'or execution identity but different content.',
+        'an existing record has the same event ID ' +
+        'or execution identity but different content.',
     );
   }
 
@@ -147,10 +127,7 @@ export async function publishOutcomeEvidence(
   //
   // The candidate has already passed Zod validation.
   // No schema argument is required for Store.append().
-  await store.append<OutcomeEvidence>(
-    OUTCOME_EVENT_PATH,
-    candidate,
-  );
+  await store.append<OutcomeEvidence>(OUTCOME_EVENT_PATH, candidate);
 
   return {
     status: 'published',
@@ -177,10 +154,7 @@ export async function publishOptimizationSignal(
   proposal: ReviewedOptimizationProposal,
 ): Promise<PublicationResult<OptimizationSignal>> {
   // STEP 1: Generate the signal.
-  const generated = generateOptimizationSignal(
-    attribution,
-    proposal,
-  );
+  const generated = generateOptimizationSignal(attribution, proposal);
 
   if (generated.status === 'skipped') {
     return {
@@ -191,18 +165,14 @@ export async function publishOptimizationSignal(
   }
 
   // STEP 2: Validate the proposed signal.
-  const candidate: OptimizationSignal =
-    OptimizationSignalSchema.parse(
-      generated.signal,
-    );
+  const candidate: OptimizationSignal = OptimizationSignalSchema.parse(generated.signal);
 
   // STEP 3: Read previously published signals
   // with schema validation.
-  const existing =
-    await store.readJsonl<OptimizationSignal>(
-      OPTIMIZATION_EVENT_PATH,
-      OptimizationSignalSchema,
-    );
+  const existing = await store.readJsonl<OptimizationSignal>(
+    OPTIMIZATION_EVENT_PATH,
+    OptimizationSignalSchema,
+  );
 
   // STEP 4: Reject conflicting signal IDs and
   // prevent duplicate appends.
@@ -222,8 +192,8 @@ export async function publishOptimizationSignal(
 
     throw new Error(
       'OptimizationSignal publication conflict: ' +
-      `signal ID ${candidate.signal_id} ` +
-      'already exists with different content.',
+        `signal ID ${candidate.signal_id} ` +
+        'already exists with different content.',
     );
   }
 

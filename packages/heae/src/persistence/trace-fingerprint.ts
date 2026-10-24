@@ -1,4 +1,3 @@
-
 import { createHash } from 'node:crypto';
 
 import type { TraceGraph } from '../trace-graph.js';
@@ -14,19 +13,13 @@ function canonicalize(value: unknown): unknown {
     return value.map(canonicalize);
   }
 
-  if (
-    value !== null &&
-    typeof value === 'object'
-  ) {
+  if (value !== null && typeof value === 'object') {
     const object = value as Record<string, unknown>;
 
     return Object.fromEntries(
       Object.keys(object)
         .sort()
-        .map((key) => [
-          key,
-          canonicalize(object[key]),
-        ]),
+        .map((key) => [key, canonicalize(object[key])]),
     );
   }
 
@@ -40,19 +33,11 @@ function canonicalize(value: unknown): unknown {
  * Equivalent object-key ordering produces the same
  * fingerprint. Array ordering remains significant.
  */
-export function fingerprintTraceGraph(
-  graph: TraceGraph,
-): string {
+export function fingerprintTraceGraph(graph: TraceGraph): string {
   // Normalize to JSON-compatible values first.
-  const normalized = JSON.parse(
-    JSON.stringify(graph),
-  ) as unknown;
+  const normalized = JSON.parse(JSON.stringify(graph)) as unknown;
 
-  const canonical = JSON.stringify(
-    canonicalize(normalized),
-  );
+  const canonical = JSON.stringify(canonicalize(normalized));
 
-  return createHash('sha256')
-    .update(canonical, 'utf8')
-    .digest('hex');
+  return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }

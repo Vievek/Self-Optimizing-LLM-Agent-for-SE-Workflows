@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,10 +15,7 @@ import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
 /**
  * Synthetic tool-error fixture for recovery testing.
  */
-const content = readFileSync(
-  new URL('../../fixtures/tool-error.jsonl', import.meta.url),
-  'utf8',
-);
+const content = readFileSync(new URL('../../fixtures/tool-error.jsonl', import.meta.url), 'utf8');
 
 /**
  * Create isolated temporary persistence stores.
@@ -30,21 +26,14 @@ const content = readFileSync(
  * Each test receives a fresh database.
  */
 async function withStores(
-  run: (
-    store: MemoryStore,
-    graphStore: KuzuInteractionStore,
-  ) => Promise<void>,
+  run: (store: MemoryStore, graphStore: KuzuInteractionStore) => Promise<void>,
 ): Promise<void> {
-  const directory = await mkdtemp(
-    path.join(tmpdir(), 'heae-recovery-'),
-  );
+  const directory = await mkdtemp(path.join(tmpdir(), 'heae-recovery-'));
 
   let graphStore: KuzuInteractionStore | undefined;
 
   try {
-    graphStore = await KuzuInteractionStore.open(
-      path.join(directory, 'interaction.kuzu'),
-    );
+    graphStore = await KuzuInteractionStore.open(path.join(directory, 'interaction.kuzu'));
 
     await run(new MemoryStore(), graphStore);
   } finally {
@@ -66,9 +55,7 @@ describe('HEAE persistence recovery', () => {
    */
   it('recovers a missing report from a saved graph', async () => {
     await withStores(async (store, graphStore) => {
-      const graph = buildTraceGraph(
-        parseTraceJsonl(content),
-      );
+      const graph = buildTraceGraph(parseTraceJsonl(content));
 
       // Simulate a previous successful graph save.
       await graphStore.saveGraph(graph);
@@ -85,15 +72,11 @@ describe('HEAE persistence recovery', () => {
 
       const history = new EvaluationHistory(store);
 
-      const savedReport = await history.load(
-        graph.traceId,
-      );
+      const savedReport = await history.load(graph.traceId);
 
       expect(savedReport).not.toBeNull();
 
-      expect(savedReport?.traceFingerprint).toMatch(
-        /^[0-9a-f]{64}$/,
-      );
+      expect(savedReport?.traceFingerprint).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 
@@ -112,9 +95,7 @@ describe('HEAE persistence recovery', () => {
 
       const history = new EvaluationHistory(store);
 
-      const before = await history.load(
-        original.summary.traceId,
-      );
+      const before = await history.load(original.summary.traceId);
 
       expect(before).not.toBeNull();
 
@@ -125,23 +106,17 @@ describe('HEAE persistence recovery', () => {
         recovery: true,
       });
 
-      const after = await history.load(
-        original.summary.traceId,
-      );
+      const after = await history.load(original.summary.traceId);
 
       expect(recovered.summary.saved).toBe(true);
       expect(recovered.summary.graphSaved).toBe(true);
 
       // The original attribution must be preserved.
-      expect(recovered.attribution).toEqual(
-        original.attribution,
-      );
+      expect(recovered.attribution).toEqual(original.attribution);
 
       expect(after).toEqual(before);
 
-      const graph = await graphStore.loadGraph(
-        original.summary.traceId,
-      );
+      const graph = await graphStore.loadGraph(original.summary.traceId);
 
       expect(graph).not.toBeNull();
     });
@@ -155,14 +130,10 @@ describe('HEAE persistence recovery', () => {
    */
   it('rejects a mismatched saved graph', async () => {
     await withStores(async (store, graphStore) => {
-      const graph = buildTraceGraph(
-        parseTraceJsonl(content),
-      );
+      const graph = buildTraceGraph(parseTraceJsonl(content));
 
       // Deliberately change the saved graph.
-      graph.warnings.push(
-        'Injected inconsistency for recovery test',
-      );
+      graph.warnings.push('Injected inconsistency for recovery test');
 
       await graphStore.saveGraph(graph);
 
@@ -172,14 +143,10 @@ describe('HEAE persistence recovery', () => {
           graphStore,
           recovery: true,
         }),
-      ).rejects.toThrow(
-        'stored graph differs',
-      );
+      ).rejects.toThrow('stored graph differs');
 
       // Rejected recovery must not create a report.
-      const report = await new EvaluationHistory(
-        store,
-      ).load(graph.traceId);
+      const report = await new EvaluationHistory(store).load(graph.traceId);
 
       expect(report).toBeNull();
     });
@@ -202,15 +169,11 @@ describe('HEAE persistence recovery', () => {
       const history = new EvaluationHistory(store);
 
       // STEP 2: Verify the saved fingerprint.
-      const savedRecord = await history.load(
-        original.summary.traceId,
-      );
+      const savedRecord = await history.load(original.summary.traceId);
 
       expect(savedRecord).not.toBeNull();
 
-      expect(savedRecord?.traceFingerprint).toMatch(
-        /^[0-9a-f]{64}$/,
-      );
+      expect(savedRecord?.traceFingerprint).toMatch(/^[0-9a-f]{64}$/);
 
       // STEP 3: Modify the timestamp of one span.
       // Keep the same trace ID so recovery finds
@@ -225,9 +188,7 @@ describe('HEAE persistence recovery', () => {
           };
 
           if (index === 0) {
-            span.start_ts = new Date(
-              new Date(span.start_ts).getTime() - 1000,
-            ).toISOString();
+            span.start_ts = new Date(new Date(span.start_ts).getTime() - 1000).toISOString();
           }
 
           return JSON.stringify(span);
@@ -241,21 +202,15 @@ describe('HEAE persistence recovery', () => {
           graphStore,
           recovery: true,
         }),
-      ).rejects.toThrow(
-        'stored trace fingerprint differs',
-      );
+      ).rejects.toThrow('stored trace fingerprint differs');
 
       // STEP 5: No graph should be written.
-      const graph = await graphStore.loadGraph(
-        original.summary.traceId,
-      );
+      const graph = await graphStore.loadGraph(original.summary.traceId);
 
       expect(graph).toBeNull();
 
       // STEP 6: The original report must remain intact.
-      const after = await history.load(
-        original.summary.traceId,
-      );
+      const after = await history.load(original.summary.traceId);
 
       expect(after).toEqual(savedRecord);
     });
@@ -279,9 +234,7 @@ describe('HEAE persistence recovery', () => {
       // attribution without a trace fingerprint.
       await history.save(original.attribution);
 
-      const legacyBefore = await history.load(
-        original.summary.traceId,
-      );
+      const legacyBefore = await history.load(original.summary.traceId);
 
       expect(legacyBefore?.traceFingerprint).toBeUndefined();
 
@@ -296,19 +249,13 @@ describe('HEAE persistence recovery', () => {
       expect(recovered.summary.graphSaved).toBe(true);
 
       // Recovery must preserve the original report.
-      const legacyAfter = await history.load(
-        original.summary.traceId,
-      );
+      const legacyAfter = await history.load(original.summary.traceId);
 
       expect(legacyAfter).toEqual(legacyBefore);
 
-      expect(
-        legacyAfter?.traceFingerprint,
-      ).toBeUndefined();
+      expect(legacyAfter?.traceFingerprint).toBeUndefined();
 
-      const graph = await graphStore.loadGraph(
-        original.summary.traceId,
-      );
+      const graph = await graphStore.loadGraph(original.summary.traceId);
 
       expect(graph).not.toBeNull();
     });

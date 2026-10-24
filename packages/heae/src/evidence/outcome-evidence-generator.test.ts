@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -8,30 +7,21 @@ import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 import {
   generateOutcomeEvidence,
   type OutcomeEvidenceInput,
 } from './outcome-evidence-generator.js';
 
-const toolPath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolPath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
 function makeAttribution(): HybridAttributionResult {
-  const graph = buildTraceGraph(
-    parseTraceJsonl(readFileSync(toolPath, 'utf8')),
-  );
+  const graph = buildTraceGraph(parseTraceJsonl(readFileSync(toolPath, 'utf8')));
 
   const ruleReport = attributeTrace(graph);
 
-  const hypothesis = ruleReport.hypotheses.find(
-    (item) => item.category === 'tool',
-  );
+  const hypothesis = ruleReport.hypotheses.find((item) => item.category === 'tool');
 
   if (!hypothesis) {
     throw new Error('Expected tool hypothesis');
@@ -46,16 +36,12 @@ function makeAttribution(): HybridAttributionResult {
         {
           category: 'tool',
           assessment: 'supported',
-          explanation:
-            'Trace observations support this hypothesis.',
+          explanation: 'Trace observations support this hypothesis.',
           evidenceNodeIds: [...hypothesis.evidenceNodeIds],
-          limitations: [
-            'Root causality is not independently verified.',
-          ],
+          limitations: ['Root causality is not independently verified.'],
         },
       ],
-      overallUncertainty:
-        'Additional execution evidence may be required.',
+      overallUncertainty: 'Additional execution evidence may be required.',
     },
     warnings: [...ruleReport.warnings],
   };
@@ -86,10 +72,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
   it('generates schema-valid execution evidence', () => {
     const attribution = makeAttribution();
 
-    const result = generateOutcomeEvidence(
-      attribution,
-      makeInput(),
-    );
+    const result = generateOutcomeEvidence(attribution, makeInput());
 
     expect(result.status).toBe('generated');
 
@@ -97,21 +80,14 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       throw new Error(result.reason);
     }
 
-    expect(
-      OutcomeEvidenceSchema.safeParse(result.evidence).success,
-    ).toBe(true);
+    expect(OutcomeEvidenceSchema.safeParse(result.evidence).success).toBe(true);
 
     expect(result.evidence.schema_version).toBe('2.0');
-    expect(result.evidence.trace_id).toBe(
-      attribution.traceId,
-    );
+    expect(result.evidence.trace_id).toBe(attribution.traceId);
   });
 
   it('defaults unknown memory uses and labels to empty', () => {
-    const result = generateOutcomeEvidence(
-      makeAttribution(),
-      makeInput(),
-    );
+    const result = generateOutcomeEvidence(makeAttribution(), makeInput());
 
     if (result.status !== 'generated') {
       throw new Error(result.reason);
@@ -125,9 +101,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
     const attribution = makeAttribution();
     const input = makeInput();
 
-    const hypothesis = attribution.ruleReport.hypotheses.find(
-      (item) => item.category === 'tool',
-    );
+    const hypothesis = attribution.ruleReport.hypotheses.find((item) => item.category === 'tool');
 
     if (!hypothesis) {
       throw new Error('Expected tool hypothesis');
@@ -141,10 +115,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       },
     ];
 
-    const result = generateOutcomeEvidence(
-      attribution,
-      input,
-    );
+    const result = generateOutcomeEvidence(attribution, input);
 
     expect(result.status).toBe('generated');
 
@@ -152,8 +123,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       throw new Error(result.reason);
     }
 
-    expect(result.evidence.failure_labels[0]?.class)
-      .toBe('tool');
+    expect(result.evidence.failure_labels[0]?.class).toBe('tool');
   });
 
   it('rejects invented failure evidence nodes', () => {
@@ -167,10 +137,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       },
     ];
 
-    const result = generateOutcomeEvidence(
-      makeAttribution(),
-      input,
-    );
+    const result = generateOutcomeEvidence(makeAttribution(), input);
 
     expect(result.status).toBe('skipped');
   });
@@ -195,10 +162,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       },
     ];
 
-    const result = generateOutcomeEvidence(
-      attribution,
-      input,
-    );
+    const result = generateOutcomeEvidence(attribution, input);
 
     expect(result.status).toBe('skipped');
   });
@@ -208,10 +172,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
 
     input.cost.tokens_in = -1;
 
-    const result = generateOutcomeEvidence(
-      makeAttribution(),
-      input,
-    );
+    const result = generateOutcomeEvidence(makeAttribution(), input);
 
     expect(result.status).toBe('skipped');
   });
@@ -228,10 +189,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       },
     ];
 
-    const result = generateOutcomeEvidence(
-      makeAttribution(),
-      input,
-    );
+    const result = generateOutcomeEvidence(makeAttribution(), input);
 
     expect(result.status).toBe('skipped');
   });
@@ -240,9 +198,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
     const attribution = makeAttribution();
     const input = makeInput();
 
-    const hypothesis = attribution.ruleReport.hypotheses.find(
-      (item) => item.category === 'tool',
-    );
+    const hypothesis = attribution.ruleReport.hypotheses.find((item) => item.category === 'tool');
 
     if (!hypothesis) {
       throw new Error('Expected tool hypothesis');
@@ -256,10 +212,7 @@ describe('HEAE Outcome Evidence v2.0 generator', () => {
       },
     ];
 
-    const result = generateOutcomeEvidence(
-      attribution,
-      input,
-    );
+    const result = generateOutcomeEvidence(attribution, input);
 
     expect(result.status).toBe('skipped');
   });

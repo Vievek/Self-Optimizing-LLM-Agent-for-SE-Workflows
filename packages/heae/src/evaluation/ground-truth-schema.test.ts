@@ -1,10 +1,6 @@
-
 import { describe, expect, it } from 'vitest';
 
-import {
-  GroundTruthAnnotationSchema,
-  type GroundTruthAnnotation,
-} from './ground-truth-schema.js';
+import { GroundTruthAnnotationSchema, type GroundTruthAnnotation } from './ground-truth-schema.js';
 
 const TOOL_SPAN = '1000000000000006';
 const OUTPUT_SPAN = '1000000000000007';
@@ -19,22 +15,18 @@ function validAnnotation(): GroundTruthAnnotation {
       {
         category: 'tool',
         spanIds: [TOOL_SPAN],
-        justification:
-          'The apply_patch operation returned a context mismatch error.',
+        justification: 'The apply_patch operation returned a context mismatch error.',
       },
     ],
     causalAssessments: [
       {
         category: 'tool',
         judgment: 'insufficient_evidence',
-        explanation:
-          'The error was observed, but the underlying patch mismatch cause is unknown.',
+        explanation: 'The error was observed, but the underlying patch mismatch cause is unknown.',
         evidenceSpanIds: [TOOL_SPAN, OUTPUT_SPAN],
       },
     ],
-    limitations: [
-      'Patch content and repository state are unavailable.',
-    ],
+    limitations: ['Patch content and repository state are unavailable.'],
     annotationStatus: 'draft',
     datasetProvenance: 'synthetic_development',
   };
@@ -42,10 +34,9 @@ function validAnnotation(): GroundTruthAnnotation {
 
 describe('HEAE ground-truth annotation schema', () => {
   it('accepts a valid tool-failure annotation', () => {
-    expect(
-      GroundTruthAnnotationSchema.parse(validAnnotation())
-        .expectedCategories,
-    ).toEqual(['tool']);
+    expect(GroundTruthAnnotationSchema.parse(validAnnotation()).expectedCategories).toEqual([
+      'tool',
+    ]);
   });
 
   it('accepts a successful trace with no failure labels', () => {
@@ -58,9 +49,7 @@ describe('HEAE ground-truth annotation schema', () => {
       limitations: [],
     };
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(true);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(true);
   });
 
   it('accepts multiple supported categories', () => {
@@ -73,9 +62,7 @@ describe('HEAE ground-truth annotation schema', () => {
       justification: 'Required retrieval returned no results.',
     });
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(true);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(true);
   });
 
   it('rejects an unsupported failure category', () => {
@@ -84,27 +71,25 @@ describe('HEAE ground-truth annotation schema', () => {
       expectedCategories: ['network'],
     };
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(false);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
   });
 
   it('rejects duplicate failure categories', () => {
     const annotation = validAnnotation();
     annotation.expectedCategories = ['tool', 'tool'];
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Duplicate expected failure category');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Duplicate expected failure category',
+    );
   });
 
   it('rejects missing category evidence', () => {
     const annotation = validAnnotation();
     annotation.categoryEvidence = [];
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Missing evidence for category: tool');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Missing evidence for category: tool',
+    );
   });
 
   it('rejects evidence for an unlabelled category', () => {
@@ -115,9 +100,9 @@ describe('HEAE ground-truth annotation schema', () => {
       justification: 'A prompt-related observation.',
     });
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Evidence category has no expected label');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Evidence category has no expected label',
+    );
   });
 
   it('rejects duplicate evidence for a category', () => {
@@ -126,32 +111,25 @@ describe('HEAE ground-truth annotation schema', () => {
       ...annotation.categoryEvidence[0]!,
     });
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Duplicate category evidence');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Duplicate category evidence',
+    );
   });
 
   it('rejects malformed span IDs', () => {
     const annotation = validAnnotation();
-    annotation.categoryEvidence[0]!.spanIds = [
-      'invalid-span-id',
-    ];
+    annotation.categoryEvidence[0]!.spanIds = ['invalid-span-id'];
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(false);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
   });
 
   it('rejects duplicate evidence span IDs', () => {
     const annotation = validAnnotation();
-    annotation.categoryEvidence[0]!.spanIds = [
-      TOOL_SPAN,
-      TOOL_SPAN,
-    ];
+    annotation.categoryEvidence[0]!.spanIds = [TOOL_SPAN, TOOL_SPAN];
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Duplicate evidence span ID');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Duplicate evidence span ID',
+    );
   });
 
   it('rejects duplicate causal assessments', () => {
@@ -160,9 +138,9 @@ describe('HEAE ground-truth annotation schema', () => {
       ...annotation.causalAssessments[0]!,
     });
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Duplicate causal assessment');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Duplicate causal assessment',
+    );
   });
 
   it('rejects a supported causal judgment without evidence', () => {
@@ -174,42 +152,33 @@ describe('HEAE ground-truth annotation schema', () => {
       evidenceSpanIds: [],
     };
 
-    expect(() =>
-      GroundTruthAnnotationSchema.parse(annotation),
-    ).toThrow('Causal judgment requires supporting evidence');
+    expect(() => GroundTruthAnnotationSchema.parse(annotation)).toThrow(
+      'Causal judgment requires supporting evidence',
+    );
   });
 
   it('permits insufficient evidence without causal span IDs', () => {
     const annotation = validAnnotation();
     annotation.causalAssessments[0]!.evidenceSpanIds = [];
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(true);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(true);
   });
 
   it('rejects a path that escapes the dataset directory', () => {
     const annotation = validAnnotation();
     annotation.traceFile = '../outside.jsonl';
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(false);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
   });
 
   it('rejects absolute and Windows-style paths', () => {
-    for (const traceFile of [
-      '/tmp/trace.jsonl',
-      'C:\\traces\\failure.jsonl',
-    ]) {
+    for (const traceFile of ['/tmp/trace.jsonl', 'C:\\traces\\failure.jsonl']) {
       const annotation = {
         ...validAnnotation(),
         traceFile,
       };
 
-      expect(
-        GroundTruthAnnotationSchema.safeParse(annotation).success,
-      ).toBe(false);
+      expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
     }
   });
 
@@ -219,9 +188,7 @@ describe('HEAE ground-truth annotation schema', () => {
       annotationStatus: 'approved',
     };
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(false);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
   });
 
   it('rejects unknown dataset provenance', () => {
@@ -230,8 +197,6 @@ describe('HEAE ground-truth annotation schema', () => {
       datasetProvenance: 'unverified_external',
     };
 
-    expect(
-      GroundTruthAnnotationSchema.safeParse(annotation).success,
-    ).toBe(false);
+    expect(GroundTruthAnnotationSchema.safeParse(annotation).success).toBe(false);
   });
 });

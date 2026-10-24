@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -8,20 +7,12 @@ import { evaluateRules } from './rule-engine.js';
 import { detectWorkflowFailures } from './workflow-failure-rule.js';
 
 function loadGraph(path: URL) {
-  return buildTraceGraph(
-    parseTraceJsonl(readFileSync(path, 'utf8')),
-  );
+  return buildTraceGraph(parseTraceJsonl(readFileSync(path, 'utf8')));
 }
 
-const failurePath = new URL(
-  '../../fixtures/workflow-unverified.jsonl',
-  import.meta.url,
-);
+const failurePath = new URL('../../fixtures/workflow-unverified.jsonl', import.meta.url);
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
 describe('HEAE WORKFLOW-01 Rule', () => {
   it('detects an unsuccessful unverified patch workflow', () => {
@@ -35,10 +26,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
   it('returns output and patch tool evidence nodes', () => {
     const findings = detectWorkflowFailures(loadGraph(failurePath));
 
-    expect(findings[0]?.evidenceNodeIds).toEqual([
-      '1000000000000007',
-      '1000000000000006',
-    ]);
+    expect(findings[0]?.evidenceNodeIds).toEqual(['1000000000000007', '1000000000000006']);
   });
 
   it('preserves workflow details', () => {
@@ -50,16 +38,12 @@ describe('HEAE WORKFLOW-01 Rule', () => {
   });
 
   it('does not flag the successful fixture', () => {
-    expect(
-      detectWorkflowFailures(loadGraph(successPath)),
-    ).toHaveLength(0);
+    expect(detectWorkflowFailures(loadGraph(successPath))).toHaveLength(0);
   });
 
   it('does not flag a failed task that ran tests', () => {
     const graph = loadGraph(failurePath);
-    const output = graph.nodes.find(
-      node => node.span.name === 'output',
-    );
+    const output = graph.nodes.find((node) => node.span.name === 'output');
 
     if (!output || output.span.name !== 'output') {
       throw new Error('Output node missing');
@@ -73,9 +57,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
 
   it('does not flag a workflow without successful patch application', () => {
     const graph = loadGraph(failurePath);
-    const tool = graph.nodes.find(
-      node => node.span.name === 'tool_call',
-    );
+    const tool = graph.nodes.find((node) => node.span.name === 'tool_call');
 
     if (!tool || tool.span.name !== 'tool_call') {
       throw new Error('Tool node missing');
@@ -91,11 +73,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
     const result = evaluateRules(loadGraph(failurePath));
 
     expect(result.categories).toContain('workflow');
-    expect(
-      result.findings.some(
-        finding => finding.ruleId === 'WORKFLOW-01',
-      ),
-    ).toBe(true);
+    expect(result.findings.some((finding) => finding.ruleId === 'WORKFLOW-01')).toBe(true);
   });
 
   it('does not mutate the input graph', () => {
@@ -109,10 +87,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
 
   it('does not flag optional verification as a workflow failure', () => {
     const graph = loadGraph(
-      new URL(
-        '../../datasets/workflow-contrast-v1/traces/workflow-002.jsonl',
-        import.meta.url,
-      ),
+      new URL('../../datasets/workflow-contrast-v1/traces/workflow-002.jsonl', import.meta.url),
     );
 
     expect(detectWorkflowFailures(graph)).toHaveLength(0);
@@ -120,10 +95,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
 
   it('does not flag interruption before verification begins', () => {
     const graph = loadGraph(
-      new URL(
-        '../../datasets/workflow-contrast-v1/traces/workflow-003.jsonl',
-        import.meta.url,
-      ),
+      new URL('../../datasets/workflow-contrast-v1/traces/workflow-003.jsonl', import.meta.url),
     );
 
     expect(detectWorkflowFailures(graph)).toHaveLength(0);
@@ -131,10 +103,7 @@ describe('HEAE WORKFLOW-01 Rule', () => {
 
   it('still detects explicitly skipped mandatory verification', () => {
     const graph = loadGraph(
-      new URL(
-        '../../datasets/workflow-contrast-v1/traces/workflow-001.jsonl',
-        import.meta.url,
-      ),
+      new URL('../../datasets/workflow-contrast-v1/traces/workflow-001.jsonl', import.meta.url),
     );
 
     const findings = detectWorkflowFailures(graph);

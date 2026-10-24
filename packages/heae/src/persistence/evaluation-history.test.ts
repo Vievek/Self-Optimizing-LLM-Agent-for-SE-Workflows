@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,19 +10,11 @@ import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
-import {
-  EvaluationHistory,
-  StoredEvaluationSchema,
-} from './evaluation-history.js';
+import { EvaluationHistory, StoredEvaluationSchema } from './evaluation-history.js';
 
-const fixturePath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const fixturePath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
 function makeResult(): HybridAttributionResult {
   const source = readFileSync(fixturePath, 'utf8');
@@ -36,10 +27,7 @@ function makeResult(): HybridAttributionResult {
     ruleReport,
     judgment: null,
     judgeStatus: 'unavailable',
-    warnings: [
-      ...ruleReport.warnings,
-      'LLM judge unavailable during this evaluation.',
-    ],
+    warnings: [...ruleReport.warnings, 'LLM judge unavailable during this evaluation.'],
   };
 }
 
@@ -53,8 +41,7 @@ describe('HEAE evaluation history', () => {
 
     expect(saved.schemaVersion).toBe('1.0');
     expect(loaded).toEqual(saved);
-    expect(loaded?.result.ruleReport.observations)
-      .toEqual(result.ruleReport.observations);
+    expect(loaded?.result.ruleReport.observations).toEqual(result.ruleReport.observations);
   });
 
   it('preserves evidence and judge status', async () => {
@@ -65,14 +52,11 @@ describe('HEAE evaluation history', () => {
 
     const loaded = await history.load(result.traceId);
 
-    expect(loaded?.result.judgeStatus)
-      .toBe('unavailable');
+    expect(loaded?.result.judgeStatus).toBe('unavailable');
 
     expect(loaded?.result.judgment).toBeNull();
 
-    expect(
-      loaded?.result.ruleReport.hypotheses.length,
-    ).toBeGreaterThan(0);
+    expect(loaded?.result.ruleReport.hypotheses.length).toBeGreaterThan(0);
   });
 
   it('rejects duplicate trace evaluations', async () => {
@@ -81,17 +65,13 @@ describe('HEAE evaluation history', () => {
 
     await history.save(result);
 
-    await expect(
-      history.save(result),
-    ).rejects.toThrow('Evaluation already exists');
+    await expect(history.save(result)).rejects.toThrow('Evaluation already exists');
   });
 
   it('returns null for a missing evaluation', async () => {
     const history = new EvaluationHistory(new MemoryStore());
 
-    const result = await history.load(
-      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    );
+    const result = await history.load('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 
     expect(result).toBeNull();
   });
@@ -99,9 +79,7 @@ describe('HEAE evaluation history', () => {
   it('rejects invalid trace IDs', async () => {
     const history = new EvaluationHistory(new MemoryStore());
 
-    await expect(
-      history.load('../../outside'),
-    ).rejects.toThrow();
+    await expect(history.load('../../outside')).rejects.toThrow();
   });
 
   it('lists saved evaluation records', async () => {
@@ -121,24 +99,17 @@ describe('HEAE evaluation history', () => {
     const history = new EvaluationHistory(store);
     const result = makeResult();
 
-    await store.write(
-      `heae/evaluations/${result.traceId}.json`,
-      {
-        schemaVersion: '1.0',
-        traceId: result.traceId,
-        result: { invalid: true },
-      },
-    );
+    await store.write(`heae/evaluations/${result.traceId}.json`, {
+      schemaVersion: '1.0',
+      traceId: result.traceId,
+      result: { invalid: true },
+    });
 
-    await expect(
-      history.load(result.traceId),
-    ).rejects.toThrow();
+    await expect(history.load(result.traceId)).rejects.toThrow();
   });
 
   it('persists evaluation history using FileStore', async () => {
-    const directory = await mkdtemp(
-      path.join(tmpdir(), 'heae-history-'),
-    );
+    const directory = await mkdtemp(path.join(tmpdir(), 'heae-history-'));
 
     try {
       const result = makeResult();
@@ -156,9 +127,7 @@ describe('HEAE evaluation history', () => {
 
       expect(loaded).not.toBeNull();
       expect(loaded?.traceId).toBe(result.traceId);
-      expect(
-        StoredEvaluationSchema.safeParse(loaded).success,
-      ).toBe(true);
+      expect(StoredEvaluationSchema.safeParse(loaded).success).toBe(true);
     } finally {
       await rm(directory, {
         recursive: true,

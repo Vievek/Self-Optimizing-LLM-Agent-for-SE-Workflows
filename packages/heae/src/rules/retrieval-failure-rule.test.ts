@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -11,15 +10,9 @@ function loadGraph(path: URL) {
   return buildTraceGraph(parseTraceJsonl(content));
 }
 
-const failurePath = new URL(
-  '../../fixtures/retrieval-empty.jsonl',
-  import.meta.url,
-);
+const failurePath = new URL('../../fixtures/retrieval-empty.jsonl', import.meta.url);
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
 describe('HEAE RETRIEVAL-01 Rule', () => {
   it('detects retrieval with no results', () => {
@@ -34,9 +27,7 @@ describe('HEAE RETRIEVAL-01 Rule', () => {
   it('returns the retrieval evidence node', () => {
     const findings = detectRetrievalFailures(loadGraph(failurePath));
 
-    expect(findings[0]?.evidenceNodeIds).toEqual([
-      '1000000000000003',
-    ]);
+    expect(findings[0]?.evidenceNodeIds).toEqual(['1000000000000003']);
   });
 
   it('preserves retrieval details', () => {
@@ -48,9 +39,7 @@ describe('HEAE RETRIEVAL-01 Rule', () => {
   });
 
   it('does not flag retrieval with results', () => {
-    expect(
-      detectRetrievalFailures(loadGraph(successPath)),
-    ).toHaveLength(0);
+    expect(detectRetrievalFailures(loadGraph(successPath))).toHaveLength(0);
   });
 
   it('does not mutate the input graph', () => {

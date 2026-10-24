@@ -1,9 +1,4 @@
-
-import {
-  getProvider,
-  loadModelsConfig,
-  type LlmProvider,
-} from '@soa/llm';
+import { getProvider, loadModelsConfig, type LlmProvider } from '@soa/llm';
 
 import { FileStore, type Store } from '@soa/store';
 
@@ -12,9 +7,7 @@ import { evaluateTrace } from '../commands/evaluate-trace.js';
 import { EvaluationHistory } from '../persistence/evaluation-history.js';
 import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
 
-import type {
-  InteractionGraphStore,
-} from '../persistence/interaction-graph-store.js';
+import type { InteractionGraphStore } from '../persistence/interaction-graph-store.js';
 
 /**
  * Optional dependencies for testing and integration.
@@ -62,28 +55,18 @@ const HELP = [
  *   history [traceId]
  *   help
  */
-export async function runHeaeCli(
-  args: string[],
-  options: HeaeCliOptions = {},
-): Promise<string> {
+export async function runHeaeCli(args: string[], options: HeaeCliOptions = {}): Promise<string> {
   const [command, ...commandArgs] = args;
 
   // --------------------------------------------------
   // HELP
   // --------------------------------------------------
-  if (
-    !command ||
-    command === 'help' ||
-    command === '--help' ||
-    command === '-h'
-  ) {
+  if (!command || command === 'help' || command === '--help' || command === '-h') {
     return HELP;
   }
 
   if (command !== 'evaluate' && command !== 'history') {
-    throw new Error(
-      `Unknown HEAE command: ${command}\n\n${HELP}`,
-    );
+    throw new Error(`Unknown HEAE command: ${command}\n\n${HELP}`);
   }
 
   // --------------------------------------------------
@@ -92,24 +75,14 @@ export async function runHeaeCli(
   if (command === 'evaluate') {
     const [filePath, ...flags] = commandArgs;
 
-    const allowedFlags = new Set([
-      '--judge',
-      '--recover',
-    ]);
+    const allowedFlags = new Set(['--judge', '--recover']);
 
     // Reject unknown or repeated flags.
     const validFlags =
-      flags.every((flag) => allowedFlags.has(flag)) &&
-      new Set(flags).size === flags.length;
+      flags.every((flag) => allowedFlags.has(flag)) && new Set(flags).size === flags.length;
 
-    if (
-      !filePath ||
-      filePath.startsWith('--') ||
-      !validFlags
-    ) {
-      throw new Error(
-        'Usage: heae evaluate <trace.jsonl> [--judge] [--recover]',
-      );
+    if (!filePath || filePath.startsWith('--') || !validFlags) {
+      throw new Error('Usage: heae evaluate <trace.jsonl> [--judge] [--recover]');
     }
 
     const useJudge = flags.includes('--judge');
@@ -118,13 +91,10 @@ export async function runHeaeCli(
     // STEP 1: Read and validate the trace.
     const spans = await readTraceFile(filePath);
 
-    const jsonlContent = spans
-      .map((span) => JSON.stringify(span))
-      .join('\n');
+    const jsonlContent = spans.map((span) => JSON.stringify(span)).join('\n');
 
     // STEP 2: Configure evaluation report storage.
-    const store =
-      options.store ?? new FileStore('.heae/history');
+    const store = options.store ?? new FileStore('.heae/history');
 
     // STEP 3: Configure the optional LLM judge.
     let provider: LlmProvider | undefined;
@@ -139,11 +109,7 @@ export async function runHeaeCli(
         const config = loadModelsConfig().large;
 
         const credentialConfigured =
-          Boolean(config.apiKey) ||
-          Boolean(
-            config.apiKeyEnv &&
-            process.env[config.apiKeyEnv],
-          );
+          Boolean(config.apiKey) || Boolean(config.apiKeyEnv && process.env[config.apiKeyEnv]);
 
         if (!credentialConfigured) {
           throw new Error(
@@ -165,44 +131,31 @@ export async function runHeaeCli(
     //
     // Tests that inject their own Store remain isolated
     // unless they also supply a graphStore.
-    const ownsGraphStore =
-      options.store === undefined &&
-      options.graphStore === undefined;
+    const ownsGraphStore = options.store === undefined && options.graphStore === undefined;
 
     // Recovery requires both persistence destinations.
     // If the caller supplies only a report store,
     // it must also supply a graph store.
     if (useRecovery && options.store && !options.graphStore) {
-      throw new Error(
-        'Recovery requires both store and graphStore.',
-      );
+      throw new Error('Recovery requires both store and graphStore.');
     }
 
     const graphStore = ownsGraphStore
-      ? await KuzuInteractionStore.open(
-          'store/graphs/heae.kuzu',
-        )
+      ? await KuzuInteractionStore.open('store/graphs/heae.kuzu')
       : options.graphStore;
 
     try {
       // STEP 5: Evaluate and persist the trace.
-      const result = await evaluateTrace(
-        jsonlContent,
-        {
-          store,
-          graphStore,
-          provider,
-          model,
-          recovery: useRecovery,
-        },
-      );
+      const result = await evaluateTrace(jsonlContent, {
+        store,
+        graphStore,
+        provider,
+        model,
+        recovery: useRecovery,
+      });
 
       // STEP 6: Return the structured summary.
-      return JSON.stringify(
-        result.summary,
-        null,
-        2,
-      );
+      return JSON.stringify(result.summary, null, 2);
     } finally {
       // Close only the database opened by this CLI.
       // Never close a store supplied by another caller.
@@ -216,13 +169,10 @@ export async function runHeaeCli(
   // HISTORY
   // --------------------------------------------------
   if (commandArgs.length > 1) {
-    throw new Error(
-      'Usage: heae history [traceId]',
-    );
+    throw new Error('Usage: heae history [traceId]');
   }
 
-  const store =
-    options.store ?? new FileStore('.heae/history');
+  const store = options.store ?? new FileStore('.heae/history');
 
   const history = new EvaluationHistory(store);
 
@@ -236,11 +186,7 @@ export async function runHeaeCli(
       return `No saved evaluation found for ${traceId}.`;
     }
 
-    return JSON.stringify(
-      record,
-      null,
-      2,
-    );
+    return JSON.stringify(record, null, 2);
   }
 
   // List all stored evaluation summaries.
@@ -254,8 +200,7 @@ export async function runHeaeCli(
     traceId: record.traceId,
     outcome: record.result.ruleReport.outcome,
     judgeStatus: record.result.judgeStatus,
-    observations:
-      record.result.ruleReport.observations.length,
+    observations: record.result.ruleReport.observations.length,
   }));
 
   return JSON.stringify(summary, null, 2);

@@ -1,8 +1,4 @@
-
-import {
-  TypedTraceSpanSchema,
-  type TypedTraceSpan,
-} from '@soa/contracts';
+import { TypedTraceSpanSchema, type TypedTraceSpan } from '@soa/contracts';
 
 export type GraphNodeType =
   | 'TaskNode'
@@ -51,17 +47,13 @@ const NODE_TYPES: Record<TypedTraceSpan['name'], GraphNodeType> = {
   output: 'OutputNode',
 };
 
-function validateParentCycles(
-  spans: Map<string, TypedTraceSpan>,
-): void {
+function validateParentCycles(spans: Map<string, TypedTraceSpan>): void {
   const visited = new Set<string>();
   const visiting = new Set<string>();
 
   function visit(spanId: string): void {
     if (visiting.has(spanId)) {
-      throw new TraceGraphError(
-        `Parent cycle detected at span ${spanId}`,
-      );
+      throw new TraceGraphError(`Parent cycle detected at span ${spanId}`);
     }
 
     if (visited.has(spanId)) {
@@ -86,13 +78,9 @@ function validateParentCycles(
   }
 }
 
-export function buildTraceGraph(
-  inputSpans: TypedTraceSpan[],
-): TraceGraph {
+export function buildTraceGraph(inputSpans: TypedTraceSpan[]): TraceGraph {
   if (inputSpans.length === 0) {
-    throw new TraceGraphError(
-      'Cannot build a graph from an empty trace',
-    );
+    throw new TraceGraphError('Cannot build a graph from an empty trace');
   }
 
   const spans = new Map<string, TypedTraceSpan>();
@@ -105,9 +93,7 @@ export function buildTraceGraph(
     if (!result.success) {
       throw new TraceGraphError(
         `Invalid span: ${result.error.issues
-          .map((issue) =>
-            `${issue.path.join('.')}: ${issue.message}`,
-          )
+          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
           .join('; ')}`,
       );
     }
@@ -115,40 +101,23 @@ export function buildTraceGraph(
     const span = result.data;
 
     if (span.trace_id !== traceId) {
-      throw new TraceGraphError(
-        `Mixed trace IDs: ${span.trace_id} differs from ${traceId}`,
-      );
+      throw new TraceGraphError(`Mixed trace IDs: ${span.trace_id} differs from ${traceId}`);
     }
 
     if (spans.has(span.span_id)) {
-      throw new TraceGraphError(
-        `Duplicate span ID: ${span.span_id}`,
-      );
+      throw new TraceGraphError(`Duplicate span ID: ${span.span_id}`);
     }
 
-    if (
-      new Date(span.end_ts).getTime() <
-      new Date(span.start_ts).getTime()
-    ) {
-      throw new TraceGraphError(
-        `Invalid time range for span ${span.span_id}`,
-      );
+    if (new Date(span.end_ts).getTime() < new Date(span.start_ts).getTime()) {
+      throw new TraceGraphError(`Invalid time range for span ${span.span_id}`);
     }
 
     if (span.parent_span_id === span.span_id) {
-      throw new TraceGraphError(
-        `Span ${span.span_id} cannot be its own parent`,
-      );
+      throw new TraceGraphError(`Span ${span.span_id} cannot be its own parent`);
     }
 
-    if (
-      span.links.some(
-        (link) => link.span_id === span.span_id,
-      )
-    ) {
-      throw new TraceGraphError(
-        `Span ${span.span_id} cannot cause itself`,
-      );
+    if (span.links.some((link) => link.span_id === span.span_id)) {
+      throw new TraceGraphError(`Span ${span.span_id} cannot cause itself`);
     }
 
     spans.set(span.span_id, span);
@@ -160,11 +129,7 @@ export function buildTraceGraph(
   const edges: TraceGraphEdge[] = [];
   const edgeKeys = new Set<string>();
 
-  function addEdge(
-    source: string,
-    target: string,
-    type: GraphEdgeType,
-  ): void {
+  function addEdge(source: string, target: string, type: GraphEdgeType): void {
     const key = `${type}:${source}:${target}`;
 
     if (!edgeKeys.has(key)) {
@@ -182,29 +147,17 @@ export function buildTraceGraph(
 
     if (span.parent_span_id) {
       if (spans.has(span.parent_span_id)) {
-        addEdge(
-          span.parent_span_id,
-          span.span_id,
-          'PARENT_OF',
-        );
+        addEdge(span.parent_span_id, span.span_id, 'PARENT_OF');
       } else {
-        warnings.push(
-          `Missing parent ${span.parent_span_id} for span ${span.span_id}`,
-        );
+        warnings.push(`Missing parent ${span.parent_span_id} for span ${span.span_id}`);
       }
     }
 
     for (const link of span.links) {
       if (spans.has(link.span_id)) {
-        addEdge(
-          span.span_id,
-          link.span_id,
-          'CAUSED_BY',
-        );
+        addEdge(span.span_id, link.span_id, 'CAUSED_BY');
       } else {
-        warnings.push(
-          `Missing cause ${link.span_id} for span ${span.span_id}`,
-        );
+        warnings.push(`Missing cause ${link.span_id} for span ${span.span_id}`);
       }
     }
   }

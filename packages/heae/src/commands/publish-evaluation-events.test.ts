@@ -1,45 +1,25 @@
-
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 import { MemoryStore } from '@soa/store';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 
-import {
-  EvaluationHistory,
-} from '../persistence/evaluation-history.js';
+import { EvaluationHistory } from '../persistence/evaluation-history.js';
 
-import type {
-  OutcomeEvidenceInput,
-} from '../evidence/outcome-evidence-generator.js';
+import type { OutcomeEvidenceInput } from '../evidence/outcome-evidence-generator.js';
 
-import type {
-  ReviewedOptimizationProposal,
-} from '../signals/optimization-signal-generator.js';
+import type { ReviewedOptimizationProposal } from '../signals/optimization-signal-generator.js';
 
-import {
-  OUTCOME_EVENT_PATH,
-  OPTIMIZATION_EVENT_PATH,
-} from '../events/heae-event-publisher.js';
+import { OUTCOME_EVENT_PATH, OPTIMIZATION_EVENT_PATH } from '../events/heae-event-publisher.js';
 
-import {
-  publishEvaluationEvents,
-} from './publish-evaluation-events.js';
+import { publishEvaluationEvents } from './publish-evaluation-events.js';
 
-const fixture = readFileSync(
-  new URL(
-    '../../fixtures/tool-error.jsonl',
-    import.meta.url,
-  ),
-  'utf8',
-);
+const fixture = readFileSync(new URL('../../fixtures/tool-error.jsonl', import.meta.url), 'utf8');
 
 const runId = 'run_20261019T0900_baseline_01';
 const taskId = 'django__django-11099';
@@ -70,8 +50,7 @@ const proposal: ReviewedOptimizationProposal = {
   runId,
   taskId,
   failureClass: 'tool',
-  rootCauseSummary:
-    'Reviewed tool-operation failure hypothesis.',
+  rootCauseSummary: 'Reviewed tool-operation failure hypothesis.',
   evidenceNodeIds: ['1000000000000006'],
   targetAxis: 'tool',
   configPath: 'config/tools.yaml',
@@ -85,18 +64,12 @@ const proposal: ReviewedOptimizationProposal = {
  * Create test-only attribution data with a simulated
  * supported judge finding.
  */
-function makeAttribution(
-  supported: boolean,
-): HybridAttributionResult {
-  const graph = buildTraceGraph(
-    parseTraceJsonl(fixture),
-  );
+function makeAttribution(supported: boolean): HybridAttributionResult {
+  const graph = buildTraceGraph(parseTraceJsonl(fixture));
 
   const ruleReport = attributeTrace(graph);
 
-  const hypothesis = ruleReport.hypotheses.find(
-    (item) => item.category === 'tool',
-  );
+  const hypothesis = ruleReport.hypotheses.find((item) => item.category === 'tool');
 
   if (!hypothesis) {
     throw new Error('Expected tool hypothesis');
@@ -108,9 +81,7 @@ function makeAttribution(
       ruleReport,
       judgeStatus: 'unavailable',
       judgment: null,
-      warnings: [
-        'LLM judge unavailable in test.',
-      ],
+      warnings: ['LLM judge unavailable in test.'],
     };
   }
 
@@ -123,32 +94,21 @@ function makeAttribution(
         {
           category: 'tool',
           assessment: 'supported',
-          explanation:
-            'The tool hypothesis is supported by trace evidence.',
-          evidenceNodeIds: [
-            ...hypothesis.evidenceNodeIds,
-          ],
-          limitations: [
-            'A supported hypothesis does not prove causality.',
-          ],
+          explanation: 'The tool hypothesis is supported by trace evidence.',
+          evidenceNodeIds: [...hypothesis.evidenceNodeIds],
+          limitations: ['A supported hypothesis does not prove causality.'],
         },
       ],
-      overallUncertainty:
-        'The precise underlying cause remains uncertain.',
+      overallUncertainty: 'The precise underlying cause remains uncertain.',
     },
     warnings: [...ruleReport.warnings],
   };
 }
 
-async function saveEvaluation(
-  store: MemoryStore,
-  supported = true,
-): Promise<string> {
+async function saveEvaluation(store: MemoryStore, supported = true): Promise<string> {
   const attribution = makeAttribution(supported);
 
-  await new EvaluationHistory(store).save(
-    attribution,
-  );
+  await new EvaluationHistory(store).save(attribution);
 
   return attribution.traceId;
 }
@@ -158,28 +118,19 @@ describe('HEAE saved-evaluation event publication', () => {
     const store = new MemoryStore();
     const traceId = await saveEvaluation(store);
 
-    const result = await publishEvaluationEvents(
-      traceId,
-      {
-        store,
-        outcomeInput,
-        optimizationProposal: proposal,
-      },
-    );
+    const result = await publishEvaluationEvents(traceId, {
+      store,
+      outcomeInput,
+      optimizationProposal: proposal,
+    });
 
     expect(result.traceId).toBe(traceId);
     expect(result.outcome?.status).toBe('published');
-    expect(result.optimization?.status).toBe(
-      'published',
-    );
+    expect(result.optimization?.status).toBe('published');
 
-    expect(
-      await store.readJsonl(OUTCOME_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(1);
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(1);
   });
 
   it('does not duplicate events on retry', async () => {
@@ -194,66 +145,43 @@ describe('HEAE saved-evaluation event publication', () => {
 
     await publishEvaluationEvents(traceId, options);
 
-    const retry = await publishEvaluationEvents(
-      traceId,
-      options,
-    );
+    const retry = await publishEvaluationEvents(traceId, options);
 
-    expect(retry.outcome?.status).toBe(
-      'already_exists',
-    );
+    expect(retry.outcome?.status).toBe('already_exists');
 
-    expect(retry.optimization?.status).toBe(
-      'already_exists',
-    );
+    expect(retry.optimization?.status).toBe('already_exists');
 
-    expect(
-      await store.readJsonl(OUTCOME_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(1);
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(1);
   });
 
   it('publishes only the requested outcome event', async () => {
     const store = new MemoryStore();
     const traceId = await saveEvaluation(store);
 
-    const result = await publishEvaluationEvents(
-      traceId,
-      {
-        store,
-        outcomeInput,
-      },
-    );
+    const result = await publishEvaluationEvents(traceId, {
+      store,
+      outcomeInput,
+    });
 
     expect(result.outcome?.status).toBe('published');
     expect(result.optimization).toBeNull();
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(0);
   });
 
   it('rejects a missing saved evaluation', async () => {
     const store = new MemoryStore();
 
     await expect(
-      publishEvaluationEvents(
-        '0123456789abcdef0123456789abcdef',
-        {
-          store,
-          outcomeInput,
-        },
-      ),
-    ).rejects.toThrow(
-      'Saved HEAE evaluation not found',
-    );
+      publishEvaluationEvents('0123456789abcdef0123456789abcdef', {
+        store,
+        outcomeInput,
+      }),
+    ).rejects.toThrow('Saved HEAE evaluation not found');
 
-    expect(
-      await store.readJsonl(OUTCOME_EVENT_PATH),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(0);
   });
 
   it('requires at least one publication input', async () => {
@@ -264,9 +192,7 @@ describe('HEAE saved-evaluation event publication', () => {
       publishEvaluationEvents(traceId, {
         store,
       }),
-    ).rejects.toThrow(
-      'At least one event publication input is required',
-    );
+    ).rejects.toThrow('At least one event publication input is required');
   });
 
   it('rejects mismatched execution identities before writing', async () => {
@@ -282,44 +208,28 @@ describe('HEAE saved-evaluation event publication', () => {
           taskId: 'another-task',
         },
       }),
-    ).rejects.toThrow(
-      'Publication identity mismatch',
-    );
+    ).rejects.toThrow('Publication identity mismatch');
 
-    expect(
-      await store.readJsonl(OUTCOME_EVENT_PATH),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(0);
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(0);
   });
 
   it('skips a signal without supported judgment', async () => {
     const store = new MemoryStore();
 
-    const traceId = await saveEvaluation(
-      store,
-      false,
-    );
+    const traceId = await saveEvaluation(store, false);
 
-    const result = await publishEvaluationEvents(
-      traceId,
-      {
-        store,
-        optimizationProposal: proposal,
-      },
-    );
+    const result = await publishEvaluationEvents(traceId, {
+      store,
+      optimizationProposal: proposal,
+    });
 
     expect(result.outcome).toBeNull();
 
-    expect(result.optimization?.status).toBe(
-      'skipped',
-    );
+    expect(result.optimization?.status).toBe('skipped');
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(0);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(0);
   });
 
   it('preserves saved evaluation history', async () => {
@@ -344,39 +254,25 @@ describe('HEAE saved-evaluation event publication', () => {
     const store = new MemoryStore();
     const traceId = await saveEvaluation(store);
 
-    const first = await publishEvaluationEvents(
-      traceId,
-      {
-        store,
-        outcomeInput,
-      },
-    );
+    const first = await publishEvaluationEvents(traceId, {
+      store,
+      outcomeInput,
+    });
 
     expect(first.outcome?.status).toBe('published');
 
-    const second = await publishEvaluationEvents(
-      traceId,
-      {
-        store,
-        outcomeInput,
-        optimizationProposal: proposal,
-      },
-    );
+    const second = await publishEvaluationEvents(traceId, {
+      store,
+      outcomeInput,
+      optimizationProposal: proposal,
+    });
 
-    expect(second.outcome?.status).toBe(
-      'already_exists',
-    );
+    expect(second.outcome?.status).toBe('already_exists');
 
-    expect(second.optimization?.status).toBe(
-      'published',
-    );
+    expect(second.optimization?.status).toBe('published');
 
-    expect(
-      await store.readJsonl(OUTCOME_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OUTCOME_EVENT_PATH)).toHaveLength(1);
 
-    expect(
-      await store.readJsonl(OPTIMIZATION_EVENT_PATH),
-    ).toHaveLength(1);
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(1);
   });
 });

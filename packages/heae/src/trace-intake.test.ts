@@ -1,10 +1,5 @@
-
 import { describe, expect, it } from 'vitest';
-import {
-  parseTraceJsonl,
-  readTraceFile,
-  TraceIntakeError,
-} from './trace-intake.js';
+import { parseTraceJsonl, readTraceFile, TraceIntakeError } from './trace-intake.js';
 
 const validTaskSpan = {
   schema_version: '1.0',
@@ -27,15 +22,11 @@ const validTaskSpan = {
 
 describe('HEAE Trace Intake', () => {
   it('accepts a valid typed task span', () => {
-    const spans = parseTraceJsonl(
-      JSON.stringify(validTaskSpan),
-    );
+    const spans = parseTraceJsonl(JSON.stringify(validTaskSpan));
 
     expect(spans).toHaveLength(1);
     expect(spans[0]?.name).toBe('task');
-    expect(spans[0]?.span_id).toBe(
-      '0123456789abcdef',
-    );
+    expect(spans[0]?.span_id).toBe('0123456789abcdef');
   });
 
   it('accepts multiple valid JSONL records', () => {
@@ -45,21 +36,15 @@ describe('HEAE Trace Intake', () => {
       parent_span_id: validTaskSpan.span_id,
     };
 
-    const content = [
-      JSON.stringify(validTaskSpan),
-      JSON.stringify(secondSpan),
-    ].join('\n');
+    const content = [JSON.stringify(validTaskSpan), JSON.stringify(secondSpan)].join('\n');
 
     expect(parseTraceJsonl(content)).toHaveLength(2);
   });
 
   it('rejects malformed JSON with line number', () => {
-    const content =
-      JSON.stringify(validTaskSpan) + '\n{invalid json}';
+    const content = JSON.stringify(validTaskSpan) + '\n{invalid json}';
 
-    expect(() => parseTraceJsonl(content)).toThrow(
-      'Invalid JSON at line 2',
-    );
+    expect(() => parseTraceJsonl(content)).toThrow('Invalid JSON at line 2');
   });
 
   it('rejects invalid span attributes', () => {
@@ -71,27 +56,24 @@ describe('HEAE Trace Intake', () => {
       },
     };
 
-    expect(() =>
-      parseTraceJsonl(JSON.stringify(invalidSpan)),
-    ).toThrow('Invalid trace span at line 1');
-  });
-
-  it('rejects an empty trace', () => {
-    expect(() => parseTraceJsonl(' \n ')).toThrow(
-      'Trace file contains no valid spans',
+    expect(() => parseTraceJsonl(JSON.stringify(invalidSpan))).toThrow(
+      'Invalid trace span at line 1',
     );
   });
 
+  it('rejects an empty trace', () => {
+    expect(() => parseTraceJsonl(' \n ')).toThrow('Trace file contains no valid spans');
+  });
+
   it('skips blank lines', () => {
-    const content =
-      '\n' + JSON.stringify(validTaskSpan) + '\n\n';
+    const content = '\n' + JSON.stringify(validTaskSpan) + '\n\n';
 
     expect(parseTraceJsonl(content)).toHaveLength(1);
   });
 
   it('reports missing files clearly', async () => {
-    await expect(
-      readTraceFile('/nonexistent/heae-trace.jsonl'),
-    ).rejects.toBeInstanceOf(TraceIntakeError);
+    await expect(readTraceFile('/nonexistent/heae-trace.jsonl')).rejects.toBeInstanceOf(
+      TraceIntakeError,
+    );
   });
 });

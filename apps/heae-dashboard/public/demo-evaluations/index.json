@@ -7,9 +7,7 @@
       "caseId": "workflow-001",
       "traceId": "b1000000000000000000000000000001",
       "outcome": "fail",
-      "categories": [
-        "workflow"
-      ],
+      "categories": ["workflow"],
       "observationCount": 1,
       "hypothesisCount": 1,
       "judgeStatus": "unavailable"
@@ -36,9 +34,7 @@
       "caseId": "workflow-004",
       "traceId": "b4000000000000000000000000000004",
       "outcome": "fail",
-      "categories": [
-        "tool"
-      ],
+      "categories": ["tool"],
       "observationCount": 1,
       "hypothesisCount": 1,
       "judgeStatus": "unavailable"

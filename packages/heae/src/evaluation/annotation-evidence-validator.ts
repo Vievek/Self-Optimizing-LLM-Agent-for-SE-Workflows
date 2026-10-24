@@ -1,14 +1,8 @@
-
 import type { TraceGraph } from '../trace-graph.js';
-import {
-  GroundTruthAnnotationSchema,
-  type GroundTruthAnnotation,
-} from './ground-truth-schema.js';
+import { GroundTruthAnnotationSchema, type GroundTruthAnnotation } from './ground-truth-schema.js';
 
 export type AnnotationValidationIssueCode =
-  | 'MISSING_CATEGORY_EVIDENCE_SPAN'
-  | 'MISSING_CAUSAL_EVIDENCE_SPAN'
-  | 'OUTCOME_MISMATCH';
+  'MISSING_CATEGORY_EVIDENCE_SPAN' | 'MISSING_CAUSAL_EVIDENCE_SPAN' | 'OUTCOME_MISMATCH';
 
 export interface AnnotationValidationIssue {
   code: AnnotationValidationIssueCode;
@@ -28,16 +22,10 @@ export interface AnnotationEvidenceValidationResult {
  * Returns the final recorded task outcome.
  * Uses the same end-timestamp ordering as HEAE attribution.
  */
-function getRecordedOutcome(
-  graph: TraceGraph,
-): GroundTruthAnnotation['observedOutcome'] {
+function getRecordedOutcome(graph: TraceGraph): GroundTruthAnnotation['observedOutcome'] {
   const outputs = graph.nodes
     .filter((node) => node.span.name === 'output')
-    .sort(
-      (a, b) =>
-        Date.parse(a.span.end_ts) -
-        Date.parse(b.span.end_ts),
-    );
+    .sort((a, b) => Date.parse(a.span.end_ts) - Date.parse(b.span.end_ts));
 
   const finalOutput = outputs[outputs.length - 1];
 
@@ -60,12 +48,9 @@ export function validateAnnotationEvidence(
   graph: TraceGraph,
   rawAnnotation: unknown,
 ): AnnotationEvidenceValidationResult {
-  const annotation =
-    GroundTruthAnnotationSchema.parse(rawAnnotation);
+  const annotation = GroundTruthAnnotationSchema.parse(rawAnnotation);
 
-  const availableSpanIds = new Set(
-    graph.nodes.map((node) => node.id),
-  );
+  const availableSpanIds = new Set(graph.nodes.map((node) => node.id));
 
   const issues: AnnotationValidationIssue[] = [];
 
@@ -74,9 +59,7 @@ export function validateAnnotationEvidence(
       if (!availableSpanIds.has(spanId)) {
         issues.push({
           code: 'MISSING_CATEGORY_EVIDENCE_SPAN',
-          message:
-            `Category "${entry.category}" references ` +
-            `missing span ${spanId}`,
+          message: `Category "${entry.category}" references ` + `missing span ${spanId}`,
         });
       }
     }
@@ -88,8 +71,7 @@ export function validateAnnotationEvidence(
         issues.push({
           code: 'MISSING_CAUSAL_EVIDENCE_SPAN',
           message:
-            `Causal assessment "${assessment.category}" ` +
-            `references missing span ${spanId}`,
+            `Causal assessment "${assessment.category}" ` + `references missing span ${spanId}`,
         });
       }
     }

@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { ChatRequest, ChatResponse, LlmProvider } from '@soa/llm';
@@ -8,20 +7,12 @@ import { buildTraceGraph } from '../trace-graph.js';
 import { evaluateHybridAttribution } from './hybrid-attribution.js';
 
 function loadGraph(path: URL) {
-  return buildTraceGraph(
-    parseTraceJsonl(readFileSync(path, 'utf8')),
-  );
+  return buildTraceGraph(parseTraceJsonl(readFileSync(path, 'utf8')));
 }
 
-const toolPath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolPath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
 function makeProvider(
   content: string,
@@ -68,8 +59,7 @@ function validResponse(): string {
         limitations: ['Other related operations were not observed.'],
       },
     ],
-    overallUncertainty:
-      'The available evidence cannot establish definitive causality.',
+    overallUncertainty: 'The available evidence cannot establish definitive causality.',
   });
 }
 
@@ -106,8 +96,7 @@ describe('HEAE hybrid attribution coordinator', () => {
 
     expect(result.judgeStatus).toBe('unavailable');
     expect(result.ruleReport.hypotheses.length).toBeGreaterThan(0);
-    expect(result.warnings.some((w) => w.includes('not configured')))
-      .toBe(true);
+    expect(result.warnings.some((w) => w.includes('not configured'))).toBe(true);
   });
 
   it('preserves rules when provider throws', async () => {
@@ -145,7 +134,6 @@ describe('HEAE hybrid attribution coordinator', () => {
     });
 
     expect(result.ruleReport.hypotheses[0]?.status).toBe('unverified');
-    expect(result.judgment?.findings[0]?.assessment)
-      .toBe('insufficient_evidence');
+    expect(result.judgment?.findings[0]?.assessment).toBe('insufficient_evidence');
   });
 });

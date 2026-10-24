@@ -1,19 +1,10 @@
-
 import type { LlmProvider } from '@soa/llm';
 import type { TraceGraph } from '../trace-graph.js';
-import {
-  attributeTrace,
-  type AttributionReport,
-} from './evidence-attribution.js';
-import {
-  judgeTrace,
-} from './llm-judge.js';
+import { attributeTrace, type AttributionReport } from './evidence-attribution.js';
+import { judgeTrace } from './llm-judge.js';
 import type { JudgeResponse } from './judge-schema.js';
 
-export type HybridJudgeStatus =
-  | 'completed'
-  | 'skipped'
-  | 'unavailable';
+export type HybridJudgeStatus = 'completed' | 'skipped' | 'unavailable';
 
 export interface HybridAttributionResult {
   traceId: string;
@@ -46,9 +37,7 @@ export async function evaluateHybridAttribution(
   }
 
   if (!options.provider || !options.model) {
-    warnings.push(
-      'LLM judge unavailable: provider or model not configured.',
-    );
+    warnings.push('LLM judge unavailable: provider or model not configured.');
 
     return {
       traceId: ruleReport.traceId,
@@ -66,9 +55,7 @@ export async function evaluateHybridAttribution(
     });
 
     if (!result.modelCalled) {
-      warnings.push(
-        'LLM judge skipped: no candidate hypotheses available.',
-      );
+      warnings.push('LLM judge skipped: no candidate hypotheses available.');
 
       return {
         traceId: ruleReport.traceId,
@@ -88,9 +75,7 @@ export async function evaluateHybridAttribution(
     };
   } catch (error) {
     warnings.push(
-      `LLM judge unavailable: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `LLM judge unavailable: ${error instanceof Error ? error.message : String(error)}`,
     );
 
     return {

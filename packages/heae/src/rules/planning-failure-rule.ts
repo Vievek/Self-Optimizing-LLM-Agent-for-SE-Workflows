@@ -1,10 +1,7 @@
-
 import type { TraceGraph } from '../trace-graph.js';
 import type { RuleFinding } from './rule-types.js';
 
-export function detectPlanningFailures(
-  graph: TraceGraph,
-): RuleFinding[] {
+export function detectPlanningFailures(graph: TraceGraph): RuleFinding[] {
   const findings: RuleFinding[] = [];
 
   for (const node of graph.nodes) {

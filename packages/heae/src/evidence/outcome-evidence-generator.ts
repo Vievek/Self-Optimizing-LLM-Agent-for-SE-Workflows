@@ -1,4 +1,3 @@
-
 import {
   OUTCOME_EVIDENCE_SCHEMA_VERSION,
   OutcomeEvidenceSchema,
@@ -9,9 +8,7 @@ import {
   type OutcomeEvidence,
 } from '@soa/contracts';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 export interface OutcomeEvidenceInput {
   evidenceId: string;
@@ -44,9 +41,7 @@ export type OutcomeEvidenceGenerationResult =
       reason: string;
     };
 
-function skip(
-  reason: string,
-): OutcomeEvidenceGenerationResult {
+function skip(reason: string): OutcomeEvidenceGenerationResult {
   return {
     status: 'skipped',
     evidence: null,
@@ -64,69 +59,42 @@ export function generateOutcomeEvidence(
   // Memory implication and citation data must be verified
   // externally. HEAE cannot infer those from rule findings.
   if (memoryUses.length > 0 && !input.memoryUsesReviewed) {
-    return skip(
-      'Memory use records require external review.',
-    );
+    return skip('Memory use records require external review.');
   }
 
   const seenClasses = new Set<string>();
 
   for (const label of failureLabels) {
     if (seenClasses.has(label.class)) {
-      return skip(
-        `Duplicate failure label: ${label.class}`,
-      );
+      return skip(`Duplicate failure label: ${label.class}`);
     }
 
     seenClasses.add(label.class);
 
     if (label.node_ids.length === 0) {
-      return skip(
-        `Failure label ${label.class} has no evidence.`,
-      );
+      return skip(`Failure label ${label.class} has no evidence.`);
     }
 
-    if (
-      attribution.judgeStatus !== 'completed' ||
-      !attribution.judgment
-    ) {
-      return skip(
-        'Failure labels require a completed LLM judgment.',
-      );
+    if (attribution.judgeStatus !== 'completed' || !attribution.judgment) {
+      return skip('Failure labels require a completed LLM judgment.');
     }
 
-    const hypothesis =
-      attribution.ruleReport.hypotheses.find(
-        (item) => item.category === label.class,
-      );
+    const hypothesis = attribution.ruleReport.hypotheses.find(
+      (item) => item.category === label.class,
+    );
 
-    const judgment =
-      attribution.judgment.findings.find(
-        (item) => item.category === label.class,
-      );
+    const judgment = attribution.judgment.findings.find((item) => item.category === label.class);
 
-    if (
-      !hypothesis ||
-      !judgment ||
-      judgment.assessment !== 'supported'
-    ) {
-      return skip(
-        `Failure label ${label.class} is not supported.`,
-      );
+    if (!hypothesis || !judgment || judgment.assessment !== 'supported') {
+      return skip(`Failure label ${label.class} is not supported.`);
     }
 
     const allowedIds = new Set(
-      hypothesis.evidenceNodeIds.filter((id) =>
-        judgment.evidenceNodeIds.includes(id),
-      ),
+      hypothesis.evidenceNodeIds.filter((id) => judgment.evidenceNodeIds.includes(id)),
     );
 
-    if (
-      label.node_ids.some((id) => !allowedIds.has(id))
-    ) {
-      return skip(
-        `Failure label ${label.class} references unsupported evidence.`,
-      );
+    if (label.node_ids.some((id) => !allowedIds.has(id))) {
+      return skip(`Failure label ${label.class} references unsupported evidence.`);
     }
   }
 
@@ -144,13 +112,10 @@ export function generateOutcomeEvidence(
     cost: input.cost,
   };
 
-  const validation =
-    OutcomeEvidenceSchema.safeParse(candidate);
+  const validation = OutcomeEvidenceSchema.safeParse(candidate);
 
   if (!validation.success) {
-    return skip(
-      'Outcome Evidence failed the shared v2.0 schema.',
-    );
+    return skip('Outcome Evidence failed the shared v2.0 schema.');
   }
 
   return {

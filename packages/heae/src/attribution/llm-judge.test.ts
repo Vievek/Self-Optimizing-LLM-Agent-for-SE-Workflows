@@ -1,18 +1,11 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import type {
-  ChatRequest,
-  ChatResponse,
-  LlmProvider,
-} from '@soa/llm';
+import type { ChatRequest, ChatResponse, LlmProvider } from '@soa/llm';
 
 import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
-import {
-  judgeTrace
-} from './llm-judge.js';
+import { judgeTrace } from './llm-judge.js';
 
 function makeProvider(content: string): {
   provider: LlmProvider;
@@ -42,40 +35,25 @@ function makeProvider(content: string): {
 }
 
 function loadGraph(path: URL) {
-  return buildTraceGraph(
-    parseTraceJsonl(readFileSync(path, 'utf8')),
-  );
+  return buildTraceGraph(parseTraceJsonl(readFileSync(path, 'utf8')));
 }
 
-const toolPath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolPath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
-function responseJson(
-  category = 'tool',
-  nodeId = '1000000000000006',
-): string {
+function responseJson(category = 'tool', nodeId = '1000000000000006'): string {
   return JSON.stringify({
     findings: [
       {
         category,
         assessment: 'insufficient_evidence',
-        explanation:
-          'A tool error was observed, but causality is uncertain.',
+        explanation: 'A tool error was observed, but causality is uncertain.',
         evidenceNodeIds: [nodeId],
-        limitations: [
-          'The originating patch context was not inspected.',
-        ],
+        limitations: ['The originating patch context was not inspected.'],
       },
     ],
-    overallUncertainty:
-      'The available trace does not prove the root cause.',
+    overallUncertainty: 'The available trace does not prove the root cause.',
   });
 }
 
@@ -103,8 +81,7 @@ describe('HEAE LLM-as-Judge', () => {
     });
 
     expect(result.judgment?.findings[0]?.category).toBe('tool');
-    expect(result.judgment?.findings[0]?.assessment)
-      .toBe('insufficient_evidence');
+    expect(result.judgment?.findings[0]?.assessment).toBe('insufficient_evidence');
   });
 
   it('skips the model for a clean trace', async () => {
@@ -121,9 +98,7 @@ describe('HEAE LLM-as-Judge', () => {
   });
 
   it('rejects invented evidence IDs', async () => {
-    const { provider } = makeProvider(
-      responseJson('tool', 'ffffffffffffffff'),
-    );
+    const { provider } = makeProvider(responseJson('tool', 'ffffffffffffffff'));
 
     await expect(
       judgeTrace(loadGraph(toolPath), {
@@ -134,9 +109,7 @@ describe('HEAE LLM-as-Judge', () => {
   });
 
   it('rejects unsupported categories', async () => {
-    const { provider } = makeProvider(
-      responseJson('prompt'),
-    );
+    const { provider } = makeProvider(responseJson('prompt'));
 
     await expect(
       judgeTrace(loadGraph(toolPath), {
@@ -158,18 +131,14 @@ describe('HEAE LLM-as-Judge', () => {
   });
 
   it('rejects malformed responses', async () => {
-    const { provider } = makeProvider(
-      JSON.stringify({ result: 'tool error' }),
-    );
+    const { provider } = makeProvider(JSON.stringify({ result: 'tool error' }));
 
     await expect(
       judgeTrace(loadGraph(toolPath), {
         provider,
         model: 'test-judge',
       }),
-    ).rejects.toThrow(
-      'LLM response does not match the judge schema',
-    );
+    ).rejects.toThrow('LLM response does not match the judge schema');
   });
 
   it('preserves unverified attribution hypotheses', async () => {
@@ -180,15 +149,11 @@ describe('HEAE LLM-as-Judge', () => {
       model: 'test-judge',
     });
 
-    expect(result.report.hypotheses[0]?.status)
-      .toBe('unverified');
+    expect(result.report.hypotheses[0]?.status).toBe('unverified');
   });
 
-  
   it('includes tool error details in the judge evidence', async () => {
-    const { provider, requests } = makeProvider(
-      responseJson(),
-    );
+    const { provider, requests } = makeProvider(responseJson());
 
     await judgeTrace(loadGraph(toolPath), {
       provider,
@@ -197,15 +162,11 @@ describe('HEAE LLM-as-Judge', () => {
 
     expect(requests).toHaveLength(1);
 
-    const userMessage = requests[0]?.messages.find(
-      (message) => message.role === 'user',
-    );
+    const userMessage = requests[0]?.messages.find((message) => message.role === 'user');
 
     expect(userMessage).toBeDefined();
 
-    const evidence = JSON.parse(
-      userMessage!.content,
-    ) as {
+    const evidence = JSON.parse(userMessage!.content) as {
       observations: Array<{
         ruleId: string;
         category: string;
@@ -226,9 +187,7 @@ describe('HEAE LLM-as-Judge', () => {
 
     expect(toolObservation?.category).toBe('tool');
 
-    expect(toolObservation?.evidenceNodeIds).toContain(
-      '1000000000000006',
-    );
+    expect(toolObservation?.evidenceNodeIds).toContain('1000000000000006');
 
     expect(toolObservation?.details).toMatchObject({
       toolName: 'apply_patch',

@@ -1,34 +1,19 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { buildTraceGraph } from '../trace-graph.js';
 import { parseTraceJsonl } from '../trace-intake.js';
-import {
-  evaluateRules,
-  type RuleDetector,
-} from './rule-engine.js';
+import { evaluateRules, type RuleDetector } from './rule-engine.js';
 
 function loadGraph(path: URL) {
-  return buildTraceGraph(
-    parseTraceJsonl(readFileSync(path, 'utf8')),
-  );
+  return buildTraceGraph(parseTraceJsonl(readFileSync(path, 'utf8')));
 }
 
-const successPath = new URL(
-  '../../../../fixtures/traces/success.jsonl',
-  import.meta.url,
-);
+const successPath = new URL('../../../../fixtures/traces/success.jsonl', import.meta.url);
 
-const toolPath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolPath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
-const retrievalPath = new URL(
-  '../../fixtures/retrieval-empty.jsonl',
-  import.meta.url,
-);
+const retrievalPath = new URL('../../fixtures/retrieval-empty.jsonl', import.meta.url);
 
 describe('HEAE Unified Rule Engine', () => {
   it('returns no findings for a successful trace', () => {
@@ -55,9 +40,7 @@ describe('HEAE Unified Rule Engine', () => {
   it('supports multiple categories in one trace', () => {
     const graph = loadGraph(toolPath);
 
-    const retrievalNode = graph.nodes.find(
-      (node) => node.span.name === 'retrieval',
-    );
+    const retrievalNode = graph.nodes.find((node) => node.span.name === 'retrieval');
 
     if (!retrievalNode || retrievalNode.span.name !== 'retrieval') {
       throw new Error('Retrieval node missing');
@@ -103,9 +86,7 @@ describe('HEAE Unified Rule Engine', () => {
 
     const result = evaluateRules(graph);
 
-    expect(result.warnings).toContain(
-      'Missing parent reference',
-    );
+    expect(result.warnings).toContain('Missing parent reference');
   });
 
   it('does not mutate the input graph', () => {

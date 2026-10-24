@@ -71,22 +71,13 @@
     "cases": [
       {
         "id": "workflow-001",
-        "expectedCategories": [
-          "workflow"
-        ],
-        "predictedCategories": [
-          "workflow"
-        ],
+        "expectedCategories": ["workflow"],
+        "predictedCategories": ["workflow"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "b100000000000005",
-          "b100000000000004"
-        ],
-        "ruleIds": [
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["b100000000000005", "b100000000000004"],
+        "ruleIds": ["WORKFLOW-01"]
       },
       {
         "id": "workflow-002",
@@ -110,21 +101,13 @@
       },
       {
         "id": "workflow-004",
-        "expectedCategories": [
-          "tool"
-        ],
-        "predictedCategories": [
-          "tool"
-        ],
+        "expectedCategories": ["tool"],
+        "predictedCategories": ["tool"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "b400000000000004"
-        ],
-        "ruleIds": [
-          "TOOL-02"
-        ]
+        "evidenceNodeIds": ["b400000000000004"],
+        "ruleIds": ["TOOL-02"]
       },
       {
         "id": "workflow-005",

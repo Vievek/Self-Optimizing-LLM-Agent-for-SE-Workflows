@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { OptimizationSignalSchema } from '@soa/contracts';
@@ -7,30 +6,21 @@ import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 import {
   generateOptimizationSignal,
   type ReviewedOptimizationProposal,
 } from './optimization-signal-generator.js';
 
-const toolPath = new URL(
-  '../../fixtures/tool-error.jsonl',
-  import.meta.url,
-);
+const toolPath = new URL('../../fixtures/tool-error.jsonl', import.meta.url);
 
 function makeAttribution(): HybridAttributionResult {
-  const graph = buildTraceGraph(
-    parseTraceJsonl(readFileSync(toolPath, 'utf8')),
-  );
+  const graph = buildTraceGraph(parseTraceJsonl(readFileSync(toolPath, 'utf8')));
 
   const ruleReport = attributeTrace(graph);
 
-  const hypothesis = ruleReport.hypotheses.find(
-    (item) => item.category === 'tool',
-  );
+  const hypothesis = ruleReport.hypotheses.find((item) => item.category === 'tool');
 
   if (!hypothesis) {
     throw new Error('Expected tool hypothesis');
@@ -47,24 +37,17 @@ function makeAttribution(): HybridAttributionResult {
           assessment: 'supported',
           explanation: 'Tool failure is supported by trace evidence.',
           evidenceNodeIds: [...hypothesis.evidenceNodeIds],
-          limitations: [
-            'This does not independently prove root causality.',
-          ],
+          limitations: ['This does not independently prove root causality.'],
         },
       ],
-      overallUncertainty:
-        'The precise cause requires additional investigation.',
+      overallUncertainty: 'The precise cause requires additional investigation.',
     },
     warnings: [...ruleReport.warnings],
   };
 }
 
-function makeProposal(
-  attribution: HybridAttributionResult,
-): ReviewedOptimizationProposal {
-  const hypothesis = attribution.ruleReport.hypotheses.find(
-    (item) => item.category === 'tool',
-  );
+function makeProposal(attribution: HybridAttributionResult): ReviewedOptimizationProposal {
+  const hypothesis = attribution.ruleReport.hypotheses.find((item) => item.category === 'tool');
 
   if (!hypothesis) {
     throw new Error('Expected tool hypothesis');
@@ -77,8 +60,7 @@ function makeProposal(
     runId: 'run_test',
     taskId: 'task_test',
     failureClass: 'tool',
-    rootCauseSummary:
-      'Reviewed hypothesis: the tool operation failed during execution.',
+    rootCauseSummary: 'Reviewed hypothesis: the tool operation failed during execution.',
     evidenceNodeIds: [...hypothesis.evidenceNodeIds],
     targetAxis: 'tool',
     configPath: 'tools.execution',
@@ -92,10 +74,7 @@ function makeProposal(
 describe('HEAE Optimization Signal v2.0 generator', () => {
   it('generates a valid signal', () => {
     const attribution = makeAttribution();
-    const result = generateOptimizationSignal(
-      attribution,
-      makeProposal(attribution),
-    );
+    const result = generateOptimizationSignal(attribution, makeProposal(attribution));
 
     expect(result.status).toBe('generated');
 
@@ -103,9 +82,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
       throw new Error(result.reason);
     }
 
-    expect(
-      OptimizationSignalSchema.safeParse(result.signal).success,
-    ).toBe(true);
+    expect(OptimizationSignalSchema.safeParse(result.signal).success).toBe(true);
 
     expect(result.signal.schema_version).toBe('2.0');
     expect(result.signal.classifier).toBe('llm_judge');
@@ -116,9 +93,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
     const proposal = makeProposal(attribution);
     proposal.reviewed = false;
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 
   it('rejects unavailable judge results', () => {
@@ -127,9 +102,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
     attribution.judgeStatus = 'unavailable';
     attribution.judgment = null;
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 
   it('rejects insufficient evidence', () => {
@@ -141,9 +114,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
 
     finding.assessment = 'insufficient_evidence';
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 
   it('rejects invented evidence IDs', () => {
@@ -151,9 +122,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
     const proposal = makeProposal(attribution);
     proposal.evidenceNodeIds = ['ffffffffffffffff'];
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 
   it('rejects invalid confidence estimates', () => {
@@ -161,9 +130,7 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
     const proposal = makeProposal(attribution);
     proposal.confidence = 1.5;
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 
   it('rejects unsupported failure classes', () => {
@@ -171,8 +138,6 @@ describe('HEAE Optimization Signal v2.0 generator', () => {
     const proposal = makeProposal(attribution);
     proposal.failureClass = 'retrieval';
 
-    expect(
-      generateOptimizationSignal(attribution, proposal).status,
-    ).toBe('skipped');
+    expect(generateOptimizationSignal(attribution, proposal).status).toBe('skipped');
   });
 });

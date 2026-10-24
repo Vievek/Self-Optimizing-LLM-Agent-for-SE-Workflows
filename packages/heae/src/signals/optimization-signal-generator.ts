@@ -1,4 +1,3 @@
-
 import {
   OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
   OptimizationSignalSchema,
@@ -8,9 +7,7 @@ import {
   type SuggestedAction,
 } from '@soa/contracts';
 
-import type {
-  HybridAttributionResult,
-} from '../attribution/hybrid-attribution.js';
+import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
 export interface ReviewedOptimizationProposal {
   reviewed: boolean;
@@ -57,10 +54,7 @@ export function generateOptimizationSignal(
     return skip('Optimization proposal has not been reviewed.');
   }
 
-  if (
-    attribution.judgeStatus !== 'completed' ||
-    !attribution.judgment
-  ) {
+  if (attribution.judgeStatus !== 'completed' || !attribution.judgment) {
     return skip('LLM judgment is unavailable.');
   }
 
@@ -89,16 +83,10 @@ export function generateOptimizationSignal(
   }
 
   const allowedEvidence = new Set(
-    hypothesis.evidenceNodeIds.filter((id) =>
-      judgment.evidenceNodeIds.includes(id),
-    ),
+    hypothesis.evidenceNodeIds.filter((id) => judgment.evidenceNodeIds.includes(id)),
   );
 
-  if (
-    proposal.evidenceNodeIds.some(
-      (id) => !allowedEvidence.has(id),
-    )
-  ) {
+  if (proposal.evidenceNodeIds.some((id) => !allowedEvidence.has(id))) {
     return skip('The proposal references unsupported evidence.');
   }
 

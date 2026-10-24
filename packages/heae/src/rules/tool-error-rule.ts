@@ -1,10 +1,7 @@
-
 import type { TraceGraph } from '../trace-graph.js';
 import type { RuleFinding } from './rule-types.js';
 
-export function detectToolErrors(
-  graph: TraceGraph,
-): RuleFinding[] {
+export function detectToolErrors(graph: TraceGraph): RuleFinding[] {
   const findings: RuleFinding[] = [];
 
   for (const node of graph.nodes) {
@@ -15,9 +12,7 @@ export function detectToolErrors(
     const span = node.span;
     const attributes = span.attributes;
 
-    const failed =
-      span.status === 'error' ||
-      attributes.status === 'error';
+    const failed = span.status === 'error' || attributes.status === 'error';
 
     if (!failed) {
       continue;

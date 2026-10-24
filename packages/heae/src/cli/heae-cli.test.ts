@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from 'vitest';
 import { MemoryStore } from '@soa/store';
 
@@ -14,14 +13,11 @@ import { parseTraceJsonl } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
 import { readFileSync } from 'node:fs';
 
-const toolFixture =
-  'packages/heae/fixtures/tool-error.jsonl';
+const toolFixture = 'packages/heae/fixtures/tool-error.jsonl';
 
-const successFixture =
-  'fixtures/traces/success.jsonl';
+const successFixture = 'fixtures/traces/success.jsonl';
 
-const toolTraceId =
-  '0123456789abcdef0123456789abcdef';
+const toolTraceId = '0123456789abcdef0123456789abcdef';
 
 describe('HEAE standalone CLI', () => {
   it('displays help', async () => {
@@ -34,10 +30,7 @@ describe('HEAE standalone CLI', () => {
   it('evaluates a trace and saves the result', async () => {
     const store = new MemoryStore();
 
-    const output = await runHeaeCli(
-      ['evaluate', toolFixture],
-      { store },
-    );
+    const output = await runHeaeCli(['evaluate', toolFixture], { store });
 
     const result = JSON.parse(output) as {
       traceId: string;
@@ -49,25 +42,15 @@ describe('HEAE standalone CLI', () => {
     expect(result.observationCount).toBe(1);
     expect(result.saved).toBe(true);
 
-    expect(
-      await store.exists(
-        `heae/evaluations/${toolTraceId}.json`,
-      ),
-    ).toBe(true);
+    expect(await store.exists(`heae/evaluations/${toolTraceId}.json`)).toBe(true);
   });
 
   it('lists previously saved evaluations', async () => {
     const store = new MemoryStore();
 
-    await runHeaeCli(
-      ['evaluate', toolFixture],
-      { store },
-    );
+    await runHeaeCli(['evaluate', toolFixture], { store });
 
-    const output = await runHeaeCli(
-      ['history'],
-      { store },
-    );
+    const output = await runHeaeCli(['history'], { store });
 
     const records = JSON.parse(output) as Array<{
       traceId: string;
@@ -82,15 +65,9 @@ describe('HEAE standalone CLI', () => {
   it('retrieves a saved evaluation by trace ID', async () => {
     const store = new MemoryStore();
 
-    await runHeaeCli(
-      ['evaluate', toolFixture],
-      { store },
-    );
+    await runHeaeCli(['evaluate', toolFixture], { store });
 
-    const output = await runHeaeCli(
-      ['history', toolTraceId],
-      { store },
-    );
+    const output = await runHeaeCli(['history', toolTraceId], { store });
 
     const record = JSON.parse(output) as {
       traceId: string;
@@ -102,53 +79,31 @@ describe('HEAE standalone CLI', () => {
   });
 
   it('reports when no evaluation is saved', async () => {
-    const output = await runHeaeCli(
-      ['history'],
-      { store: new MemoryStore() },
-    );
+    const output = await runHeaeCli(['history'], { store: new MemoryStore() });
 
-    expect(output).toContain(
-      'No saved HEAE evaluations',
-    );
+    expect(output).toContain('No saved HEAE evaluations');
   });
 
   it('rejects missing trace paths', async () => {
-    await expect(
-      runHeaeCli(
-        ['evaluate'],
-        { store: new MemoryStore() },
-      ),
-    ).rejects.toThrow(
+    await expect(runHeaeCli(['evaluate'], { store: new MemoryStore() })).rejects.toThrow(
       'Usage: heae evaluate',
     );
   });
 
   it('rejects unknown commands', async () => {
-    await expect(
-      runHeaeCli(['unknown']),
-    ).rejects.toThrow(
-      'Unknown HEAE command',
-    );
+    await expect(runHeaeCli(['unknown'])).rejects.toThrow('Unknown HEAE command');
   });
 
   it('rejects malformed trace files', async () => {
     await expect(
-      runHeaeCli(
-        ['evaluate', 'does-not-exist.jsonl'],
-        { store: new MemoryStore() },
-      ),
-    ).rejects.toThrow(
-      'Unable to read trace file',
-    );
+      runHeaeCli(['evaluate', 'does-not-exist.jsonl'], { store: new MemoryStore() }),
+    ).rejects.toThrow('Unable to read trace file');
   });
 
   it('preserves the clean trace outcome', async () => {
     const store = new MemoryStore();
 
-    const output = await runHeaeCli(
-      ['evaluate', successFixture],
-      { store },
-    );
+    const output = await runHeaeCli(['evaluate', successFixture], { store });
 
     const result = JSON.parse(output) as {
       observationCount: number;
@@ -161,66 +116,56 @@ describe('HEAE standalone CLI', () => {
     expect(result.saved).toBe(true);
   });
 
-
-    it('shows the optional judge flag in help', async () => {
+  it('shows the optional judge flag in help', async () => {
     const output = await runHeaeCli(['help']);
 
-    expect(output).toContain(
-        'heae evaluate <trace.jsonl> --judge',
-    );
-    });
+    expect(output).toContain('heae evaluate <trace.jsonl> --judge');
+  });
 
-    it('runs hybrid attribution with an injected mock judge', async () => {
+  it('runs hybrid attribution with an injected mock judge', async () => {
     const store = new MemoryStore();
 
     let chatCalls = 0;
 
     const provider: LlmProvider = {
-        async chat(request) {
+      async chat(request) {
         chatCalls += 1;
 
         return {
-            content: JSON.stringify({
+          content: JSON.stringify({
             findings: [
-                {
+              {
                 category: 'tool',
                 assessment: 'insufficient_evidence',
-                explanation:
-                    'The tool failed, but its root cause is not proven.',
+                explanation: 'The tool failed, but its root cause is not proven.',
                 evidenceNodeIds: ['1000000000000006'],
-                limitations: [
-                    'There is insufficient evidence of causality.',
-                ],
-                },
+                limitations: ['There is insufficient evidence of causality.'],
+              },
             ],
-            overallUncertainty:
-                'The cause requires independent verification.',
-            }),
-            tokensIn: 20,
-            tokensOut: 30,
-            model: request.model,
-            provider: 'mock',
+            overallUncertainty: 'The cause requires independent verification.',
+          }),
+          tokensIn: 20,
+          tokensOut: 30,
+          model: request.model,
+          provider: 'mock',
         };
-        },
+      },
 
-        async embed() {
+      async embed() {
         return [];
-        },
+      },
     };
 
-    const output = await runHeaeCli(
-        ['evaluate', toolFixture, '--judge'],
-        {
-        store,
-        provider,
-        model: 'test-judge',
-        },
-    );
+    const output = await runHeaeCli(['evaluate', toolFixture, '--judge'], {
+      store,
+      provider,
+      model: 'test-judge',
+    });
 
     const summary = JSON.parse(output) as {
-        judgeStatus: string;
-        observationCount: number;
-        saved: boolean;
+      judgeStatus: string;
+      observationCount: number;
+      saved: boolean;
     };
 
     expect(chatCalls).toBe(1);
@@ -228,129 +173,101 @@ describe('HEAE standalone CLI', () => {
     expect(summary.observationCount).toBe(1);
     expect(summary.saved).toBe(true);
 
-    const saved = await new EvaluationHistory(store).load(
-        toolTraceId,
-    );
+    const saved = await new EvaluationHistory(store).load(toolTraceId);
 
-    expect(saved?.result.judgment?.findings[0]?.category)
-        .toBe('tool');
-    });
+    expect(saved?.result.judgment?.findings[0]?.category).toBe('tool');
+  });
 
-    it('rejects unsupported evaluate flags', async () => {
+  it('rejects unsupported evaluate flags', async () => {
     await expect(
-        runHeaeCli(
-        ['evaluate', toolFixture, '--unknown'],
-        { store: new MemoryStore() },
-        ),
-    ).rejects.toThrow(
-        'Usage: heae evaluate',
-    );
-    });
+      runHeaeCli(['evaluate', toolFixture, '--unknown'], { store: new MemoryStore() }),
+    ).rejects.toThrow('Usage: heae evaluate');
+  });
 
+  it('saves a graph when a Kuzu store is supplied', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'heae-cli-graph-'));
 
-    it('saves a graph when a Kuzu store is supplied', async () => {
-      const directory = await mkdtemp(
-        path.join(tmpdir(), 'heae-cli-graph-'),
-      );
+    const graphStore = await KuzuInteractionStore.open(path.join(directory, 'heae.kuzu'));
 
-      const graphStore = await KuzuInteractionStore.open(
-        path.join(directory, 'heae.kuzu'),
-      );
+    try {
+      const store = new MemoryStore();
 
-      try {
-        const store = new MemoryStore();
+      const output = await runHeaeCli(['evaluate', toolFixture], {
+        store,
+        graphStore,
+      });
 
-        const output = await runHeaeCli(
-          ['evaluate', toolFixture],
-          {
-            store,
-            graphStore,
-          },
-        );
+      const summary = JSON.parse(output) as {
+        traceId: string;
+        saved: boolean;
+        graphSaved: boolean;
+      };
 
-        const summary = JSON.parse(output) as {
-          traceId: string;
-          saved: boolean;
-          graphSaved: boolean;
-        };
+      expect(summary.saved).toBe(true);
+      expect(summary.graphSaved).toBe(true);
 
-        expect(summary.saved).toBe(true);
-        expect(summary.graphSaved).toBe(true);
+      const graph = await graphStore.loadGraph(summary.traceId);
 
-        const graph = await graphStore.loadGraph(
-          summary.traceId,
-        );
+      expect(graph).not.toBeNull();
+      expect(graph?.nodes.length).toBeGreaterThan(0);
 
-        expect(graph).not.toBeNull();
-        expect(graph?.nodes.length).toBeGreaterThan(0);
+      const history = new EvaluationHistory(store);
+      const report = await history.load(summary.traceId);
 
-        const history = new EvaluationHistory(store);
-        const report = await history.load(summary.traceId);
+      expect(report).not.toBeNull();
+    } finally {
+      await graphStore.close();
 
-        expect(report).not.toBeNull();
-      } finally {
-        await graphStore.close();
+      await rm(directory, {
+        recursive: true,
+        force: true,
+      });
+    }
+  });
 
-        await rm(directory, {
-          recursive: true,
-          force: true,
-        });
-      }
-    });
+  it('recovers a missing report through the CLI', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'heae-cli-recovery-'));
 
+    const graphStore = await KuzuInteractionStore.open(path.join(directory, 'heae.kuzu'));
 
-    it('recovers a missing report through the CLI', async () => {
-      const directory = await mkdtemp(
-        path.join(tmpdir(), 'heae-cli-recovery-'),
-      );
+    try {
+      const store = new MemoryStore();
 
-      const graphStore = await KuzuInteractionStore.open(
-        path.join(directory, 'heae.kuzu'),
-      );
+      // Simulate an interrupted evaluation:
+      // Kuzu contains the graph, but FileStore has no report.
+      const content = readFileSync(toolFixture, 'utf8');
 
-      try {
-        const store = new MemoryStore();
+      const graph = buildTraceGraph(parseTraceJsonl(content));
 
-        // Simulate an interrupted evaluation:
-        // Kuzu contains the graph, but FileStore has no report.
-        const content = readFileSync(toolFixture, 'utf8');
+      await graphStore.saveGraph(graph);
 
-        const graph = buildTraceGraph(
-          parseTraceJsonl(content),
-        );
+      // Repair the missing report using the CLI.
+      const output = await runHeaeCli(['evaluate', toolFixture, '--recover'], {
+        store,
+        graphStore,
+      });
 
-        await graphStore.saveGraph(graph);
+      const summary = JSON.parse(output) as {
+        traceId: string;
+        saved: boolean;
+        graphSaved: boolean;
+      };
 
-        // Repair the missing report using the CLI.
-        const output = await runHeaeCli(
-          ['evaluate', toolFixture, '--recover'],
-          {
-            store,
-            graphStore,
-          },
-        );
+      expect(summary.traceId).toBe(graph.traceId);
+      expect(summary.saved).toBe(true);
+      expect(summary.graphSaved).toBe(true);
 
-        const summary = JSON.parse(output) as {
-          traceId: string;
-          saved: boolean;
-          graphSaved: boolean;
-        };
+      const history = new EvaluationHistory(store);
+      const report = await history.load(graph.traceId);
 
-        expect(summary.traceId).toBe(graph.traceId);
-        expect(summary.saved).toBe(true);
-        expect(summary.graphSaved).toBe(true);
+      expect(report).not.toBeNull();
+    } finally {
+      await graphStore.close();
 
-        const history = new EvaluationHistory(store);
-        const report = await history.load(graph.traceId);
-
-        expect(report).not.toBeNull();
-      } finally {
-        await graphStore.close();
-
-        await rm(directory, {
-          recursive: true,
-          force: true,
-        });
-      }
-    });
+      await rm(directory, {
+        recursive: true,
+        force: true,
+      });
+    }
+  });
 });

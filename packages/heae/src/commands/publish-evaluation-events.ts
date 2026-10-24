@@ -1,22 +1,12 @@
-
-import type {
-  OutcomeEvidence,
-  OptimizationSignal,
-} from '@soa/contracts';
+import type { OutcomeEvidence, OptimizationSignal } from '@soa/contracts';
 
 import type { Store } from '@soa/store';
 
-import {
-  EvaluationHistory,
-} from '../persistence/evaluation-history.js';
+import { EvaluationHistory } from '../persistence/evaluation-history.js';
 
-import type {
-  OutcomeEvidenceInput,
-} from '../evidence/outcome-evidence-generator.js';
+import type { OutcomeEvidenceInput } from '../evidence/outcome-evidence-generator.js';
 
-import type {
-  ReviewedOptimizationProposal,
-} from '../signals/optimization-signal-generator.js';
+import type { ReviewedOptimizationProposal } from '../signals/optimization-signal-generator.js';
 
 import {
   publishOutcomeEvidence,
@@ -43,8 +33,7 @@ export interface PublishEvaluationEventsResult {
 
   outcome: PublicationResult<OutcomeEvidence> | null;
 
-  optimization:
-    PublicationResult<OptimizationSignal> | null;
+  optimization: PublicationResult<OptimizationSignal> | null;
 }
 
 /**
@@ -60,16 +49,10 @@ export async function publishEvaluationEvents(
   traceId: string,
   options: PublishEvaluationEventsOptions,
 ): Promise<PublishEvaluationEventsResult> {
-  const {
-    store,
-    outcomeInput,
-    optimizationProposal,
-  } = options;
+  const { store, outcomeInput, optimizationProposal } = options;
 
   if (!outcomeInput && !optimizationProposal) {
-    throw new Error(
-      'At least one event publication input is required.',
-    );
+    throw new Error('At least one event publication input is required.');
   }
 
   const history = new EvaluationHistory(store);
@@ -78,9 +61,7 @@ export async function publishEvaluationEvents(
   const saved = await history.load(traceId);
 
   if (!saved) {
-    throw new Error(
-      `Saved HEAE evaluation not found: ${traceId}`,
-    );
+    throw new Error(`Saved HEAE evaluation not found: ${traceId}`);
   }
 
   const attribution = saved.result;
@@ -95,7 +76,7 @@ export async function publishEvaluationEvents(
     ) {
       throw new Error(
         'Publication identity mismatch: outcome and ' +
-        'optimization inputs refer to different executions.',
+          'optimization inputs refer to different executions.',
       );
     }
   }
@@ -103,34 +84,22 @@ export async function publishEvaluationEvents(
   // All generated event trace IDs come from the
   // saved attribution, not from caller-supplied values.
   if (attribution.traceId !== saved.traceId) {
-    throw new Error(
-      'Stored evaluation trace identity mismatch.',
-    );
+    throw new Error('Stored evaluation trace identity mismatch.');
   }
 
-  let outcome: PublicationResult<OutcomeEvidence> | null =
-    null;
+  let outcome: PublicationResult<OutcomeEvidence> | null = null;
 
-  let optimization:
-    PublicationResult<OptimizationSignal> | null = null;
+  let optimization: PublicationResult<OptimizationSignal> | null = null;
 
   // OutcomeEvidence requires verified execution facts.
   if (outcomeInput) {
-    outcome = await publishOutcomeEvidence(
-      store,
-      attribution,
-      outcomeInput,
-    );
+    outcome = await publishOutcomeEvidence(store, attribution, outcomeInput);
   }
 
   // OptimizationSignal requires a reviewed proposal
   // and a completed supported LLM judgment.
   if (optimizationProposal) {
-    optimization = await publishOptimizationSignal(
-      store,
-      attribution,
-      optimizationProposal,
-    );
+    optimization = await publishOptimizationSignal(store, attribution, optimizationProposal);
   }
 
   return {

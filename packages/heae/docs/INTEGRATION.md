@@ -45,14 +45,10 @@ The Memory Agent and Optimization Orchestrator integrations are pending implemen
 ```typescript
 import { evaluateExecutionTrace } from '@soa/heae';
 
-const result = await evaluateExecutionTrace(
-  runId,
-  taskId,
-  {
-    tracesDirectory: 'store/traces',
-    store,
-  },
-);
+const result = await evaluateExecutionTrace(runId, taskId, {
+  tracesDirectory: 'store/traces',
+  store,
+});
 ```
 
 This function:
@@ -89,13 +85,10 @@ This API accepts trace content directly and is suitable for isolated tests or in
 ```typescript
 import { publishEvaluationEvents } from '@soa/heae';
 
-const publication = await publishEvaluationEvents(
-  traceId,
-  {
-    store,
-    outcomeInput,
-  },
-);
+const publication = await publishEvaluationEvents(traceId, {
+  store,
+  outcomeInput,
+});
 ```
 
 This function loads a previously saved evaluation and publishes requested downstream events.
@@ -110,15 +103,15 @@ Execution traces follow the shared `@soa/contracts` trace schema, version `1.0`.
 
 Supported span types are:
 
-| Span | Purpose |
-|---|---|
-| `task` | Identifies the execution run, task and configuration |
-| `prompt` | Records prompt and model information |
-| `plan` | Records planning steps and replanning information |
-| `tool_call` | Records tool execution, latency and failures |
-| `retrieval` | Records code or memory retrieval activity |
-| `route` | Records model routing decisions |
-| `output` | Records patch and test results |
+| Span        | Purpose                                              |
+| ----------- | ---------------------------------------------------- |
+| `task`      | Identifies the execution run, task and configuration |
+| `prompt`    | Records prompt and model information                 |
+| `plan`      | Records planning steps and replanning information    |
+| `tool_call` | Records tool execution, latency and failures         |
+| `retrieval` | Records code or memory retrieval activity            |
+| `route`     | Records model routing decisions                      |
+| `output`    | Records patch and test results                       |
 
 Each trace span contains identifiers, timestamps, a status, typed attributes and optional causal links.
 
@@ -300,10 +293,7 @@ ollama pull qwen2.5-coder:3b
 **Using the provider**
 
 ```typescript
-import {
-  evaluateTrace,
-  OllamaProvider,
-} from '@soa/heae';
+import { evaluateTrace, OllamaProvider } from '@soa/heae';
 
 const provider = new OllamaProvider({
   timeoutMs: 300000,

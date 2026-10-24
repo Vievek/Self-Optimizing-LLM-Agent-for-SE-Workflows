@@ -1,14 +1,7 @@
-
 import type { LlmProvider } from '@soa/llm';
 import type { TraceGraph } from '../trace-graph.js';
-import {
-  attributeTrace,
-  type AttributionReport,
-} from './evidence-attribution.js';
-import {
-  JudgeResponseSchema,
-  type JudgeResponse,
-} from './judge-schema.js';
+import { attributeTrace, type AttributionReport } from './evidence-attribution.js';
+import { JudgeResponseSchema, type JudgeResponse } from './judge-schema.js';
 
 export interface LlmJudgeOptions {
   provider: LlmProvider;
@@ -98,9 +91,7 @@ export async function judgeTrace(
     content = response.content;
   } catch (error) {
     throw new LlmJudgeError(
-      `LLM provider failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `LLM provider failed: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 
@@ -115,9 +106,7 @@ export async function judgeTrace(
   const validation = JudgeResponseSchema.safeParse(parsed);
 
   if (!validation.success) {
-    throw new LlmJudgeError(
-      'LLM response does not match the judge schema',
-    );
+    throw new LlmJudgeError('LLM response does not match the judge schema');
   }
 
   const judgment = validation.data;
@@ -125,30 +114,22 @@ export async function judgeTrace(
 
   for (const finding of judgment.findings) {
     if (seenCategories.has(finding.category)) {
-      throw new LlmJudgeError(
-        `Duplicate judgment category: ${finding.category}`,
-      );
+      throw new LlmJudgeError(`Duplicate judgment category: ${finding.category}`);
     }
 
     seenCategories.add(finding.category);
 
-    const hypothesis = report.hypotheses.find(
-      (item) => item.category === finding.category,
-    );
+    const hypothesis = report.hypotheses.find((item) => item.category === finding.category);
 
     if (!hypothesis) {
-      throw new LlmJudgeError(
-        `Unsupported judgment category: ${finding.category}`,
-      );
+      throw new LlmJudgeError(`Unsupported judgment category: ${finding.category}`);
     }
 
     const allowedEvidence = new Set(hypothesis.evidenceNodeIds);
 
     for (const nodeId of finding.evidenceNodeIds) {
       if (!allowedEvidence.has(nodeId)) {
-        throw new LlmJudgeError(
-          `Unverified evidence node: ${nodeId}`,
-        );
+        throw new LlmJudgeError(`Unverified evidence node: ${nodeId}`);
       }
     }
   }

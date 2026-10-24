@@ -1,9 +1,5 @@
-
 import { readFile } from 'node:fs/promises';
-import {
-  TypedTraceSpanSchema,
-  type TypedTraceSpan,
-} from '@soa/contracts';
+import { TypedTraceSpanSchema, type TypedTraceSpan } from '@soa/contracts';
 
 export class TraceIntakeError extends Error {
   constructor(
@@ -32,10 +28,7 @@ export function parseTraceJsonl(content: string): TypedTraceSpan[] {
     try {
       record = JSON.parse(line) as unknown;
     } catch {
-      throw new TraceIntakeError(
-        `Invalid JSON at line ${lineNumber}`,
-        lineNumber,
-      );
+      throw new TraceIntakeError(`Invalid JSON at line ${lineNumber}`, lineNumber);
     }
 
     const result = TypedTraceSpanSchema.safeParse(record);
@@ -61,20 +54,15 @@ export function parseTraceJsonl(content: string): TypedTraceSpan[] {
   return spans;
 }
 
-export async function readTraceFile(
-  filePath: string,
-): Promise<TypedTraceSpan[]> {
+export async function readTraceFile(filePath: string): Promise<TypedTraceSpan[]> {
   let content: string;
 
   try {
     content = await readFile(filePath, 'utf8');
   } catch (error) {
-    const reason =
-      error instanceof Error ? error.message : String(error);
+    const reason = error instanceof Error ? error.message : String(error);
 
-    throw new TraceIntakeError(
-      `Unable to read trace file "${filePath}": ${reason}`,
-    );
+    throw new TraceIntakeError(`Unable to read trace file "${filePath}": ${reason}`);
   }
 
   return parseTraceJsonl(content);

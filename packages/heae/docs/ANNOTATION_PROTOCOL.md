@@ -23,11 +23,11 @@ A failure observation must not automatically be treated as proof of its underlyi
 
 Every evaluation dataset must identify its origin.
 
-| Dataset type | Definition | Permitted interpretation |
-|---|---|---|
-| Synthetic development | Traces constructed to exercise known HEAE rules | Regression verification |
-| Synthetic independent | Traces constructed separately from rule development and withheld during implementation | Controlled generalisation testing |
-| Real execution | Traces recorded during actual software engineering task execution | System-level evaluation, subject to ground-truth quality |
+| Dataset type          | Definition                                                                             | Permitted interpretation                                 |
+| --------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Synthetic development | Traces constructed to exercise known HEAE rules                                        | Regression verification                                  |
+| Synthetic independent | Traces constructed separately from rule development and withheld during implementation | Controlled generalisation testing                        |
+| Real execution        | Traces recorded during actual software engineering task execution                      | System-level evaluation, subject to ground-truth quality |
 
 Dataset metadata should include the dataset name, version, source, collection or creation method, annotation date and annotation status.
 
@@ -175,17 +175,17 @@ Check that every assigned failure category has a documented justification and th
 
 Each annotated case should contain:
 
-| Field | Description |
-|---|---|
-| `caseId` | Unique evaluation-case identifier |
-| `traceFile` | Relative path to the trace |
-| `observedOutcome` | Recorded task outcome |
-| `expectedCategories` | Independently assigned failure categories |
-| `categoryEvidence` | Supporting span IDs for each positive category |
-| `causalAssessments` | Evaluations of causal hypotheses |
-| `limitations` | Missing or ambiguous evidence |
-| `annotationStatus` | Draft, reviewed or adjudicated |
-| `datasetProvenance` | Synthetic development, synthetic independent or real execution |
+| Field                | Description                                                    |
+| -------------------- | -------------------------------------------------------------- |
+| `caseId`             | Unique evaluation-case identifier                              |
+| `traceFile`          | Relative path to the trace                                     |
+| `observedOutcome`    | Recorded task outcome                                          |
+| `expectedCategories` | Independently assigned failure categories                      |
+| `categoryEvidence`   | Supporting span IDs for each positive category                 |
+| `causalAssessments`  | Evaluations of causal hypotheses                               |
+| `limitations`        | Missing or ambiguous evidence                                  |
+| `annotationStatus`   | Draft, reviewed or adjudicated                                 |
+| `datasetProvenance`  | Synthetic development, synthetic independent or real execution |
 
 These are proposed research annotation fields, not an existing HEAE runtime contract.
 

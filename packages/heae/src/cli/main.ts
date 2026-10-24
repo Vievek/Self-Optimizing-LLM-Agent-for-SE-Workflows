@@ -9,10 +9,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message =
-    error instanceof Error
-      ? error.message
-      : String(error);
+  const message = error instanceof Error ? error.message : String(error);
 
   console.error(`HEAE CLI Error: ${message}`);
   process.exitCode = 1;

@@ -1,11 +1,7 @@
-
 import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  isValidRunId,
-  type TypedTraceSpan,
-} from '@soa/contracts';
+import { isValidRunId, type TypedTraceSpan } from '@soa/contracts';
 
 import { readTraceFile } from '../trace-intake.js';
 import { buildTraceGraph } from '../trace-graph.js';
@@ -38,9 +34,7 @@ export class ExecutionTraceSource {
   private readonly tracesDirectory: string;
 
   constructor(options: ExecutionTraceSourceOptions = {}) {
-    this.tracesDirectory = path.resolve(
-      options.tracesDirectory ?? 'store/traces',
-    );
+    this.tracesDirectory = path.resolve(options.tracesDirectory ?? 'store/traces');
   }
 
   /**
@@ -49,27 +43,16 @@ export class ExecutionTraceSource {
    * This rejects unsafe identifiers before accessing
    * the filesystem.
    */
-  resolvePath(
-    runId: string,
-    taskId: string,
-  ): string {
+  resolvePath(runId: string, taskId: string): string {
     if (!isValidRunId(runId)) {
-      throw new ExecutionTraceSourceError(
-        `Invalid run ID: ${runId}`,
-      );
+      throw new ExecutionTraceSourceError(`Invalid run ID: ${runId}`);
     }
 
     if (!TASK_ID_PATTERN.test(taskId)) {
-      throw new ExecutionTraceSourceError(
-        `Invalid task ID: ${taskId}`,
-      );
+      throw new ExecutionTraceSourceError(`Invalid task ID: ${taskId}`);
     }
 
-    return path.join(
-      this.tracesDirectory,
-      runId,
-      `${taskId}.jsonl`,
-    );
+    return path.join(this.tracesDirectory, runId, `${taskId}.jsonl`);
   }
 
   /**
@@ -78,14 +61,8 @@ export class ExecutionTraceSource {
    * Requires a task span whose run_id and task_id
    * match the requested trace.
    */
-  async read(
-    runId: string,
-    taskId: string,
-  ): Promise<TypedTraceSpan[]> {
-    const filePath = this.resolvePath(
-      runId,
-      taskId,
-    );
+  async read(runId: string, taskId: string): Promise<TypedTraceSpan[]> {
+    const filePath = this.resolvePath(runId, taskId);
 
     // Resolve real paths to prevent symlinks from
     // escaping the configured trace directory.
@@ -98,30 +75,21 @@ export class ExecutionTraceSource {
         realpath(filePath),
       ]);
     } catch (error) {
-      const reason =
-        error instanceof Error
-          ? error.message
-          : String(error);
+      const reason = error instanceof Error ? error.message : String(error);
 
       throw new ExecutionTraceSourceError(
-        `Execution trace not available for ` +
-        `${runId}/${taskId}: ${reason}`,
+        `Execution trace not available for ` + `${runId}/${taskId}: ${reason}`,
       );
     }
 
-    const relativePath = path.relative(
-      realRoot,
-      realFile,
-    );
+    const relativePath = path.relative(realRoot, realFile);
 
     if (
       relativePath === '..' ||
       relativePath.startsWith(`..${path.sep}`) ||
       path.isAbsolute(relativePath)
     ) {
-      throw new ExecutionTraceSourceError(
-        'Execution trace path escapes the trace directory',
-      );
+      throw new ExecutionTraceSourceError('Execution trace path escapes the trace directory');
     }
 
     const spans = await readTraceFile(realFile);
@@ -130,24 +98,15 @@ export class ExecutionTraceSource {
     // duplicate span IDs and malformed relationships.
     buildTraceGraph(spans);
 
-    const taskSpans = spans.filter(
-      (span) => span.name === 'task',
-    );
+    const taskSpans = spans.filter((span) => span.name === 'task');
 
     if (taskSpans.length === 0) {
-      throw new ExecutionTraceSourceError(
-        `Trace is missing a task span: ${runId}/${taskId}`,
-      );
+      throw new ExecutionTraceSourceError(`Trace is missing a task span: ${runId}/${taskId}`);
     }
 
     for (const span of taskSpans) {
-      if (
-        span.attributes.run_id !== runId ||
-        span.attributes.task_id !== taskId
-      ) {
-        throw new ExecutionTraceSourceError(
-          `Task identity mismatch in trace ${runId}/${taskId}`,
-        );
+      if (span.attributes.run_id !== runId || span.attributes.task_id !== taskId) {
+        throw new ExecutionTraceSourceError(`Task identity mismatch in trace ${runId}/${taskId}`);
       }
     }
 

@@ -1,27 +1,16 @@
-
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { parseTraceJsonl } from '../trace-intake.js';
-import {
-  buildTraceGraph,
-  type TraceGraph,
-} from '../trace-graph.js';
+import { buildTraceGraph, type TraceGraph } from '../trace-graph.js';
 
 import { KuzuInteractionStore } from './kuzu-interaction-store.js';
 
-const fixturePath =
-  'packages/heae/fixtures/tool-error.jsonl';
+const fixturePath = 'packages/heae/fixtures/tool-error.jsonl';
 
 describe('HEAE Kuzu interaction graph', () => {
   let directory: string;
@@ -29,29 +18,17 @@ describe('HEAE Kuzu interaction graph', () => {
   let store: KuzuInteractionStore;
 
   async function fixtureGraph(): Promise<TraceGraph> {
-    const content = await readFile(
-      fixturePath,
-      'utf8',
-    );
+    const content = await readFile(fixturePath, 'utf8');
 
-    return buildTraceGraph(
-      parseTraceJsonl(content),
-    );
+    return buildTraceGraph(parseTraceJsonl(content));
   }
 
   beforeEach(async () => {
-    directory = await mkdtemp(
-      path.join(tmpdir(), 'heae-kuzu-test-'),
-    );
+    directory = await mkdtemp(path.join(tmpdir(), 'heae-kuzu-test-'));
 
-    databasePath = path.join(
-      directory,
-      'heae.kuzu',
-    );
+    databasePath = path.join(directory, 'heae.kuzu');
 
-    store = await KuzuInteractionStore.open(
-      databasePath,
-    );
+    store = await KuzuInteractionStore.open(databasePath);
   });
 
   afterEach(async () => {
@@ -68,9 +45,7 @@ describe('HEAE Kuzu interaction graph', () => {
 
     await store.saveGraph(graph);
 
-    const loaded = await store.loadGraph(
-      graph.traceId,
-    );
+    const loaded = await store.loadGraph(graph.traceId);
 
     expect(loaded).toEqual(graph);
   });
@@ -80,20 +55,14 @@ describe('HEAE Kuzu interaction graph', () => {
 
     await store.saveGraph(graph);
 
-    const loaded = await store.loadGraph(
-      graph.traceId,
-    );
+    const loaded = await store.loadGraph(graph.traceId);
 
-    const toolNode = loaded?.nodes.find(
-      (node) => node.type === 'ToolCallNode',
-    );
+    const toolNode = loaded?.nodes.find((node) => node.type === 'ToolCallNode');
 
     expect(toolNode?.span.name).toBe('tool_call');
 
     if (toolNode?.span.name === 'tool_call') {
-      expect(
-        toolNode.span.attributes.tool_name,
-      ).toBe('apply_patch');
+      expect(toolNode.span.attributes.tool_name).toBe('apply_patch');
     }
   });
 
@@ -102,9 +71,7 @@ describe('HEAE Kuzu interaction graph', () => {
 
     await store.saveGraph(graph);
 
-    const edges = await store.listEdges(
-      graph.traceId,
-    );
+    const edges = await store.listEdges(graph.traceId);
 
     expect(edges).toEqual(graph.edges);
   });
@@ -114,34 +81,22 @@ describe('HEAE Kuzu interaction graph', () => {
 
     await store.saveGraph(graph);
 
-    const evidenceNode =
-      graph.nodes.find(
-        (node) => node.type === 'ToolCallNode',
-      );
+    const evidenceNode = graph.nodes.find((node) => node.type === 'ToolCallNode');
 
     expect(evidenceNode).toBeDefined();
 
-    const relations =
-      await store.getEvidenceRelationships(
-        graph.traceId,
-        evidenceNode!.id,
-      );
+    const relations = await store.getEvidenceRelationships(graph.traceId, evidenceNode!.id);
 
     const expected = graph.edges.filter(
-      (edge) =>
-        edge.source === evidenceNode!.id ||
-        edge.target === evidenceNode!.id,
+      (edge) => edge.source === evidenceNode!.id || edge.target === evidenceNode!.id,
     );
 
-    expect(relations).toHaveLength(
-      expected.length,
-    );
+    expect(relations).toHaveLength(expected.length);
 
     expect(
       relations.every(
         (relation) =>
-          relation.source.id === evidenceNode!.id ||
-          relation.target.id === evidenceNode!.id,
+          relation.source.id === evidenceNode!.id || relation.target.id === evidenceNode!.id,
       ),
     ).toBe(true);
   });
@@ -151,26 +106,19 @@ describe('HEAE Kuzu interaction graph', () => {
 
     await store.saveGraph(graph);
 
-    await expect(
-      store.saveGraph(graph),
-    ).rejects.toThrow(
-      'Trace already exists',
-    );
+    await expect(store.saveGraph(graph)).rejects.toThrow('Trace already exists');
   });
 
   it('returns null for missing traces', async () => {
     const graph = await fixtureGraph();
 
-    expect(
-      await store.loadGraph(graph.traceId),
-    ).toBeNull();
+    expect(await store.loadGraph(graph.traceId)).toBeNull();
   });
 
   it('isolates separate trace IDs', async () => {
     const graphA = await fixtureGraph();
 
-    const traceIdB =
-      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const traceIdB = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
     const graphB = buildTraceGraph(
       graphA.nodes.map((node) => ({
@@ -182,13 +130,9 @@ describe('HEAE Kuzu interaction graph', () => {
     await store.saveGraph(graphA);
     await store.saveGraph(graphB);
 
-    expect(
-      await store.loadGraph(graphA.traceId),
-    ).toEqual(graphA);
+    expect(await store.loadGraph(graphA.traceId)).toEqual(graphA);
 
-    expect(
-      await store.loadGraph(graphB.traceId),
-    ).toEqual(graphB);
+    expect(await store.loadGraph(graphB.traceId)).toEqual(graphB);
   });
 
   it('rejects invalid edges without saving', async () => {
@@ -200,15 +144,9 @@ describe('HEAE Kuzu interaction graph', () => {
       type: 'PARENT_OF',
     });
 
-    await expect(
-      store.saveGraph(graph),
-    ).rejects.toThrow(
-      'Graph contains an invalid relationship',
-    );
+    await expect(store.saveGraph(graph)).rejects.toThrow('Graph contains an invalid relationship');
 
-    expect(
-      await store.loadGraph(graph.traceId),
-    ).toBeNull();
+    expect(await store.loadGraph(graph.traceId)).toBeNull();
   });
 
   it('persists graph data across reopening', async () => {
@@ -217,12 +155,8 @@ describe('HEAE Kuzu interaction graph', () => {
     await store.saveGraph(graph);
     await store.close();
 
-    store = await KuzuInteractionStore.open(
-      databasePath,
-    );
+    store = await KuzuInteractionStore.open(databasePath);
 
-    expect(
-      await store.loadGraph(graph.traceId),
-    ).toEqual(graph);
+    expect(await store.loadGraph(graph.traceId)).toEqual(graph);
   });
 });

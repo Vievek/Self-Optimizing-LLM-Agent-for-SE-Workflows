@@ -25,9 +25,7 @@
       "outcome": "error",
       "observations": [],
       "hypotheses": [],
-      "warnings": [
-        "The task failed, but no deterministic attribution evidence was found"
-      ],
+      "warnings": ["The task failed, but no deterministic attribution evidence was found"],
       "requiresJudge": true
     },
     "judgment": null,

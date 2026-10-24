@@ -81,76 +81,43 @@
       },
       {
         "id": "pilot-002",
-        "expectedCategories": [
-          "tool"
-        ],
-        "predictedCategories": [
-          "tool"
-        ],
+        "expectedCategories": ["tool"],
+        "predictedCategories": ["tool"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "a200000000000005"
-        ],
-        "ruleIds": [
-          "TOOL-02"
-        ]
+        "evidenceNodeIds": ["a200000000000005"],
+        "ruleIds": ["TOOL-02"]
       },
       {
         "id": "pilot-003",
-        "expectedCategories": [
-          "retrieval"
-        ],
-        "predictedCategories": [
-          "retrieval"
-        ],
+        "expectedCategories": ["retrieval"],
+        "predictedCategories": ["retrieval"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "a300000000000003"
-        ],
-        "ruleIds": [
-          "RETRIEVAL-01"
-        ]
+        "evidenceNodeIds": ["a300000000000003"],
+        "ruleIds": ["RETRIEVAL-01"]
       },
       {
         "id": "pilot-004",
-        "expectedCategories": [
-          "planning"
-        ],
-        "predictedCategories": [
-          "planning"
-        ],
+        "expectedCategories": ["planning"],
+        "predictedCategories": ["planning"],
         "exactMatch": true,
         "falsePositives": [],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "a400000000000002"
-        ],
-        "ruleIds": [
-          "PLANNING-01"
-        ]
+        "evidenceNodeIds": ["a400000000000002"],
+        "ruleIds": ["PLANNING-01"]
       },
       {
         "id": "pilot-005",
         "expectedCategories": [],
-        "predictedCategories": [
-          "workflow"
-        ],
+        "predictedCategories": ["workflow"],
         "exactMatch": false,
-        "falsePositives": [
-          "workflow"
-        ],
+        "falsePositives": ["workflow"],
         "falseNegatives": [],
-        "evidenceNodeIds": [
-          "a500000000000006",
-          "a500000000000005"
-        ],
-        "ruleIds": [
-          "WORKFLOW-01"
-        ]
+        "evidenceNodeIds": ["a500000000000006", "a500000000000005"],
+        "ruleIds": ["WORKFLOW-01"]
       }
     ]
   }

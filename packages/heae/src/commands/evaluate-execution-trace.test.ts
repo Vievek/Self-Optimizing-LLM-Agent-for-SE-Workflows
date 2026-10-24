@@ -1,21 +1,9 @@
-
 import { readFileSync } from 'node:fs';
-import {
-  mkdtemp,
-  mkdir,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { MemoryStore } from '@soa/store';
 
@@ -26,10 +14,7 @@ const RUN_ID = 'run_20261019T0900_baseline_01';
 const TASK_ID = 'django__django-11099';
 
 const fixtureContent = readFileSync(
-  new URL(
-    '../../fixtures/tool-error.jsonl',
-    import.meta.url,
-  ),
+  new URL('../../fixtures/tool-error.jsonl', import.meta.url),
   'utf8',
 );
 
@@ -37,15 +22,8 @@ describe('HEAE evaluate-execution-trace integration', () => {
   let directory: string;
   let tracesDirectory: string;
 
-  async function writeExecutionTrace(
-    taskId = TASK_ID,
-    runId = RUN_ID,
-  ): Promise<void> {
-    const traceFile = path.join(
-      tracesDirectory,
-      RUN_ID,
-      `${TASK_ID}.jsonl`,
-    );
+  async function writeExecutionTrace(taskId = TASK_ID, runId = RUN_ID): Promise<void> {
+    const traceFile = path.join(tracesDirectory, RUN_ID, `${TASK_ID}.jsonl`);
 
     await mkdir(path.dirname(traceFile), {
       recursive: true,
@@ -73,14 +51,9 @@ describe('HEAE evaluate-execution-trace integration', () => {
   }
 
   beforeEach(async () => {
-    directory = await mkdtemp(
-      path.join(tmpdir(), 'heae-evaluation-'),
-    );
+    directory = await mkdtemp(path.join(tmpdir(), 'heae-evaluation-'));
 
-    tracesDirectory = path.join(
-      directory,
-      'traces',
-    );
+    tracesDirectory = path.join(directory, 'traces');
   });
 
   afterEach(async () => {
@@ -93,23 +66,13 @@ describe('HEAE evaluate-execution-trace integration', () => {
   it('evaluates an Execution Core trace successfully', async () => {
     await writeExecutionTrace();
 
-    const result = await evaluateExecutionTrace(
-      RUN_ID,
-      TASK_ID,
-      { tracesDirectory },
-    );
+    const result = await evaluateExecutionTrace(RUN_ID, TASK_ID, { tracesDirectory });
 
-    expect(result.summary.traceId).toMatch(
-      /^[0-9a-f]{32}$/,
-    );
+    expect(result.summary.traceId).toMatch(/^[0-9a-f]{32}$/);
 
-    expect(result.summary.categories).toContain(
-      'tool',
-    );
+    expect(result.summary.categories).toContain('tool');
 
-    expect(
-      result.summary.observationCount,
-    ).toBeGreaterThan(0);
+    expect(result.summary.observationCount).toBeGreaterThan(0);
 
     expect(result.summary.saved).toBe(false);
     expect(result.summary.graphSaved).toBe(false);
@@ -120,38 +83,22 @@ describe('HEAE evaluate-execution-trace integration', () => {
 
     const store = new MemoryStore();
 
-    const result = await evaluateExecutionTrace(
-      RUN_ID,
-      TASK_ID,
-      {
-        tracesDirectory,
-        store,
-      },
-    );
+    const result = await evaluateExecutionTrace(RUN_ID, TASK_ID, {
+      tracesDirectory,
+      store,
+    });
 
     expect(result.summary.saved).toBe(true);
 
-    const saved = await new EvaluationHistory(
-      store,
-    ).load(result.summary.traceId);
+    const saved = await new EvaluationHistory(store).load(result.summary.traceId);
 
-    expect(saved?.traceId).toBe(
-      result.summary.traceId,
-    );
+    expect(saved?.traceId).toBe(result.summary.traceId);
 
-    expect(saved?.traceFingerprint).toMatch(
-      /^[0-9a-f]{64}$/,
-    );
+    expect(saved?.traceFingerprint).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('rejects a missing execution trace file', async () => {
-    await expect(
-      evaluateExecutionTrace(
-        RUN_ID,
-        TASK_ID,
-        { tracesDirectory },
-      ),
-    ).rejects.toThrow(
+    await expect(evaluateExecutionTrace(RUN_ID, TASK_ID, { tracesDirectory })).rejects.toThrow(
       'Execution trace not available',
     );
   });
@@ -159,13 +106,7 @@ describe('HEAE evaluate-execution-trace integration', () => {
   it('rejects a mismatched task identity', async () => {
     await writeExecutionTrace('different-task');
 
-    await expect(
-      evaluateExecutionTrace(
-        RUN_ID,
-        TASK_ID,
-        { tracesDirectory },
-      ),
-    ).rejects.toThrow(
+    await expect(evaluateExecutionTrace(RUN_ID, TASK_ID, { tracesDirectory })).rejects.toThrow(
       'Task identity mismatch',
     );
   });
@@ -175,38 +116,22 @@ describe('HEAE evaluate-execution-trace integration', () => {
 
     const store = new MemoryStore();
 
-    await evaluateExecutionTrace(
-      RUN_ID,
-      TASK_ID,
-      {
-        tracesDirectory,
-        store,
-      },
-    );
+    await evaluateExecutionTrace(RUN_ID, TASK_ID, {
+      tracesDirectory,
+      store,
+    });
 
     await expect(
-      evaluateExecutionTrace(
-        RUN_ID,
-        TASK_ID,
-        {
-          tracesDirectory,
-          store,
-        },
-      ),
-    ).rejects.toThrow(
-      'Evaluation already exists',
-    );
+      evaluateExecutionTrace(RUN_ID, TASK_ID, {
+        tracesDirectory,
+        store,
+      }),
+    ).rejects.toThrow('Evaluation already exists');
   });
 
   it('rejects invalid execution run IDs', async () => {
     await expect(
-      evaluateExecutionTrace(
-        '../invalid-run',
-        TASK_ID,
-        { tracesDirectory },
-      ),
-    ).rejects.toThrow(
-      'Invalid run ID',
-    );
+      evaluateExecutionTrace('../invalid-run', TASK_ID, { tracesDirectory }),
+    ).rejects.toThrow('Invalid run ID');
   });
 });

@@ -7,17 +7,13 @@
   "summary": {
     "traceId": "b1000000000000000000000000000001",
     "outcome": "fail",
-    "categories": [
-      "workflow"
-    ],
+    "categories": ["workflow"],
     "observationCount": 1,
     "hypothesisCount": 1,
     "judgeStatus": "unavailable",
     "saved": false,
     "graphSaved": false,
-    "warnings": [
-      "LLM judge unavailable: provider or model not configured."
-    ]
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
   },
   "attribution": {
     "traceId": "b1000000000000000000000000000001",
@@ -29,10 +25,7 @@
           "ruleId": "WORKFLOW-01",
           "category": "workflow",
           "observation": "Patch operation succeeded, but the unsuccessful output reports no tests executed",
-          "evidenceNodeIds": [
-            "b100000000000005",
-            "b100000000000004"
-          ],
+          "evidenceNodeIds": ["b100000000000005", "b100000000000004"],
           "details": {
             "result": "fail",
             "testsRun": 0,
@@ -47,13 +40,8 @@
           "category": "workflow",
           "status": "unverified",
           "summary": "A workflow verification issue may have contributed",
-          "supportingRuleIds": [
-            "WORKFLOW-01"
-          ],
-          "evidenceNodeIds": [
-            "b100000000000005",
-            "b100000000000004"
-          ],
+          "supportingRuleIds": ["WORKFLOW-01"],
+          "evidenceNodeIds": ["b100000000000005", "b100000000000004"],
           "limitations": [
             "Rule observations do not establish causality",
             "An independent attribution assessment is required"
@@ -65,8 +53,6 @@
     },
     "judgment": null,
     "judgeStatus": "unavailable",
-    "warnings": [
-      "LLM judge unavailable: provider or model not configured."
-    ]
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
   }
 }
