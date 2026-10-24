@@ -245,6 +245,49 @@ export class AgentRunner {
         const canonicalTier = routingDecision.tier === 'slm' ? 'small' : 'large';
         const tierConfig = modelsConfig?.[canonicalTier];
 
+        let targetFilesContext = '';
+        if (
+          (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') &&
+          subtask.targetFiles &&
+          subtask.targetFiles.length > 0 &&
+          !subtask.id.includes('scaffold')
+        ) {
+          const fileSnippets: string[] = [];
+          for (const tf of subtask.targetFiles) {
+            try {
+              const content = await context.sandbox.readFile(context.workspaceId, tf);
+              const lines = content.split('\n');
+              const snippet = lines.slice(0, 100).map((l, i) => `${i + 1} | ${l}`).join('\n');
+              fileSnippets.push(`=== File: ${tf} (${lines.length} lines) ===\n${snippet}`);
+            } catch {
+              // Try server/ or src/ prefix if not found directly
+              const prefixes = ['server/', 'src/'];
+              for (const p of prefixes) {
+                try {
+                  const candidate = `${p}${tf.replace(/^\/+/, '')}`;
+                  const content = await context.sandbox.readFile(context.workspaceId, candidate);
+                  const lines = content.split('\n');
+                  const snippet = lines.slice(0, 100).map((l, i) => `${i + 1} | ${l}`).join('\n');
+                  fileSnippets.push(`=== File: ${candidate} (${lines.length} lines) ===\n${snippet}`);
+                  break;
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+          if (fileSnippets.length > 0) {
+            targetFilesContext = `\n# Current Contents of Target Files (Pre-loaded for Exact Replacement):\n${fileSnippets.join('\n\n')}`;
+          }
+        }
+
+        const combinedPreviousContext = [
+          stepMemory.length > 0 ? stepMemory.join('\n') : '',
+          targetFilesContext,
+        ]
+          .filter(Boolean)
+          .join('\n');
+
         const subtaskResult = await reactAgent.executeSubtask({
           task,
           subtask,
@@ -268,7 +311,7 @@ export class AgentRunner {
                   (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file'
                     ? 40
                     : 15)),
-          previousContext: stepMemory.length > 0 ? stepMemory.join('\n') : undefined,
+          previousContext: combinedPreviousContext.length > 0 ? combinedPreviousContext : undefined,
         });
 
         for (const span of subtaskResult.spans) {

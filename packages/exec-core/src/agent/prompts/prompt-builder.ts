@@ -117,6 +117,10 @@ ${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
           `\n⚡ FAST SURGICAL PATCH DIRECTIVE:\nThe target file content and line numbers were already localized and confirmed in the previous step.\n1. Your very first action MUST be edit_file with precision matching (or write_file if creating missing config, or delete_file if removing obsolete conflicting files). Do NOT call read_file or list_directory first.\n2. As soon as the edit/write returns ok, DO NOT call read_file to re-inspect the change. Conclude IMMEDIATELY with **Thought** and **Final Answer**.`,
         );
       }
+    } else if (subtask.type === 'test') {
+      sections.push(
+        `\n🧪 TESTING DIRECTIVE:\n1. Verify the fix against the codebase: if automated test suites exist for the modified components (e.g. in tests/ or __tests__/), verify or run the relevant test file.\n2. Conclude promptly with **Thought** and **Final Answer** summarizing the validation outcome. Do NOT re-edit files unless an actual test failure occurs.`,
+      );
     } else if (subtask.id.includes('verify') || subtask.goal.toLowerCase().includes('verify')) {
       sections.push(
         `\n✅ VERIFICATION DIRECTIVE:\nInspect the directory structure once with list_directory to verify that all created project files exist. Then IMMEDIATELY conclude with **Thought** and **Final Answer** summarizing the verified files. Do NOT edit or rewrite files.`,

@@ -22,11 +22,56 @@ export class ReadFileHandler implements ToolHandler {
       };
     }
 
+    // Helper to resolve candidates if the exact path is not found directly
+    const resolveAndReadFile = async (
+      targetPath: string,
+    ): Promise<{ content: string; resolvedPath: string; wasRedirected: boolean }> => {
+      try {
+        const content = await context.sandbox.readFile(context.workspaceId, targetPath);
+        return { content, resolvedPath: targetPath, wasRedirected: false };
+      } catch (directErr) {
+        // Try common directory prefixes if path does not start with them
+        const cleaned = targetPath.replace(/^\/+/, '');
+        const prefixes = ['server/', 'src/', 'client/', 'lib/'];
+        for (const prefix of prefixes) {
+          if (!cleaned.startsWith(prefix)) {
+            const candidate = `${prefix}${cleaned}`;
+            try {
+              const content = await context.sandbox.readFile(context.workspaceId, candidate);
+              return { content, resolvedPath: candidate, wasRedirected: true };
+            } catch {
+              // try next
+            }
+          }
+        }
+
+        // Try locating file by unique basename in workspace
+        const base = cleaned.split('/').pop();
+        if (base && context.sandbox.exec) {
+          try {
+            const findCmd = `find . -maxdepth 5 -name "${base}" -not -path "*/.*" -not -path "*node_modules*" -not -path "*dist*" | head -n 1`;
+            const findRes = await context.sandbox.exec(context.workspaceId, findCmd, {
+              timeoutMs: 3000,
+            });
+            if (findRes.exitCode === 0 && findRes.stdout.trim()) {
+              const foundPath = findRes.stdout.trim().replace(/^\.\//, '');
+              const content = await context.sandbox.readFile(context.workspaceId, foundPath);
+              return { content, resolvedPath: foundPath, wasRedirected: true };
+            }
+          } catch {
+            // ignore find errors
+          }
+        }
+
+        throw directErr;
+      }
+    };
+
     // Single file read (standard execution)
     if (paths.length === 1) {
       const filePath = paths[0]!;
       try {
-        const content = await context.sandbox.readFile(context.workspaceId, filePath);
+        const { content, resolvedPath, wasRedirected } = await resolveAndReadFile(filePath);
         const lines = content.split('\n');
 
         const offset =
@@ -41,9 +86,13 @@ export class ReadFileHandler implements ToolHandler {
           .map((line: string, idx: number) => `${startIndex + idx + 1} | ${line}`)
           .join('\n');
 
+        const redirectNotice = wasRedirected
+          ? `[Notice: "${filePath}" was not found directly at root; automatically resolved and read from "${resolvedPath}"]\n`
+          : '';
+
         return {
           status: 'ok',
-          output: numbered,
+          output: `${redirectNotice}${numbered}`,
           error: null,
           latencyMs: 0,
           data: {
@@ -51,6 +100,7 @@ export class ReadFileHandler implements ToolHandler {
             offset,
             limit,
             returnedLines: selectedLines.length,
+            resolvedPath,
           },
         };
       } catch (err: unknown) {
@@ -71,7 +121,7 @@ export class ReadFileHandler implements ToolHandler {
 
     for (const filePath of paths) {
       try {
-        const content = await context.sandbox.readFile(context.workspaceId, filePath);
+        const { content, resolvedPath, wasRedirected } = await resolveAndReadFile(filePath);
         const lines = content.split('\n');
         const isTruncated = lines.length > MAX_BATCH_LINES_PER_FILE;
         const selected = isTruncated ? lines.slice(0, MAX_BATCH_LINES_PER_FILE) : lines;
@@ -79,8 +129,11 @@ export class ReadFileHandler implements ToolHandler {
         const truncationNotice = isTruncated
           ? `\n... [${lines.length - MAX_BATCH_LINES_PER_FILE} lines omitted in batch mode. Use single read_file with offset/limit to read specific section] ...`
           : '';
+        const redirectNotice = wasRedirected
+          ? ` [resolved to: ${resolvedPath}]`
+          : '';
         results.push(
-          `=== File: ${filePath} (${lines.length} lines) ===\n${numbered}${truncationNotice}`,
+          `=== File: ${filePath}${redirectNotice} (${lines.length} lines) ===\n${numbered}${truncationNotice}`,
         );
       } catch (err: unknown) {
         hasError = true;

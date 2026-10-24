@@ -366,6 +366,38 @@ Action Input: { "input": "{ \\"path\\": \\"server.js\\", \\"old_str\\": \\"// au
       expect(parsed.toolCall?.args.old_str).toBe('// authRoutes');
       expect(parsed.toolCall?.args.new_str).toBe('const auth = 1;');
     });
+
+    it('parses multiple consecutive Action and Action Input blocks in a single message', () => {
+      const output = `Thought: I will update both the model and the controller.
+
+**Action**: edit_file
+**Action Input**:
+\`\`\`json
+{
+  "path": "server/models/Project.js",
+  "old_str": "const Project = {};",
+  "new_str": "const Project = mongoose.model('Project', projectSchema);"
+}
+\`\`\`
+
+**Action**: edit_file
+**Action Input**:
+\`\`\`json
+{
+  "path": "server/controllers/projectController.js",
+  "old_str": "const project = new Project(req.body);",
+  "new_str": "const project = await Project.create(req.body);"
+}
+\`\`\``;
+
+      const parsed = ToolCallParser.parse(output);
+      expect(parsed.toolCalls).toBeDefined();
+      expect(parsed.toolCalls?.length).toBe(2);
+      expect(parsed.toolCalls?.[0]?.toolName).toBe('edit_file');
+      expect(parsed.toolCalls?.[0]?.args.path).toBe('server/models/Project.js');
+      expect(parsed.toolCalls?.[1]?.toolName).toBe('edit_file');
+      expect(parsed.toolCalls?.[1]?.args.path).toBe('server/controllers/projectController.js');
+    });
   });
 });
 

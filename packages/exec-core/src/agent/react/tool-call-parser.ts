@@ -247,123 +247,72 @@ export class ToolCallParser {
       finalAnswer = finalAnswerMatch[1].trim();
     }
 
-    // 3. Extract ReAct Action & Action Input
-    // Check first if Action block contains an embedded JSON object: { action/tool/name: "...", ...params }
-    const actionJsonMatch =
-      /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?(?::|\s*\n)\s*(`{3}(?:json)?[\s\S]*?`{3}|\{[\s\S]*?\})/i.exec(
-        trimmed,
-      );
-    let embeddedActionTool = '';
-    let embeddedActionArgs: Record<string, unknown> = {};
+    // Helper to parse Action Input payload
+    const parseActionInputPayload = (
+      tName: string,
+      rawInput: string,
+      initialArgs: Record<string, unknown> = {},
+    ): Record<string, unknown> => {
+      let args: Record<string, unknown> = { ...initialArgs };
+      let cleaned = rawInput.trim();
 
-    if (actionJsonMatch?.[1]) {
+      const codeBlockMatch = /^```(?:json)?\s*([\s\S]*?)\s*```/i.exec(cleaned);
+      if (codeBlockMatch?.[1]) {
+        cleaned = codeBlockMatch[1].trim();
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*/i, '');
+        cleaned = cleaned.replace(/\s*```[\s\S]*$/i, '');
+        cleaned = cleaned.trim();
+      }
+
       try {
-        const rawJson = actionJsonMatch[1]
-          .replace(/^`{3}(?:json)?\s*/i, '')
-          .replace(/\s*`{3}$/, '')
-          .trim();
-        const obj = JSON.parse(rawJson);
-        if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
-          const rawName = String(obj.action || obj.tool || obj.name || '');
-          embeddedActionTool = resolveToolName(rawName);
-          const copy = { ...obj };
-          delete copy.action;
-          delete copy.tool;
-          delete copy.name;
-          embeddedActionArgs = copy;
+        const parsed = JSON.parse(cleaned);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          args = { ...args, ...parsed };
+        } else if (Array.isArray(parsed)) {
+          if (tName === 'edit_file') args = { edits: parsed };
+          else if (tName === 'write_file') args = { files: parsed };
+          else if (tName === 'read_file') args = { paths: parsed };
+        } else if (typeof parsed === 'string') {
+          args = mapStringArgsToTool(tName, parsed);
         }
       } catch {
-        // Ignore JSON parse failure on non-JSON Action text
-      }
-    }
-
-    const actionMatch =
-      /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?(?::[^\S\r\n]*|\s*\n\s*)([a-zA-Z_][a-zA-Z0-9_-]*)/i.exec(
-        trimmed,
-      );
-    const rawAction = embeddedActionTool || actionMatch?.[1]?.trim() || '';
-    const toolName = resolveToolName(rawAction);
-
-    if (toolName && !toolName.startsWith('<')) {
-      const inputMatch =
-        /(?:\*{1,2}|#+\s*)?Action\s*Input(?:\*{1,2})?(?::|\s*\n)\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Observation|Thought|Action|Final\s*Answer):?|$))/i.exec(
-          trimmed,
-        );
-
-      let args: Record<string, unknown> = { ...embeddedActionArgs };
-
-      if (inputMatch?.[1]) {
-        let rawInput = inputMatch[1].trim();
-
-        // Extract markdown code block if rawInput contains code fences
-        const codeBlockMatch = /^```(?:json)?\s*([\s\S]*?)\s*```/i.exec(rawInput);
-        if (codeBlockMatch?.[1]) {
-          rawInput = codeBlockMatch[1].trim();
-        } else if (rawInput.startsWith('```')) {
-          rawInput = rawInput.replace(/^```(?:json)?\s*/i, '');
-          rawInput = rawInput.replace(/\s*```[\s\S]*$/i, '');
-          rawInput = rawInput.trim();
-        }
-
-        // Try direct JSON parse
         try {
-          const parsed = JSON.parse(rawInput);
+          const sanitized = sanitizeJsonString(cleaned);
+          const parsed = JSON.parse(sanitized);
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             args = { ...args, ...parsed };
           } else if (Array.isArray(parsed)) {
-            if (toolName === 'edit_file') {
-              args = { edits: parsed };
-            } else if (toolName === 'write_file') {
-              args = { files: parsed };
-            } else if (toolName === 'read_file') {
-              args = { paths: parsed };
-            }
+            if (tName === 'edit_file') args = { edits: parsed };
+            else if (tName === 'write_file') args = { files: parsed };
+            else if (tName === 'read_file') args = { paths: parsed };
           } else if (typeof parsed === 'string') {
-            args = mapStringArgsToTool(toolName, parsed);
+            args = mapStringArgsToTool(tName, parsed);
           }
         } catch {
-          // Try sanitized JSON parse
-          try {
-            const sanitized = sanitizeJsonString(rawInput);
-            const parsed = JSON.parse(sanitized);
-            if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-              args = { ...args, ...parsed };
-            } else if (Array.isArray(parsed)) {
-              if (toolName === 'edit_file') {
-                args = { edits: parsed };
-              } else if (toolName === 'write_file') {
-                args = { files: parsed };
-              } else if (toolName === 'read_file') {
-                args = { paths: parsed };
-              }
-            } else if (typeof parsed === 'string') {
-              args = mapStringArgsToTool(toolName, parsed);
-            }
-          } catch {
-            // Try repairing truncated JSON array or object
-            const repaired = repairTruncatedJson(rawInput);
-            if (repaired) {
-              args = { ...args, ...repaired };
-            } else {
-              // Fallback: raw string argument mapping
-              args = mapStringArgsToTool(toolName, rawInput);
-            }
+          const repaired = repairTruncatedJson(cleaned);
+          if (repaired) {
+            args = { ...args, ...repaired };
+          } else {
+            args = mapStringArgsToTool(tName, cleaned);
           }
-        }
-      } else {
-        // No explicit Action Input block, check if rawAction has argument clues or defaults
-        if (toolName === 'list_directory') {
-          args = { path: rawAction.includes('.') ? '.' : '.' };
         }
       }
 
-      // If args has 'input' and it contains stringified JSON (e.g. Span 103 issue), unwrap it
-      if (typeof args.input === 'string' && (args.input.includes('{') || args.input.includes('"path"'))) {
+      // If args has 'input' and it contains stringified JSON, unwrap it
+      if (
+        typeof args.input === 'string' &&
+        (args.input.includes('{') || args.input.includes('"path"'))
+      ) {
         const innerJsonMatch = /\{[\s\S]*?\}/.exec(args.input);
         if (innerJsonMatch?.[0]) {
           try {
             const innerParsed = JSON.parse(sanitizeJsonString(innerJsonMatch[0]));
-            if (typeof innerParsed === 'object' && innerParsed !== null && !Array.isArray(innerParsed)) {
+            if (
+              typeof innerParsed === 'object' &&
+              innerParsed !== null &&
+              !Array.isArray(innerParsed)
+            ) {
               delete args.input;
               args = { ...args, ...innerParsed };
             }
@@ -373,7 +322,82 @@ export class ToolCallParser {
         }
       }
 
-      detectedCalls.push({ toolName, args });
+      return args;
+    };
+
+    // 3. Extract ReAct Action & Action Input (supports single or multiple consecutive Actions in one turn)
+    const actionBlockRegex =
+      /(?:\*{1,2}|#+\s*)?Action(?:\*{1,2})?(?::[^\S\r\n]*|\s*\n\s*)([a-zA-Z_][a-zA-Z0-9_-]*|`{3}(?:json)?[\s\S]*?`{3}|\{[\s\S]*?\})/gi;
+    let actMatch: RegExpExecArray | null;
+    const actionMatches: Array<{
+      index: number;
+      toolName: string;
+      embeddedArgs?: Record<string, unknown>;
+    }> = [];
+
+    while ((actMatch = actionBlockRegex.exec(trimmed)) !== null) {
+      const rawCaptured = actMatch[1]?.trim() || '';
+      let matchedTool = '';
+      let embeddedArgs: Record<string, unknown> | undefined;
+
+      if (rawCaptured.startsWith('{') || rawCaptured.startsWith('```')) {
+        try {
+          const rawJson = rawCaptured
+            .replace(/^`{3}(?:json)?\s*/i, '')
+            .replace(/\s*`{3}$/, '')
+            .trim();
+          const obj = JSON.parse(rawJson);
+          if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+            const rawName = String(obj.action || obj.tool || obj.name || '');
+            matchedTool = resolveToolName(rawName);
+            const copy = { ...obj };
+            delete copy.action;
+            delete copy.tool;
+            delete copy.name;
+            embeddedArgs = copy;
+          }
+        } catch {
+          // ignore JSON parse failure
+        }
+      }
+
+      if (!matchedTool) {
+        matchedTool = resolveToolName(rawCaptured);
+      }
+
+      if (matchedTool && !matchedTool.startsWith('<')) {
+        actionMatches.push({
+          index: actMatch.index,
+          toolName: matchedTool,
+          embeddedArgs,
+        });
+      }
+    }
+
+    if (actionMatches.length > 0) {
+      for (let i = 0; i < actionMatches.length; i++) {
+        const current = actionMatches[i]!;
+        const nextStart =
+          i + 1 < actionMatches.length ? actionMatches[i + 1]!.index : trimmed.length;
+        const actionSegment = trimmed.substring(current.index, nextStart);
+
+        const inputMatch =
+          /(?:\*{1,2}|#+\s*)?Action\s*Input(?:\*{1,2})?(?::|\s*\n)\s*([\s\S]*?)(?=(?:\n\s*(?:\*{1,2}|#+\s*)?(?:Observation|Thought|Action|Final\s*Answer):?|$))/i.exec(
+            actionSegment,
+          );
+
+        let finalArgs: Record<string, unknown> = current.embeddedArgs
+          ? { ...current.embeddedArgs }
+          : {};
+
+        if (inputMatch?.[1]) {
+          finalArgs = parseActionInputPayload(current.toolName, inputMatch[1], finalArgs);
+        } else if (current.toolName === 'list_directory') {
+          finalArgs = { path: '.' };
+        }
+
+        detectedCalls.push({ toolName: current.toolName, args: finalArgs });
+      }
     }
 
     // 3.5. Extract Qwen-style XML tool calls: <tool_call> ... </tool_call>
