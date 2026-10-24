@@ -42,11 +42,15 @@ export class WriteFileHandler implements ToolHandler {
           const pB64 = Buffer.from(item.path, 'utf8').toString('base64');
           const b64 = Buffer.from(item.content, 'utf8').toString('base64');
           const writeCmd = `node -e 'const fs=require("fs"),path=require("path");const p=Buffer.from(process.argv[1],"base64").toString("utf8");fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,Buffer.from(process.argv[2],"base64"));' "${pB64}" "${b64}"`;
-          const res = await context.sandbox.exec(context.workspaceId, writeCmd, { timeoutMs: 30000 });
+          const res = await context.sandbox.exec(context.workspaceId, writeCmd, {
+            timeoutMs: 30000,
+          });
 
           if (res.exitCode !== 0) {
             const pyFallback = `python3 -c "import sys, base64, os; p=base64.b64decode(sys.argv[1]).decode('utf-8'); os.makedirs(os.path.dirname(p) or '.', exist_ok=True); open(p, 'wb').write(base64.b64decode(sys.argv[2]))" "${pB64}" "${b64}"`;
-            const pyRes = await context.sandbox.exec(context.workspaceId, pyFallback, { timeoutMs: 30000 });
+            const pyRes = await context.sandbox.exec(context.workspaceId, pyFallback, {
+              timeoutMs: 30000,
+            });
             if (pyRes.exitCode !== 0) {
               errors.push(`Failed to write "${item.path}": ${res.stderr || pyRes.stderr}`);
             } else {

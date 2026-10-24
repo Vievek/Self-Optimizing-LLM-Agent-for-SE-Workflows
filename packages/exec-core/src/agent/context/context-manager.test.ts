@@ -115,12 +115,21 @@ describe('Context Management & Output Compaction', () => {
       history.addMessage('user', 'Task prompt');
 
       // Turn 1: Bulky file reading observation
-      history.addMessage('assistant', 'Thought: Reading files to inspect structure.\nAction: read_file');
-      const bulkyFileContent = Array.from({ length: 50 }, (_, i) => `=== File: src/file${i}.ts ===\nconst x = ${i};`).join('\n');
+      history.addMessage(
+        'assistant',
+        'Thought: Reading files to inspect structure.\nAction: read_file',
+      );
+      const bulkyFileContent = Array.from(
+        { length: 50 },
+        (_, i) => `=== File: src/file${i}.ts ===\nconst x = ${i};`,
+      ).join('\n');
       history.addMessage('user', `Observation: ${bulkyFileContent}`);
 
       // Turn 2: Model deduced findings, wrote code
-      history.addMessage('assistant', 'Thought: I understand the structure. Now writing files.\nAction: write_file');
+      history.addMessage(
+        'assistant',
+        'Thought: I understand the structure. Now writing files.\nAction: write_file',
+      );
       history.addMessage('user', 'Observation: Successfully wrote 2 files.');
 
       // Turn 3: Model is deciding next step

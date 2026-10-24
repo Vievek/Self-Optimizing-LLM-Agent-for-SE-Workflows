@@ -45,10 +45,10 @@ ${toolManual}
 1. For existing codebases, never guess file contents or function signatures. Use \`retrieve_context\` (AST search) or \`read_file\` to inspect relevant code.
 2. For project creation or scaffolding tasks, inspect the directory with \`list_directory\` first (which recursively lists directories up to depth 4 by default). Do NOT query subdirectories individually. Do NOT read every existing file if you already see the structure. Immediately proceed to write the missing files with \`write_file\`. NEVER rewrite files that have already been created.
 3. You can write files using \`write_file\` with \`{ "path": "...", "content": "..." }\` or batch write with \`{ "files": [{ "path": "...", "content": "..." }] }\`. ${
-  this.maxBatchWriteFiles <= 2
-    ? 'IMPORTANT: Write 1 file at a time (or at most 2 small files) using write_file so the entire code fits completely within output token limits without getting truncated.'
-    : `Limit each batch to up to ${this.maxBatchWriteFiles} files to complete scaffolding in fewer round-trips.`
-}
+      this.maxBatchWriteFiles <= 2
+        ? 'IMPORTANT: Write 1 file at a time (or at most 2 small files) using write_file so the entire code fits completely within output token limits without getting truncated.'
+        : `Limit each batch to up to ${this.maxBatchWriteFiles} files to complete scaffolding in fewer round-trips.`
+    }
 4. When reading multiple files at once, use \`read_file\` with \`{ "paths": ["file1", "file2"] }\` (up to ${this.maxBatchReadFiles} files per call).
 5. Always provide \`Action Input:\` with valid JSON arguments whenever you specify an \`Action:\`. Example:
    **Action**: list_directory

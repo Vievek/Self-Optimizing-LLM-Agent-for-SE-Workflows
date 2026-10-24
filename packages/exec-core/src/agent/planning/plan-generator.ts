@@ -108,26 +108,40 @@ export class PlanGenerator {
     }
 
     const intent = await this.classifyIntent(task);
+    console.log(
+      `🧠 [Task Intent] "${intent}" for task: "${task.problemStatement.slice(0, 90)}..."`,
+    );
 
+    let subtasks: SubTask[];
     switch (intent) {
       case 'explain_only':
-        return this.generateExplainOnlyPlan(task);
+        subtasks = this.generateExplainOnlyPlan(task);
+        break;
 
       case 'full_scaffold':
-        return this.generatePhasedScaffoldingPlan(task);
+        subtasks = this.generatePhasedScaffoldingPlan(task);
+        break;
 
       case 'multi_bug': {
         const multiBugSubtasks = await this.tryDecomposeMultiBug(task);
         if (multiBugSubtasks && multiBugSubtasks.length > 0) {
-          return multiBugSubtasks;
+          subtasks = multiBugSubtasks;
+        } else {
+          subtasks = this.generateDeterministicPlan(task);
         }
-        return this.generateDeterministicPlan(task);
+        break;
       }
 
       case 'single_bug':
       default:
-        return this.generateDeterministicPlan(task);
+        subtasks = this.generateDeterministicPlan(task);
+        break;
     }
+
+    console.log(
+      `📋 [Plan Generated] ${subtasks.length} subtasks queued: ${subtasks.map((s) => s.type).join(' -> ')}`,
+    );
+    return subtasks;
   }
 
   /**
@@ -155,11 +169,11 @@ export class PlanGenerator {
       }
     } else if (this.providerRegistry) {
       try {
-        const smallProvider = this.providerRegistry.getProvider('small');
+        const largeProvider = this.providerRegistry.getProvider('large');
         const activeConfig = this.providerRegistry.getConfig();
-        const model = activeConfig.small?.model ?? 'small';
+        const model = activeConfig.large?.model ?? 'large';
 
-        const response = await smallProvider.chat({
+        const response = await largeProvider.chat({
           model,
           messages: [
             { role: 'system', content: INTENT_CLASSIFICATION_SYSTEM_PROMPT },
@@ -320,7 +334,12 @@ export class PlanGenerator {
       stepIndex: 2,
       type: 'edit_multi_file',
       goal: `Create database entity models conforming strictly to the ARCHITECTURAL CONTRACT schemas and field names.`,
-      targetFiles: ['server/models/User.js', 'server/models/Project.js', 'server/models/Task.js', 'server/models/Comment.js'],
+      targetFiles: [
+        'server/models/User.js',
+        'server/models/Project.js',
+        'server/models/Task.js',
+        'server/models/Comment.js',
+      ],
       estimatedTokens: 2500,
       status: 'pending',
       retryCount: 0,
@@ -486,21 +505,27 @@ export class PlanGenerator {
 
     // Identify standard entity models mentioned
     const standardEntities = ['User', 'Project', 'Task', 'Comment', 'Post', 'Order', 'Product'];
-    const foundEntities = standardEntities.filter((e) =>
-      new RegExp(`\\b${e}\\b`, 'i').test(text),
-    );
+    const foundEntities = standardEntities.filter((e) => new RegExp(`\\b${e}\\b`, 'i').test(text));
 
     if (foundEntities.length > 0) {
       lines.push('## Canonical Entity Models & Required Field Names:');
       for (const ent of foundEntities) {
         if (ent.toLowerCase() === 'project') {
-          lines.push(`- Project: { title: String, owner: ObjectId(User), tasks: [ObjectId(Task)], status: String }`);
+          lines.push(
+            `- Project: { title: String, owner: ObjectId(User), tasks: [ObjectId(Task)], status: String }`,
+          );
         } else if (ent.toLowerCase() === 'task') {
-          lines.push(`- Task: { title: String, description: String, project: ObjectId(Project), assignedTo: ObjectId(User), status: String }`);
+          lines.push(
+            `- Task: { title: String, description: String, project: ObjectId(Project), assignedTo: ObjectId(User), status: String }`,
+          );
         } else if (ent.toLowerCase() === 'comment') {
-          lines.push(`- Comment: { content: String, author: ObjectId(User), task: ObjectId(Task) }`);
+          lines.push(
+            `- Comment: { content: String, author: ObjectId(User), task: ObjectId(Task) }`,
+          );
         } else if (ent.toLowerCase() === 'user') {
-          lines.push(`- User: { name: String, email: String, password: String(hashed), role: String }`);
+          lines.push(
+            `- User: { name: String, email: String, password: String(hashed), role: String }`,
+          );
         } else {
           lines.push(`- ${ent}: { id: String, name: String, createdAt: Date }`);
         }
@@ -511,7 +536,9 @@ export class PlanGenerator {
     if (/jwt|token|auth/i.test(text)) {
       lines.push('\n## Authentication Contract:');
       lines.push('- Bearer JWT token passed in Authorization header: "Bearer <token>"');
-      lines.push('- Auth middleware attaches authenticated user to: "req.user" with fields { id, email, role }');
+      lines.push(
+        '- Auth middleware attaches authenticated user to: "req.user" with fields { id, email, role }',
+      );
     }
 
     // Standard API Routes
@@ -544,11 +571,11 @@ export class PlanGenerator {
       }
     } else if (this.providerRegistry) {
       try {
-        const smallProvider = this.providerRegistry.getProvider('small');
+        const largeProvider = this.providerRegistry.getProvider('large');
         const activeConfig = this.providerRegistry.getConfig();
-        const model = activeConfig.small?.model ?? 'small';
+        const model = activeConfig.large?.model ?? 'large';
 
-        const response = await smallProvider.chat({
+        const response = await largeProvider.chat({
           model,
           messages: [
             { role: 'system', content: DECOMPOSITION_SYSTEM_PROMPT },
@@ -923,7 +950,12 @@ export class PlanGenerator {
       }
 
       const parsed = JSON.parse(raw) as IntentClassificationResponse;
-      const validIntents: TaskIntent[] = ['full_scaffold', 'single_bug', 'multi_bug', 'explain_only'];
+      const validIntents: TaskIntent[] = [
+        'full_scaffold',
+        'single_bug',
+        'multi_bug',
+        'explain_only',
+      ];
       if (validIntents.includes(parsed?.intent)) {
         return parsed;
       }

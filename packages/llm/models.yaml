@@ -1,7 +1,7 @@
 small:
   provider: openai_compat
   baseUrl: https://router.huggingface.co/v1
-  model: Qwen/Qwen2.5-Coder-3B-Instruct
+  model: Qwen/Qwen2.5-Coder-7B-Instruct
   apiKeyEnv: HF_TOKEN
   maxTokens: 2048
   pacingMs: 300

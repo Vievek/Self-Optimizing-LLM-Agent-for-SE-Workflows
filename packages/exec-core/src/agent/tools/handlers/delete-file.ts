@@ -8,7 +8,9 @@ export class DeleteFileHandler implements ToolHandler {
   async execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const rawPaths = args.paths;
     const pathsList: string[] = Array.isArray(rawPaths)
-      ? (rawPaths as unknown[]).filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+      ? (rawPaths as unknown[]).filter(
+          (p): p is string => typeof p === 'string' && p.trim().length > 0,
+        )
       : [];
 
     const singlePath = typeof args.path === 'string' ? args.path.trim() : '';
@@ -20,7 +22,8 @@ export class DeleteFileHandler implements ToolHandler {
       return {
         status: 'error',
         output: '',
-        error: 'Missing required argument: provide "path" (string) or "paths" (string[]) to delete.',
+        error:
+          'Missing required argument: provide "path" (string) or "paths" (string[]) to delete.',
         latencyMs: 0,
       };
     }
@@ -31,7 +34,9 @@ export class DeleteFileHandler implements ToolHandler {
     for (const targetPath of pathsList) {
       // Security check: disallow directory traversal escaping sandbox
       if (targetPath === '.' || targetPath === '/' || targetPath.includes('..')) {
-        errors.push(`Invalid path "${targetPath}": cannot delete root or escape directory using ".."`);
+        errors.push(
+          `Invalid path "${targetPath}": cannot delete root or escape directory using ".."`,
+        );
         continue;
       }
 
@@ -42,7 +47,9 @@ export class DeleteFileHandler implements ToolHandler {
         const res = await context.sandbox.exec(context.workspaceId, rmCmd, { timeoutMs: 15000 });
         if (res.exitCode !== 0) {
           const pyFallback = `python3 -c "import sys, base64, os, shutil; p=base64.b64decode(sys.argv[1]).decode('utf-8'); (shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)) if os.path.exists(p) else None" "${pB64}"`;
-          const pyRes = await context.sandbox.exec(context.workspaceId, pyFallback, { timeoutMs: 15000 });
+          const pyRes = await context.sandbox.exec(context.workspaceId, pyFallback, {
+            timeoutMs: 15000,
+          });
           if (pyRes.exitCode !== 0) {
             errors.push(`Failed to delete "${targetPath}": ${res.stderr || pyRes.stderr}`);
             continue;
@@ -87,4 +94,3 @@ export class DeleteFileHandler implements ToolHandler {
     };
   }
 }
-

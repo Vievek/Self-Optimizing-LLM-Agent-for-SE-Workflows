@@ -551,7 +551,7 @@ export class TsJsAstParser implements LanguageAstParser {
       '_id',
       'id',
     ]);
-    const fieldRegex = /^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*[{a-zA-Z\[]/;
+    const fieldRegex = /^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*[{a-zA-Z[]/;
     for (const line of bodyLines) {
       const match = line.match(fieldRegex);
       if (match) {

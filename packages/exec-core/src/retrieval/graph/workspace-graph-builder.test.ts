@@ -186,7 +186,10 @@ describe('WorkspaceGraphBuilder with Incremental Updates', () => {
 
     // 3. Modify a file: should incrementally update only that file
     const targetFile = path.join(tmpDir, 'math.ts');
-    await fs.promises.writeFile(targetFile, 'export function add(a: number, b: number) { return a + b + 1; }');
+    await fs.promises.writeFile(
+      targetFile,
+      'export function add(a: number, b: number) { return a + b + 1; }',
+    );
 
     const updated = await builder.buildFromDirectory(tmpDir);
     expect(updated.fromCache).toBe(true);
@@ -194,4 +197,3 @@ describe('WorkspaceGraphBuilder with Incremental Updates', () => {
     expect(updated.graph.findNodesByName('add').length).toBe(1);
   });
 });
-

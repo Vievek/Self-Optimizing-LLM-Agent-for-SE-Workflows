@@ -169,6 +169,14 @@ export class AgentRunner {
 
       // Model Routing
       const routingDecision = modelSelector.selectTier(subtask.features);
+      console.log(
+        `\n🚀 [Subtask ${subtask.stepIndex + 1}/${initialSubtasks.length}] "${subtask.id}" (${subtask.type})`,
+      );
+      console.log(
+        `🎯 [Routing] Tier: ${routingDecision.tier.toUpperCase()} | Model: ${routingDecision.model} | Score: ${routingDecision.score.toFixed(2)}`,
+      );
+      console.log(`📋 [Goal] ${subtask.goal}`);
+
       recordSpan(
         'route',
         RouteSpanAttributesSchema.parse({
@@ -215,10 +223,12 @@ export class AgentRunner {
               ? 2
               : subtask.type === 'plan' || subtask.type === 'test' || subtask.id.includes('verify')
                 ? 5
-                : options.maxTurnsPerSubtask ??
+                : (options.maxTurnsPerSubtask ??
                   ((options.config?.planning as Record<string, unknown> | undefined)
                     ?.max_turns_per_subtask as number) ??
-                  (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file' ? 40 : 15),
+                  (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file'
+                    ? 40
+                    : 15)),
           previousContext: stepMemory.length > 0 ? stepMemory.join('\n') : undefined,
         });
 
@@ -264,7 +274,12 @@ export class AgentRunner {
             const fallbackSummary =
               subtaskResult.finalAnswer ??
               `Completed ${subtask.type} phase with ${subtaskResult.toolCallsExecuted} tool queries executed.`;
-            stepMemory.push(`• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`);
+            stepMemory.push(
+              `• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`,
+            );
+            console.log(
+              `ℹ️ [Subtask Context] Gathered context over ${subtaskResult.toolCallsExecuted} tool queries`,
+            );
           } else if (
             (subtask.id.includes('verify') || subtask.type === 'plan' || subtask.type === 'test') &&
             subtaskResult.toolCallsExecuted > 0 &&
@@ -276,11 +291,19 @@ export class AgentRunner {
             const fallbackSummary =
               subtaskResult.finalAnswer ??
               `Verification confirmed ${globalWrittenFiles.size} project files present on disk across ${subtaskResult.toolCallsExecuted} inspection checks.`;
-            stepMemory.push(`• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`);
+            stepMemory.push(
+              `• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`,
+            );
+            console.log(`✅ [Verification] Confirmed ${globalWrittenFiles.size} files on disk`);
           } else {
             subtaskFailed = true;
             failureError = subtaskResult.lastError ?? 'Subtask execution failed';
+            console.error(`❌ [Subtask Failed] ${subtask.id}: ${failureError}`);
           }
+        } else {
+          console.log(
+            `✅ [Subtask Completed] ${subtask.id} (${subtaskResult.turns} turns, ${subtaskResult.toolCallsExecuted} tool calls)`,
+          );
         }
       } else {
         totalTokensIn += subtask.estimatedTokens;

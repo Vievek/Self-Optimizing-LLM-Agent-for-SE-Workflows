@@ -72,7 +72,8 @@ export class EditFileHandler implements ToolHandler {
         };
       }
 
-      const replacementStr = isCrlf && !newStr.includes('\r\n') ? newStr.replace(/\n/g, '\r\n') : newStr;
+      const replacementStr =
+        isCrlf && !newStr.includes('\r\n') ? newStr.replace(/\n/g, '\r\n') : newStr;
       const updated = isCrlf
         ? original.replace(/\r\n/g, '\n').replace(searchStr, newStr).replace(/\n/g, '\r\n')
         : original.replace(searchStr, replacementStr);

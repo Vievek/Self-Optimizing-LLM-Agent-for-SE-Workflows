@@ -101,7 +101,9 @@ export class WorkspaceGraphBuilder {
               for (const edge of parseResult.edges) graph.addEdge(edge);
               reindexedFilesCount++;
               dirty = true;
-            } catch {}
+            } catch {
+              // Ignore parse errors on unparseable/partial new files
+            }
           } else if (cachedMtime !== stat.mtimeMs) {
             // Modified file
             try {
@@ -109,7 +111,9 @@ export class WorkspaceGraphBuilder {
               this.updateFile(fullPath, source, graph, workspaceDir);
               reindexedFilesCount++;
               dirty = true;
-            } catch {}
+            } catch {
+              // Ignore parse errors on unparseable/partial modified files
+            }
           }
         }
 
@@ -281,4 +285,3 @@ export class WorkspaceGraphBuilder {
     return results;
   }
 }
-

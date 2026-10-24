@@ -127,9 +127,17 @@ export class ReactAgent {
       // 5. Parse response for Thought / Action / Final Answer
       const parsed = ToolCallParser.parse(response.content);
 
+      if (parsed.thought) {
+        const preview = parsed.thought.split('\n')[0]?.trim();
+        console.log(
+          `💭 [Turn ${turn}/${maxTurns}] ${preview ? preview.slice(0, 100) : 'Thinking...'}`,
+        );
+      }
+
       if (parsed.isFinal) {
         success = true;
         finalAnswer = parsed.finalAnswer ?? parsed.thought ?? response.content;
+        console.log(`🏁 [Final Answer] ${finalAnswer.slice(0, 120)}...`);
         break;
       }
 
@@ -145,13 +153,12 @@ export class ReactAgent {
 
         for (const call of callsToExecute) {
           const toolStartIso = new Date().toISOString();
-          const { result, spanAttributes } = await this.toolExecutor.execute(
-            call,
-            params.context,
-          );
+          const { result, spanAttributes } = await this.toolExecutor.execute(call, params.context);
           const toolEndIso = new Date().toISOString();
           toolCallsExecuted += 1;
-          console.log(`🔧 [Tool: ${call.toolName}] -> ${result.status} (${result.latencyMs ?? 0}ms)`);
+          console.log(
+            `🔧 [Tool: ${call.toolName}] -> ${result.status} (${result.latencyMs ?? 0}ms)`,
+          );
 
           // Record ToolCallSpan telemetry
           const toolSpan = TraceSpanSchema.parse({
@@ -227,7 +234,8 @@ export class ReactAgent {
               loopNotice =
                 '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file.';
             } else if (
-              (params.subtask.type === 'edit_multi_file' || params.subtask.type === 'edit_single_file') &&
+              (params.subtask.type === 'edit_multi_file' ||
+                params.subtask.type === 'edit_single_file') &&
               call.toolName === 'list_directory' &&
               params.previousContext
             ) {

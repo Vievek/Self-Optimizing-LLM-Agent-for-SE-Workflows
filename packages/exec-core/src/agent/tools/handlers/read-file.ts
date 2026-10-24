@@ -2,7 +2,8 @@ import { ToolHandler, ToolContext, ToolResult } from '../../types.js';
 
 export class ReadFileHandler implements ToolHandler {
   readonly name = 'read_file';
-  readonly description = 'Read file contents from workspace with optional offset and limit. Supports single "path" or batch "paths" array.';
+  readonly description =
+    'Read file contents from workspace with optional offset and limit. Supports single "path" or batch "paths" array.';
 
   async execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const rawPaths: unknown = args.paths ?? args.path;

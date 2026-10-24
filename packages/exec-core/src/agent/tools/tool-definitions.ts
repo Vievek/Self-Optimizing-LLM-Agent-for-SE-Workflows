@@ -30,7 +30,10 @@ export const TOOL_DEFINITIONS = {
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to a single file to create or overwrite' },
+        path: {
+          type: 'string',
+          description: 'Relative path to a single file to create or overwrite',
+        },
         content: { type: 'string', description: 'Full UTF-8 text content to write' },
         files: {
           type: 'array',
@@ -42,7 +45,8 @@ export const TOOL_DEFINITIONS = {
             },
             required: ['path', 'content'],
           },
-          description: 'Array of files to batch write in one turn (recommended: 2-3 files per batch)',
+          description:
+            'Array of files to batch write in one turn (recommended: 2-3 files per batch)',
         },
       },
     },

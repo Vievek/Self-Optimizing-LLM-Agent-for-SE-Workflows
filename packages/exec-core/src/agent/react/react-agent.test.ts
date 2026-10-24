@@ -271,14 +271,16 @@ Final Answer: Multi-tool batch execution verified successfully.`,
 
       if (callCount === 1) {
         return {
-          content: 'Thought: Listing root dir.\nAction: list_directory\nAction Input: {"path": "."}',
+          content:
+            'Thought: Listing root dir.\nAction: list_directory\nAction Input: {"path": "."}',
           tokensIn: 300,
           tokensOut: 40,
         };
       } else if (callCount === 2) {
         // Redundant duplicate call
         return {
-          content: 'Thought: Listing root dir again.\nAction: list_directory\nAction Input: {"path": "."}',
+          content:
+            'Thought: Listing root dir again.\nAction: list_directory\nAction Input: {"path": "."}',
           tokensIn: 400,
           tokensOut: 40,
         };

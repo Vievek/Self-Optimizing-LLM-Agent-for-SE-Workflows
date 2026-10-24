@@ -104,7 +104,11 @@ export class RequestQueue {
           }
         } else if (msg.includes('OTPM') || msg.includes('output tokens per minute')) {
           delay = 10000;
-        } else if (msg.includes('ITPM') || msg.includes('input tokens per minute') || msg.includes('413')) {
+        } else if (
+          msg.includes('ITPM') ||
+          msg.includes('input tokens per minute') ||
+          msg.includes('413')
+        ) {
           delay = 15000;
         }
 

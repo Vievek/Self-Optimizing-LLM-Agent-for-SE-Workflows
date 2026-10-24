@@ -156,7 +156,9 @@ describe('PlanGenerator and PlanManager', () => {
       // Expected subtasks: recon + 2 * (localize + edit) + verify = 1 + 4 + 1 = 6 subtasks
       expect(subtasks.length).toBe(6);
       expect(subtasks[1]?.goal).toContain('Missing bcryptjs & Missing dotenv');
-      expect(subtasks[2]?.goal).toContain('Add bcryptjs to dependencies. Additionally: Add dotenv to dependencies');
+      expect(subtasks[2]?.goal).toContain(
+        'Add bcryptjs to dependencies. Additionally: Add dotenv to dependencies',
+      );
     });
 
     it('falls back to deterministic multi-bug heuristic when SLM caller is not configured', async () => {
@@ -244,13 +246,18 @@ describe('PlanGenerator and PlanManager', () => {
       expect(subtasks[2]?.type).toBe('plan');
 
       // Ensure NO edit or write subtasks are created for explain_only
-      expect(subtasks.some((s) => s.type === 'edit_single_file' || s.type === 'edit_multi_file')).toBe(false);
+      expect(
+        subtasks.some((s) => s.type === 'edit_single_file' || s.type === 'edit_multi_file'),
+      ).toBe(false);
     });
 
     it('classifies tasks using 4-way SLM intent caller', async () => {
       const mockSlmCaller = async (_prompt: string, sysPrompt?: string) => {
         if (sysPrompt?.includes('Intent Classifier')) {
-          return JSON.stringify({ intent: 'explain_only', reasoning: 'User is asking for an architectural explanation' });
+          return JSON.stringify({
+            intent: 'explain_only',
+            reasoning: 'User is asking for an architectural explanation',
+          });
         }
         return JSON.stringify({ isMultiBug: false, issues: [] });
       };

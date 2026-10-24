@@ -53,13 +53,8 @@ export class GraphRetriever {
 
         const nodeNameLower = node.name.toLowerCase();
         const baseName =
-          (node.filePath || '')
-            .split('/')
-            .pop()
-            ?.split('\\')
-            .pop()
-            ?.split('.')[0]
-            ?.toLowerCase() || '';
+          (node.filePath || '').split('/').pop()?.split('\\').pop()?.split('.')[0]?.toLowerCase() ||
+          '';
         const lowerFile = (node.filePath || '').toLowerCase();
 
         let matchQuality = 0.5;

@@ -51,24 +51,28 @@ export class ModelSelector {
     let ruleReason = '';
 
     if (this.routingRule === 'role_hierarchy') {
-      // Decision-making, planning, and root-cause localization -> LLM
-      if (
+      // Escalation: Any step that has failed 2 or more times goes to LLM
+      if (features.prior_failures >= 2) {
+        tier = 'llm';
+        ruleReason = `Role Hierarchy: Escalated to LLM due to ${features.prior_failures} prior failures`;
+      }
+      // Decision-making, planning, defect localization, batch edits, or multi-file context -> LLM
+      else if (
         features.step_type === 'localize' ||
         features.step_type === 'plan' ||
         features.step_type === 'replan' ||
-        (features.step_type === 'explore' &&
-          (features.requires_cross_file_reasoning || features.file_count > 1))
+        features.step_type === 'edit_multi_file' ||
+        features.requires_cross_file_reasoning ||
+        features.file_count > 1 ||
+        score > this.config.small_tier_threshold
       ) {
         tier = 'llm';
-        ruleReason = `Role Hierarchy: Decision-making step (${features.step_type}) assigned to LLM`;
+        ruleReason = `Role Hierarchy: High-reasoning step (${features.step_type}, files: ${features.file_count}, score: ${score.toFixed(2)}) assigned to LLM`;
       }
-      // Tactical code generation and test execution -> SLM (unless escalated by failure)
-      else if (features.prior_failures >= 2) {
-        tier = 'llm';
-        ruleReason = `Role Hierarchy: Escalated to LLM due to ${features.prior_failures} prior failures`;
-      } else {
+      // Tactical code generation and test execution -> SLM (single-file surgical edits, test runs, single recon)
+      else {
         tier = 'slm';
-        ruleReason = `Role Hierarchy: Code generation / execution step (${features.step_type}) assigned to SLM`;
+        ruleReason = `Role Hierarchy: Tactical execution step (${features.step_type}, score: ${score.toFixed(2)}) assigned to SLM`;
       }
     } else {
       // Scoring <= threshold qualifies for SLM tier; higher scores escalate to LLM tier

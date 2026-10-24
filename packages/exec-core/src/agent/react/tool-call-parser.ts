@@ -240,7 +240,9 @@ export class ToolCallParser {
     }
 
     // 2. Extract Final Answer if present
-    const finalAnswerMatch = /(?:\*{1,2}|#+\s*)?Final\s*Answer(?:\*{1,2})?:?\s*([\s\S]*)$/i.exec(trimmed);
+    const finalAnswerMatch = /(?:\*{1,2}|#+\s*)?Final\s*Answer(?:\*{1,2})?:?\s*([\s\S]*)$/i.exec(
+      trimmed,
+    );
     if (finalAnswerMatch?.[1]) {
       finalAnswer = finalAnswerMatch[1].trim();
     }
@@ -270,7 +272,9 @@ export class ToolCallParser {
           delete copy.name;
           embeddedActionArgs = copy;
         }
-      } catch {}
+      } catch {
+        // Ignore JSON parse failure on non-JSON Action text
+      }
     }
 
     const actionMatch =
