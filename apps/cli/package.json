@@ -32,6 +32,7 @@
     "@soa/memory-agent": "workspace:*",
     "@soa/mocks": "workspace:*",
     "@soa/orchestrator": "workspace:*",
-    "@soa/store": "workspace:*"
+    "@soa/store": "workspace:*",
+    "kuzu": "0.11.3"
   }
 }

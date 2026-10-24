@@ -52,6 +52,9 @@ importers:
       '@soa/store':
         specifier: workspace:*
         version: link:../../packages/store
+      kuzu:
+        specifier: 0.11.3
+        version: 0.11.3
 
   apps/heae-dashboard:
     dependencies:
