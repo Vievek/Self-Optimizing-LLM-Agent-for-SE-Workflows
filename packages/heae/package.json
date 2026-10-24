@@ -15,7 +15,8 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "cd ../.. && vitest run packages/heae"
   },
   "dependencies": {
     "@soa/contracts": "workspace:*",
