@@ -6,6 +6,14 @@ export interface GraphTraversalPath {
   path: string[];
 }
 
+export interface SerializedCodeGraph {
+  version: number;
+  timestamp: number;
+  fileMtimes?: Record<string, number>;
+  nodes: CodeNode[];
+  edges: CodeEdge[];
+}
+
 export class CodeGraph {
   private readonly nodes = new Map<string, CodeNode>();
   private readonly nameToIds = new Map<string, Set<string>>();
@@ -180,6 +188,62 @@ export class CodeGraph {
     return Array.from(this.nodes.values());
   }
 
+  /**
+   * Removes all nodes and connected edges belonging to a given file path.
+   * Enables fine-grained delta updates without rebuilding the entire graph.
+   */
+  removeFileNodes(filePath: string): number {
+    const normTarget = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    const nodesToRemove: string[] = [];
+
+    for (const [id, node] of this.nodes.entries()) {
+      const normNodePath = (node.filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+      if (
+        normNodePath === normTarget ||
+        normNodePath.endsWith('/' + normTarget) ||
+        normTarget.endsWith('/' + normNodePath)
+      ) {
+        nodesToRemove.push(id);
+      }
+    }
+
+    const removeSet = new Set(nodesToRemove);
+
+    for (const id of nodesToRemove) {
+      const node = this.nodes.get(id);
+      if (node) {
+        const ids = this.nameToIds.get(node.name);
+        if (ids) {
+          ids.delete(id);
+          if (ids.size === 0) {
+            this.nameToIds.delete(node.name);
+          }
+        }
+      }
+      this.nodes.delete(id);
+      this.outgoing.delete(id);
+      this.incoming.delete(id);
+    }
+
+    // Scrub removed target IDs from remaining outgoing edges
+    for (const [sourceId, edges] of this.outgoing.entries()) {
+      const filtered = edges.filter((e) => !removeSet.has(e.targetId));
+      if (filtered.length !== edges.length) {
+        this.outgoing.set(sourceId, filtered);
+      }
+    }
+
+    // Scrub removed source IDs from remaining incoming edges
+    for (const [targetId, edges] of this.incoming.entries()) {
+      const filtered = edges.filter((e) => !removeSet.has(e.sourceId));
+      if (filtered.length !== edges.length) {
+        this.incoming.set(targetId, filtered);
+      }
+    }
+
+    return nodesToRemove.length;
+  }
+
   getStats(): {
     totalNodes: number;
     modules: number;
@@ -266,5 +330,41 @@ export class CodeGraph {
   private getNodeName(id: string): string {
     const node = this.nodes.get(id);
     return node ? node.name : id.split(':').pop()!;
+  }
+
+  /**
+   * Serializes the graph nodes, edges, and optional file mtimes to a plain JSON object.
+   */
+  toJSON(fileMtimes?: Record<string, number>): SerializedCodeGraph {
+    const nodes = Array.from(this.nodes.values());
+    const edges: CodeEdge[] = [];
+    for (const edgeList of this.outgoing.values()) {
+      edges.push(...edgeList);
+    }
+    return {
+      version: 1,
+      timestamp: Date.now(),
+      fileMtimes,
+      nodes,
+      edges,
+    };
+  }
+
+  /**
+   * Reconstructs a CodeGraph instance from a serialized JSON payload.
+   */
+  static fromJSON(data: SerializedCodeGraph): CodeGraph {
+    const graph = new CodeGraph();
+    if (Array.isArray(data.nodes)) {
+      for (const node of data.nodes) {
+        graph.addNode(node);
+      }
+    }
+    if (Array.isArray(data.edges)) {
+      for (const edge of data.edges) {
+        graph.addEdge(edge);
+      }
+    }
+    return graph;
   }
 }

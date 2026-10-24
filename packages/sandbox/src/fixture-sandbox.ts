@@ -77,6 +77,18 @@ export class FixtureSandboxService implements SandboxService {
     return wsId;
   }
 
+  registerWorkspace(wsId: WorkspaceId, dir: string): void {
+    const resolved = path.resolve(dir);
+    if (!fs.existsSync(resolved)) {
+      fs.mkdirSync(resolved, { recursive: true });
+    }
+    this.workspaces.set(wsId, resolved);
+  }
+
+  getWorkspaceDir(wsId: WorkspaceId): string | undefined {
+    return this.workspaces.get(wsId);
+  }
+
   private getWsDir(ws: WorkspaceId): string {
     const dir = this.workspaces.get(ws);
     if (!dir || !fs.existsSync(dir)) {

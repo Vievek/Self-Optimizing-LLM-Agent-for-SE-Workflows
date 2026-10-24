@@ -32,12 +32,13 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     }
   });
 
-  it('initializes default registry with all 8 standard tools', () => {
+  it('initializes default registry with all 9 standard tools', () => {
     const names = registry.getNames();
     expect(names).toEqual([
       'read_file',
       'write_file',
       'edit_file',
+      'delete_file',
       'run_command',
       'run_tests',
       'retrieve_context',
@@ -105,6 +106,41 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     );
     expect(readRespSlice.result.status).toBe('ok');
     expect(readRespSlice.result.output).toBe('2 | line 2\n3 | line 3');
+
+    // 4. read_file in batch mode across multiple files
+    await executor.execute(
+      { toolName: 'write_file', args: { path: 'src/file2.txt', content: 'alpha\nbeta' } },
+      context,
+    );
+    const batchResp = await executor.execute(
+      {
+        toolName: 'read_file',
+        args: { paths: ['src/example.txt', 'src/file2.txt'] },
+      },
+      context,
+    );
+    expect(batchResp.result.status).toBe('ok');
+    expect(batchResp.result.output).toContain('=== File: src/example.txt');
+    expect(batchResp.result.output).toContain('=== File: src/file2.txt');
+    expect(batchResp.result.output).toContain('alpha');
+
+    // 5. write_file in batch mode across multiple files
+    const batchWriteResp = await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          files: [
+            { path: 'batch_dir/b1.js', content: 'console.log("b1");' },
+            { path: 'batch_dir/b2.js', content: 'console.log("b2");' },
+          ],
+        },
+      },
+      context,
+    );
+    expect(batchWriteResp.result.status).toBe('ok');
+    expect(batchWriteResp.result.output).toContain('Successfully wrote 2 files');
+    expect(batchWriteResp.result.output).toContain('batch_dir/b1.js');
+    expect(batchWriteResp.result.output).toContain('batch_dir/b2.js');
   });
 
   it('executes edit_file with precision matching', async () => {
@@ -189,6 +225,47 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     expect(dupResp.result.error).toContain('found 2 times');
   });
 
+  it('executes edit_file with batch edits across files or multiple substitutions', async () => {
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          path: 'router.js',
+          content:
+            'import Switch from "router";\n<Switch>\n  <Route component={Home} />\n</Switch>',
+        },
+      },
+      context,
+    );
+
+    const batchResp = await executor.execute(
+      {
+        toolName: 'edit_file',
+        args: {
+          path: 'router.js',
+          edits: [
+            { old_str: 'import Switch from "router";', new_str: 'import Routes from "router";' },
+            { old_str: '<Switch>', new_str: '<Routes>' },
+            { old_str: '</Switch>', new_str: '</Routes>' },
+            { old_str: 'component={Home}', new_str: 'element={<Home />}' },
+          ],
+        },
+      },
+      context,
+    );
+
+    expect(batchResp.result.status).toBe('ok');
+    expect(batchResp.result.output).toContain('Successfully applied 4 edits');
+
+    const readResp = await executor.execute(
+      { toolName: 'read_file', args: { path: 'router.js' } },
+      context,
+    );
+    expect(readResp.result.output).toContain('import Routes from "router";');
+    expect(readResp.result.output).toContain('<Routes>');
+    expect(readResp.result.output).toContain('element={<Home />}');
+  });
+
   it('executes run_command and returns stdout and exit status', async () => {
     const cmdResp = await executor.execute(
       {
@@ -226,6 +303,27 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     );
     expect(listResp.result.status).toBe('ok');
     expect(listResp.result.output).toContain('services');
+
+    // List directory with recursive depth
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: {
+          path: 'services/nested/deep/file.ts',
+          content: 'export const deep = true;',
+        },
+      },
+      context,
+    );
+    const deepListResp = await executor.execute(
+      {
+        toolName: 'list_directory',
+        args: { path: '.', depth: 4 },
+      },
+      context,
+    );
+    expect(deepListResp.result.status).toBe('ok');
+    expect(deepListResp.result.output).toContain('services/nested/deep/file.ts');
 
     // Grep search
     const grepResp = await executor.execute(
@@ -288,5 +386,77 @@ describe('ToolExecutor and ACI Standard Tools', () => {
     expect(slowResp.result.status).toBe('error');
     expect(slowResp.result.error).toContain('timed out');
     expect(slowResp.spanAttributes.status).toBe('error');
+  });
+
+  it('executes delete_file for single and batch deletion with security validation', async () => {
+    // 1. Create temporary files
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: { path: 'obsolete1.txt', content: 'delete me 1' },
+      },
+      context,
+    );
+    await executor.execute(
+      {
+        toolName: 'write_file',
+        args: { path: 'obsolete2.txt', content: 'delete me 2' },
+      },
+      context,
+    );
+
+    // 2. Attach a mock CodeGraph to verify delta node removal
+    const graph = new CodeGraph();
+    graph.addNode({
+      id: 'obsolete1.txt::deadFunc',
+      name: 'deadFunc',
+      kind: 'function',
+      isAsync: false,
+      params: [],
+      calls: [],
+      filePath: 'obsolete1.txt',
+      startLine: 1,
+      endLine: 5,
+    });
+    const ctxWithGraph: ToolContext = {
+      ...context,
+      graph,
+    };
+
+    expect(graph.getAllNodes().length).toBe(1);
+
+    // 3. Delete single file
+    const del1 = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { path: 'obsolete1.txt', reason: 'deprecated file' },
+      },
+      ctxWithGraph,
+    );
+
+    expect(del1.result.status).toBe('ok');
+    expect(del1.result.output).toContain('Successfully deleted 1 file');
+    expect(graph.getAllNodes().length).toBe(0); // Node cleanly scrubbed from AST graph
+
+    // 4. Delete second file via batch
+    const del2 = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { paths: ['obsolete2.txt'] },
+      },
+      context,
+    );
+    expect(del2.result.status).toBe('ok');
+
+    // 5. Security check: rejects traversal escaping directory
+    const secDel = await executor.execute(
+      {
+        toolName: 'delete_file',
+        args: { path: '../../etc/passwd' },
+      },
+      context,
+    );
+    expect(secDel.result.status).toBe('error');
+    expect(secDel.result.error).toContain('Invalid path');
   });
 });

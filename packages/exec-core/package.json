@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@soa/contracts": "workspace:*",
+    "@soa/llm": "workspace:*",
     "@soa/sandbox": "workspace:*",
     "zod": "^3.22.0"
   }
