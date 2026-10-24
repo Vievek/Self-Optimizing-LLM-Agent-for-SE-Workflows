@@ -1,0 +1,124 @@
+{
+  "datasetName": "controlled-v1",
+  "provenance": "synthetic_development",
+  "annotationStatus": "draft",
+  "evaluationMode": "deterministic_rules",
+  "independentlyValidated": false,
+  "annotationSha256": "4bbce08c43e0e759900e35c8cc53293dfa61ba929d1f0b344557b032a535da85",
+  "metrics": {
+    "totalCases": 5,
+    "exactMatches": 4,
+    "exactMatchAccuracy": 0.8,
+    "truePositives": 3,
+    "falsePositives": 1,
+    "falseNegatives": 0,
+    "microPrecision": 0.75,
+    "microRecall": 1,
+    "microF1": 0.8571428571428571,
+    "macroF1": 0.6,
+    "perCategory": [
+      {
+        "category": "prompt",
+        "support": 0,
+        "truePositives": 0,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      },
+      {
+        "category": "tool",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "retrieval",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "planning",
+        "support": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1
+      },
+      {
+        "category": "workflow",
+        "support": 0,
+        "truePositives": 0,
+        "falsePositives": 1,
+        "falseNegatives": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0
+      }
+    ],
+    "cases": [
+      {
+        "id": "pilot-001",
+        "expectedCategories": [],
+        "predictedCategories": [],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": [],
+        "ruleIds": []
+      },
+      {
+        "id": "pilot-002",
+        "expectedCategories": ["tool"],
+        "predictedCategories": ["tool"],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": ["a200000000000005"],
+        "ruleIds": ["TOOL-02"]
+      },
+      {
+        "id": "pilot-003",
+        "expectedCategories": ["retrieval"],
+        "predictedCategories": ["retrieval"],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": ["a300000000000003"],
+        "ruleIds": ["RETRIEVAL-01"]
+      },
+      {
+        "id": "pilot-004",
+        "expectedCategories": ["planning"],
+        "predictedCategories": ["planning"],
+        "exactMatch": true,
+        "falsePositives": [],
+        "falseNegatives": [],
+        "evidenceNodeIds": ["a400000000000002"],
+        "ruleIds": ["PLANNING-01"]
+      },
+      {
+        "id": "pilot-005",
+        "expectedCategories": [],
+        "predictedCategories": ["workflow"],
+        "exactMatch": false,
+        "falsePositives": ["workflow"],
+        "falseNegatives": [],
+        "evidenceNodeIds": ["a500000000000006", "a500000000000005"],
+        "ruleIds": ["WORKFLOW-01"]
+      }
+    ]
+  }
+}
