@@ -146,8 +146,32 @@ export class AgentRunner {
       (options.config?.planning?.subtask_timeout_s ?? 60) * 1000,
     );
 
-    // 3. Task Decomposition
-    const initialSubtasks = await planGenerator.generatePlan(task);
+    // 2.5. Upfront Workspace Inspection (Delta-awareness)
+    let existingWorkspaceFiles: string[] = [];
+    if (context.sandbox && context.workspaceId) {
+      try {
+        const findCmd = `find . -maxdepth 4 -not -path "*/.*" -not -path "*node_modules*" -not -path "*dist*" -not -path "*build*" -not -path "*coverage*" -type f -size +10c | sort`;
+        const res = await context.sandbox.exec(context.workspaceId, findCmd, { timeoutMs: 10000 });
+        if (res.exitCode === 0) {
+          existingWorkspaceFiles = res.stdout
+            .trim()
+            .split('\n')
+            .map((p) => p.trim().replace(/^\.\//, ''))
+            .filter((p) => p.length > 0 && p !== '.');
+        }
+      } catch {
+        // Fallback to empty
+      }
+    }
+
+    if (existingWorkspaceFiles.length > 0) {
+      console.log(
+        `📁 [Workspace State] Detected ${existingWorkspaceFiles.length} existing files in workspace (delta mode active)`,
+      );
+    }
+
+    // 3. Task Decomposition (with workspace delta context)
+    const initialSubtasks = await planGenerator.generatePlan(task, existingWorkspaceFiles);
     const planManager = new PlanManager(task.taskId, initialSubtasks, options.config?.planning);
 
     // Initial Plan Span
@@ -159,7 +183,7 @@ export class AgentRunner {
     let lastTestPassed = 0;
     let lastTestFailed = 0;
     const stepMemory: string[] = [];
-    const globalWrittenFiles = new Set<string>();
+    const globalWrittenFiles = new Set<string>(existingWorkspaceFiles);
 
     // 4. Main Subtask Execution Loop
     while (!planManager.isCompleted() && iterations < maxIterations) {

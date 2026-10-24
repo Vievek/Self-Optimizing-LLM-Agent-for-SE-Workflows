@@ -104,7 +104,7 @@ ${this.customGuidelines.map((g, idx) => `${8 + idx}. ${g}`).join('\n')}`;
     } else if (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file') {
       if (subtask.id.includes('scaffold')) {
         sections.push(
-          `\n🚨 IMPLEMENTATION & SCOPE DIRECTIVE:\n1. Repository exploration has already been completed. DO NOT call list_directory or re-explore. Your very first action MUST be write_file to begin creating the project files.\n2. STRICT SCOPE BOUNDARY: Strictly conform to the ARCHITECTURAL CONTRACT above. Only create the files for this specific phase. Do NOT invent extra auxiliary components, edit forms, or sub-pages. Conclude IMMEDIATELY with **Thought** and **Final Answer** once the required files are written.`,
+          `\n🚨 IMPLEMENTATION & SCOPE DIRECTIVE:\n1. Repository exploration has already been completed. DO NOT call list_directory or re-explore. Your very first action MUST be write_file to begin creating the project files.\n2. STRICT SCOPE BOUNDARY: Strictly conform to the ARCHITECTURAL CONTRACT above. Only create the files for this specific phase. Do NOT invent extra auxiliary components, edit forms, or sub-pages.\n3. NO INTERMEDIATE VERIFICATION: Once write_file returns ok for the target files, DO NOT call read_file or list_directory to inspect them. Comprehensive project verification is scheduled for the final verification phase. Conclude IMMEDIATELY with **Thought** and **Final Answer** once the required files are written.`,
         );
       } else {
         sections.push(

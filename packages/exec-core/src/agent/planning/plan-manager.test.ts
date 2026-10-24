@@ -209,7 +209,7 @@ describe('PlanGenerator and PlanManager', () => {
       expect(subtasks[0]?.type).toBe('explore');
 
       expect(subtasks[1]?.id).toContain('scaffold_phase_1_setup');
-      expect(subtasks[1]?.type).toBe('edit_single_file');
+      expect(subtasks[1]?.type).toBe('edit_multi_file');
 
       expect(subtasks[2]?.id).toContain('scaffold_phase_2_models');
       expect(subtasks[2]?.type).toBe('edit_multi_file');
@@ -223,6 +223,130 @@ describe('PlanGenerator and PlanManager', () => {
       expect(subtasks[0]?.contract).toContain('ARCHITECTURAL CONTRACT');
       expect(subtasks[0]?.contract).toContain('Project: { title: String, owner: ObjectId(User)');
       expect(subtasks[2]?.contract).toBe(subtasks[0]?.contract);
+
+      // Verify concrete target files are used instead of directory globs
+      expect(subtasks[3]?.targetFiles).toContain('server/routes/auth.js');
+      expect(subtasks[3]?.targetFiles).toContain('server/controllers/authController.js');
+      expect(subtasks[3]?.targetFiles).toContain('server/middleware/authMiddleware.js');
+      expect(subtasks[3]?.targetFiles.some((f) => f === 'server/routes')).toBe(false);
+    });
+
+    it('decomposes full_scaffold dynamically using SLM caller when available', async () => {
+      const mockSlmCaller = async (_prompt: string, sysPrompt?: string) => {
+        if (sysPrompt?.includes('Intent Classifier')) {
+          return JSON.stringify({ intent: 'full_scaffold', reasoning: 'New stack' });
+        }
+        return JSON.stringify({
+          contract: '# DYNAMIC ARCHITECTURAL CONTRACT\n- User: { id, name }',
+          phases: [
+            {
+              id: 'config',
+              title: 'Config & App Entry',
+              type: 'edit_single_file',
+              goal: 'Create package.json and index.js',
+              targetFiles: ['package.json', 'index.js'],
+            },
+            {
+              id: 'api',
+              title: 'API Endpoints',
+              type: 'edit_multi_file',
+              goal: 'Create routes and controllers',
+              targetFiles: ['src/routes.js', 'src/controllers.js'],
+            },
+          ],
+        });
+      };
+
+      const generator = new PlanGenerator({ slmCaller: mockSlmCaller });
+      const scaffoldTask: AgentTask = {
+        taskId: 'dynamic-scaffold-1',
+        repo: 'local/workspace',
+        problemStatement: 'Build a lightweight Express microservice with routes.js and controllers.js',
+      };
+
+      const subtasks = await generator.generatePlan(scaffoldTask);
+      expect(subtasks.length).toBe(4); // Recon + 2 phases + Verify
+      expect(subtasks[0]?.type).toBe('explore');
+      expect(subtasks[1]?.id).toContain('scaffold_config');
+      expect(subtasks[1]?.targetFiles).toEqual(['package.json', 'index.js']);
+      expect(subtasks[2]?.id).toContain('scaffold_api');
+      expect(subtasks[2]?.targetFiles).toEqual(['src/routes.js', 'src/controllers.js']);
+      expect(subtasks[3]?.id).toContain('scaffold_verify');
+      expect(subtasks[1]?.contract).toContain('# DYNAMIC ARCHITECTURAL CONTRACT');
+    });
+
+    it('skips already completed phases when existingFiles are present in dynamic scaffolding', async () => {
+      const mockSlmCaller = async (_prompt: string, sysPrompt?: string) => {
+        if (sysPrompt?.includes('Intent Classifier')) {
+          return JSON.stringify({ intent: 'full_scaffold', reasoning: 'New stack' });
+        }
+        return JSON.stringify({
+          contract: '# DYNAMIC ARCHITECTURAL CONTRACT\n- User: { id, name }',
+          phases: [
+            {
+              id: 'config',
+              title: 'Config & App Entry',
+              type: 'edit_single_file',
+              goal: 'Create package.json and index.js',
+              targetFiles: ['package.json', 'index.js'],
+            },
+            {
+              id: 'api',
+              title: 'API Endpoints',
+              type: 'edit_multi_file',
+              goal: 'Create routes and controllers',
+              targetFiles: ['src/routes.js', 'src/controllers.js'],
+            },
+          ],
+        });
+      };
+
+      const generator = new PlanGenerator({ slmCaller: mockSlmCaller });
+      const scaffoldTask: AgentTask = {
+        taskId: 'dynamic-scaffold-delta',
+        repo: 'local/workspace',
+        problemStatement: 'Build a lightweight Express microservice with routes.js and controllers.js',
+      };
+
+      // package.json and index.js are already present
+      const existingFiles = ['package.json', 'index.js'];
+      const subtasks = await generator.generatePlan(scaffoldTask, existingFiles);
+
+      // Recon skipped (workspace populated) and config phase skipped (files exist)
+      // Only api phase and verify remain
+      expect(subtasks.length).toBe(2);
+      expect(subtasks[0]?.id).toContain('scaffold_api');
+      expect(subtasks[0]?.targetFiles).toEqual(['src/routes.js', 'src/controllers.js']);
+      expect(subtasks[1]?.id).toContain('scaffold_verify');
+    });
+
+    it('skips setup and models in heuristic scaffolding when they already exist on disk', async () => {
+      const generator = new PlanGenerator();
+      const scaffoldTask: AgentTask = {
+        taskId: 'heuristic-delta-1',
+        repo: 'local/workspace',
+        problemStatement:
+          'Build a full-stack MERN Project Management System with User, Project, Task, and Comment models, JWT auth, and Tailwind CSS.',
+      };
+
+      const existingFiles = [
+        'package.json',
+        '.env.example',
+        'server.js',
+        'server/models/User.js',
+        'server/models/Project.js',
+        'server/models/Task.js',
+        'server/models/Comment.js',
+      ];
+
+      const subtasks = await generator.generatePlan(scaffoldTask, existingFiles);
+
+      // Recon, Setup, and Models skipped!
+      // Only Backend, Frontend, and Verify remain (3 phases)
+      expect(subtasks.length).toBe(3);
+      expect(subtasks[0]?.id).toContain('scaffold_phase_3_backend');
+      expect(subtasks[1]?.id).toContain('scaffold_phase_4_frontend');
+      expect(subtasks[2]?.id).toContain('scaffold_phase_5_verify');
     });
 
     it('classifies explain_only and generates read-only investigation plan without edit subtasks', async () => {

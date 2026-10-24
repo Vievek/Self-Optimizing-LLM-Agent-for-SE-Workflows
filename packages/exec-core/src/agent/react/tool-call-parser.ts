@@ -295,10 +295,13 @@ export class ToolCallParser {
       if (inputMatch?.[1]) {
         let rawInput = inputMatch[1].trim();
 
-        // Strip outer markdown code block only if rawInput starts with code fences
-        if (rawInput.startsWith('```')) {
+        // Extract markdown code block if rawInput contains code fences
+        const codeBlockMatch = /^```(?:json)?\s*([\s\S]*?)\s*```/i.exec(rawInput);
+        if (codeBlockMatch?.[1]) {
+          rawInput = codeBlockMatch[1].trim();
+        } else if (rawInput.startsWith('```')) {
           rawInput = rawInput.replace(/^```(?:json)?\s*/i, '');
-          rawInput = rawInput.replace(/\s*```\s*$/, '');
+          rawInput = rawInput.replace(/\s*```[\s\S]*$/i, '');
           rawInput = rawInput.trim();
         }
 

@@ -71,6 +71,57 @@ Respond ONLY with a valid JSON object matching this schema, with no markdown cod
   ]
 }`;
 
+export interface DecomposedScaffoldPhase {
+  id: string;
+  title: string;
+  type?: 'edit_single_file' | 'edit_multi_file';
+  goal: string;
+  targetFiles: string[];
+}
+
+export interface DecomposedScaffoldResponse {
+  contract?: string;
+  phases: DecomposedScaffoldPhase[];
+}
+
+export const SCAFFOLD_DECOMPOSITION_PROMPT = `You are an expert Software Architecture Planner for an autonomous coding agent.
+Analyze the user request to create, scaffold, or build a new software project or application.
+Decompose the project into a strict Architectural Contract and ordered implementation phases.
+
+CRITICAL REQUIREMENTS:
+1. Each phase must contain an explicit list of CONCRETE file paths to create (e.g. "server/models/User.js", "server/routes/auth.js"). NEVER use bare directory names like "server/routes" or "client/src".
+2. INCREMENTAL / DELTA SCAFFOLDING RULE:
+   - Check the list of existing workspace files provided in the prompt.
+   - If files already exist in the workspace, DO NOT queue phases or targets to re-create or overwrite them!
+   - Plan phases ONLY for the REMAINING MISSING subsystems and files needed to fulfill the user's requested application.
+3. COHESIVE SUBSYSTEM GROUPING:
+   - Do NOT create tiny single-file phases (e.g. do NOT create a separate phase just for an .env file or single config file alone). Group environment and configuration files directly into their respective subsystem phase (e.g. group client setup, tailwind, and UI components into the Frontend phase; group server configs, models, and routes into backend phases).
+   - All code generation phases use "type": "edit_multi_file".
+4. Provide an Architectural Contract specifying canonical entity schemas, required fields, API routes, and authentication rules.
+5. If all application code is already present, return an empty "phases": [] array so the agent can proceed straight to verification.
+6. The number of phases is dynamic—create as many or as few cohesive phases as needed to implement the remaining files.
+
+Respond ONLY with a valid JSON object matching this schema, with no markdown code blocks or preamble:
+{
+  "contract": "Strict architectural contract with schemas, fields, routes, and auth rules",
+  "phases": [
+    {
+      "id": "models",
+      "title": "Database Entity Models",
+      "type": "edit_multi_file",
+      "goal": "Create database entity models conforming to contract schemas.",
+      "targetFiles": ["server/models/User.js", "server/models/Project.js", "server/models/Task.js", "server/models/Comment.js"]
+    },
+    {
+      "id": "backend_api",
+      "title": "Backend Logic & API Routes",
+      "type": "edit_multi_file",
+      "goal": "Implement backend controllers, routes, and auth middleware.",
+      "targetFiles": ["server/routes/auth.js", "server/routes/projects.js", "server/controllers/authController.js", "server/controllers/projectController.js", "server/middleware/authMiddleware.js"]
+    }
+  ]
+}`;
+
 export interface PlanGeneratorOptions {
   config?: Partial<PlanningConfig>;
   customDecomposer?: (task: AgentTask) => Promise<SubTask[]> | SubTask[];
@@ -102,7 +153,7 @@ export class PlanGenerator {
    * - multi_bug -> Coalesced multi-issue subtask queue
    * - explain_only -> Read-only AST exploration & synthesis pipeline
    */
-  async generatePlan(task: AgentTask): Promise<SubTask[]> {
+  async generatePlan(task: AgentTask, existingFiles?: string[]): Promise<SubTask[]> {
     if (this.customDecomposer) {
       return await this.customDecomposer(task);
     }
@@ -118,9 +169,15 @@ export class PlanGenerator {
         subtasks = this.generateExplainOnlyPlan(task);
         break;
 
-      case 'full_scaffold':
-        subtasks = this.generatePhasedScaffoldingPlan(task);
+      case 'full_scaffold': {
+        const dynamicScaffoldSubtasks = await this.tryDecomposeScaffold(task, existingFiles);
+        if (dynamicScaffoldSubtasks && dynamicScaffoldSubtasks.length > 0) {
+          subtasks = dynamicScaffoldSubtasks;
+        } else {
+          subtasks = this.generatePhasedScaffoldingPlan(task, existingFiles);
+        }
         break;
+      }
 
       case 'multi_bug': {
         const multiBugSubtasks = await this.tryDecomposeMultiBug(task);
@@ -205,10 +262,7 @@ export class PlanGenerator {
         text,
       );
 
-    if (
-      intent === 'full_scaffold' &&
-      (hasBugPatterns || heuristicIssues.length >= 2 || targetFiles.length >= 2)
-    ) {
+    if (intent === 'full_scaffold' && hasBugPatterns) {
       intent = heuristicIssues.length >= 2 ? 'multi_bug' : 'single_bug';
     }
 
@@ -268,137 +322,190 @@ export class PlanGenerator {
   /**
    * Generates a phased scaffolding plan with an immutable Architectural Contract anchor.
    */
-  generatePhasedScaffoldingPlan(task: AgentTask): SubTask[] {
+  generatePhasedScaffoldingPlan(task: AgentTask, existingFiles: string[] = []): SubTask[] {
     const contract = this.extractArchitecturalContract(task.problemStatement);
     const extractedFiles = this.extractTargetFiles(task.problemStatement);
     const subtasks: SubTask[] = [];
+    const existingSet = new Set(existingFiles.map((f) => f.replace(/^\.\//, '')));
 
-    // Phase 0: Workspace Reconnaissance (Explore)
-    const exploreFeatures: SubtaskRoutingFeatures = {
-      step_type: 'explore',
-      estimated_tokens: 500,
-      file_count: 1,
-      prior_failures: 0,
-      requires_cross_file_reasoning: false,
-      symbol_count: 1,
-    };
+    const entities = ['User', 'Project', 'Task', 'Comment', 'Post', 'Order', 'Product'].filter((e) =>
+      new RegExp(`\\b${e}\\b`, 'i').test(task.problemStatement),
+    );
+    const entityList = entities.length > 0 ? entities : ['User', 'Project', 'Task', 'Comment'];
 
-    subtasks.push({
-      id: `${task.taskId}_step_0_recon`,
-      stepIndex: 0,
-      type: 'explore',
-      goal: `Inspect workspace layout with list_directory once. Verify empty or existing project layout. Conclude immediately with Final Answer.`,
-      targetFiles: extractedFiles,
-      estimatedTokens: 500,
-      status: 'pending',
-      retryCount: 0,
-      features: exploreFeatures,
-      contract,
-    });
+    const modelFiles = entityList.map((e) => `server/models/${e}.js`);
+    const routeFiles = [
+      'server/routes/auth.js',
+      ...entityList.map((e) => `server/routes/${e.toLowerCase()}s.js`),
+    ];
+    const controllerFiles = [
+      'server/controllers/authController.js',
+      ...entityList.map((e) => `server/controllers/${e.toLowerCase()}Controller.js`),
+    ];
+    const backendFiles = [...routeFiles, ...controllerFiles, 'server/middleware/authMiddleware.js'];
 
-    // Phase 1: Environment & Project Config
-    const configFeatures: SubtaskRoutingFeatures = {
-      step_type: 'edit_single_file',
-      estimated_tokens: 1200,
-      file_count: 2,
-      prior_failures: 0,
-      requires_cross_file_reasoning: false,
-      symbol_count: 1,
-    };
+    const hasFrontend = /(?:frontend|client|react|tailwind|shadcn|ui|pages|components)\b/i.test(
+      task.problemStatement,
+    );
+    const frontendFiles = [
+      'client/src/App.jsx',
+      'client/src/main.jsx',
+      ...entityList.map((e) => `client/src/components/${e}List.jsx`),
+    ];
 
-    subtasks.push({
-      id: `${task.taskId}_scaffold_phase_1_setup`,
-      stepIndex: 1,
-      type: 'edit_single_file',
-      goal: `Create root package.json, .env.example, and build/server configs. Conclude promptly once configs are created.`,
-      targetFiles: ['package.json', '.env.example'],
-      estimatedTokens: 1200,
-      status: 'pending',
-      retryCount: 0,
-      features: configFeatures,
-      contract,
-    });
+    const allExpectedFiles = Array.from(
+      new Set([
+        'package.json',
+        '.env.example',
+        'server.js',
+        ...modelFiles,
+        ...backendFiles,
+        ...(hasFrontend ? frontendFiles : []),
+        ...extractedFiles,
+      ]),
+    );
 
-    // Phase 2: Database Models & Schemas (Adhering strictly to Architectural Contract)
-    const modelFeatures: SubtaskRoutingFeatures = {
-      step_type: 'edit_multi_file',
-      estimated_tokens: 2500,
-      file_count: 4,
-      prior_failures: 0,
-      requires_cross_file_reasoning: true,
-      symbol_count: 4,
-    };
+    let stepIndex = 0;
 
-    subtasks.push({
-      id: `${task.taskId}_scaffold_phase_2_models`,
-      stepIndex: 2,
-      type: 'edit_multi_file',
-      goal: `Create database entity models conforming strictly to the ARCHITECTURAL CONTRACT schemas and field names.`,
-      targetFiles: [
-        'server/models/User.js',
-        'server/models/Project.js',
-        'server/models/Task.js',
-        'server/models/Comment.js',
-      ],
-      estimatedTokens: 2500,
-      status: 'pending',
-      retryCount: 0,
-      features: modelFeatures,
-      contract,
-    });
+    // Phase 0: Workspace Reconnaissance (only if workspace was empty)
+    if (existingFiles.length === 0) {
+      const exploreFeatures: SubtaskRoutingFeatures = {
+        step_type: 'explore',
+        estimated_tokens: 500,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      };
 
-    // Phase 3: Backend Logic & Express Routes
-    const backendFeatures: SubtaskRoutingFeatures = {
-      step_type: 'edit_multi_file',
-      estimated_tokens: 3000,
-      file_count: 4,
-      prior_failures: 0,
-      requires_cross_file_reasoning: true,
-      symbol_count: 5,
-    };
+      subtasks.push({
+        id: `${task.taskId}_step_0_recon`,
+        stepIndex: stepIndex++,
+        type: 'explore',
+        goal: `Inspect workspace layout with list_directory once. Verify empty or existing project layout. Conclude immediately with Final Answer.`,
+        targetFiles: allExpectedFiles.slice(0, 5),
+        estimatedTokens: 500,
+        status: 'pending',
+        retryCount: 0,
+        features: exploreFeatures,
+        contract,
+      });
+    }
 
-    subtasks.push({
-      id: `${task.taskId}_scaffold_phase_3_backend`,
-      stepIndex: 3,
-      type: 'edit_multi_file',
-      goal: `Implement backend Express routes, controllers, and auth middleware conforming to the ARCHITECTURAL CONTRACT.`,
-      targetFiles: ['server/routes', 'server/controllers', 'server/middleware'],
-      estimatedTokens: 3000,
-      status: 'pending',
-      retryCount: 0,
-      features: backendFeatures,
-      contract,
-    });
+    // Phase 1: Environment & Project Config (skip if package.json & server.js exist)
+    const missingSetup = ['package.json', '.env.example', 'server.js'].filter(
+      (f) => !existingSet.has(f),
+    );
+    if (missingSetup.length > 0) {
+      const configFeatures: SubtaskRoutingFeatures = {
+        step_type: 'edit_multi_file',
+        estimated_tokens: 1500,
+        file_count: missingSetup.length,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 2,
+      };
 
-    // Phase 4: Frontend UI Components & Client
-    const frontendFeatures: SubtaskRoutingFeatures = {
-      step_type: 'edit_multi_file',
-      estimated_tokens: 3500,
-      file_count: 4,
-      prior_failures: 0,
-      requires_cross_file_reasoning: true,
-      symbol_count: 5,
-    };
+      subtasks.push({
+        id: `${task.taskId}_scaffold_phase_1_setup`,
+        stepIndex: stepIndex++,
+        type: 'edit_multi_file',
+        goal: `Create root package.json, .env.example, and build/server configs. Conclude promptly once configs are created.`,
+        targetFiles: missingSetup,
+        estimatedTokens: 1500,
+        status: 'pending',
+        retryCount: 0,
+        features: configFeatures,
+        contract,
+      });
+    }
 
-    subtasks.push({
-      id: `${task.taskId}_scaffold_phase_4_frontend`,
-      stepIndex: 4,
-      type: 'edit_multi_file',
-      goal: `Create client views, UI components, and API integration conforming to the ARCHITECTURAL CONTRACT.`,
-      targetFiles: ['client/src/components', 'client/src/pages'],
-      estimatedTokens: 3500,
-      status: 'pending',
-      retryCount: 0,
-      features: frontendFeatures,
-      contract,
-    });
+    // Phase 2: Database Models & Schemas (skip if models exist)
+    const missingModels = modelFiles.filter((f) => !existingSet.has(f));
+    if (missingModels.length > 0) {
+      const modelFeatures: SubtaskRoutingFeatures = {
+        step_type: 'edit_multi_file',
+        estimated_tokens: 2500,
+        file_count: missingModels.length,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: missingModels.length,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_scaffold_phase_2_models`,
+        stepIndex: stepIndex++,
+        type: 'edit_multi_file',
+        goal: `Create database entity models conforming strictly to the ARCHITECTURAL CONTRACT schemas and field names.`,
+        targetFiles: missingModels,
+        estimatedTokens: 2500,
+        status: 'pending',
+        retryCount: 0,
+        features: modelFeatures,
+        contract,
+      });
+    }
+
+    // Phase 3: Backend Logic & Express Routes (skip if backend exists)
+    const missingBackend = backendFiles.filter((f) => !existingSet.has(f));
+    if (missingBackend.length > 0) {
+      const backendFeatures: SubtaskRoutingFeatures = {
+        step_type: 'edit_multi_file',
+        estimated_tokens: 3000,
+        file_count: missingBackend.length,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 5,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_scaffold_phase_3_backend`,
+        stepIndex: stepIndex++,
+        type: 'edit_multi_file',
+        goal: `Implement backend Express routes, controllers, and auth middleware conforming to the ARCHITECTURAL CONTRACT.`,
+        targetFiles: missingBackend,
+        estimatedTokens: 3000,
+        status: 'pending',
+        retryCount: 0,
+        features: backendFeatures,
+        contract,
+      });
+    }
+
+    // Phase 4: Frontend UI Components & Client (skip if frontend exists)
+    if (hasFrontend) {
+      const missingFrontend = frontendFiles.filter((f) => !existingSet.has(f));
+      if (missingFrontend.length > 0) {
+        const frontendFeatures: SubtaskRoutingFeatures = {
+          step_type: 'edit_multi_file',
+          estimated_tokens: 3500,
+          file_count: missingFrontend.length,
+          prior_failures: 0,
+          requires_cross_file_reasoning: true,
+          symbol_count: 5,
+        };
+
+        subtasks.push({
+          id: `${task.taskId}_scaffold_phase_4_frontend`,
+          stepIndex: stepIndex++,
+          type: 'edit_multi_file',
+          goal: `Create client views, UI components, and API integration conforming to the ARCHITECTURAL CONTRACT.`,
+          targetFiles: missingFrontend,
+          estimatedTokens: 3500,
+          status: 'pending',
+          retryCount: 0,
+          features: frontendFeatures,
+          contract,
+        });
+      }
+    }
 
     // Phase 5: Verification & Mock Seeds
     if (this.config.verify_after_edit) {
       const verifyFeatures: SubtaskRoutingFeatures = {
         step_type: 'plan',
         estimated_tokens: 600,
-        file_count: Math.max(1, extractedFiles.length),
+        file_count: Math.max(1, allExpectedFiles.length),
         prior_failures: 0,
         requires_cross_file_reasoning: false,
         symbol_count: 1,
@@ -406,10 +513,10 @@ export class PlanGenerator {
 
       subtasks.push({
         id: `${task.taskId}_scaffold_phase_5_verify`,
-        stepIndex: 5,
+        stepIndex: stepIndex++,
         type: 'plan',
         goal: `Verify that all requested project files exist on disk using list_directory once, and verify mock data / test seeds. Conclude immediately.`,
-        targetFiles: extractedFiles,
+        targetFiles: allExpectedFiles,
         estimatedTokens: 600,
         status: 'pending',
         retryCount: 0,
@@ -601,6 +708,171 @@ export class PlanGenerator {
     }
 
     return null;
+  }
+
+  /**
+   * Attempts to dynamically decompose a new project / full_scaffold request into
+   * stack-tailored implementation phases and concrete target files using LLM or SLM.
+   */
+  async tryDecomposeScaffold(
+    task: AgentTask,
+    existingFiles: string[] = [],
+  ): Promise<SubTask[] | null> {
+    let parsed: DecomposedScaffoldResponse | null = null;
+    const existingNotice =
+      existingFiles.length > 0
+        ? `\n\nExisting files already present in the workspace (${existingFiles.length} files):\n${existingFiles.map((f) => `- ${f}`).join('\n')}\n\nIMPORTANT: Do NOT recreate or overwrite these existing files. Plan phases ONLY for missing files!`
+        : '\n\nWorkspace is currently empty. Plan the full project from scratch.';
+
+    const promptText = `${task.problemStatement}${existingNotice}`;
+
+    if (this.slmCaller) {
+      try {
+        const raw = await this.slmCaller(promptText, SCAFFOLD_DECOMPOSITION_PROMPT);
+        parsed = this.parseScaffoldResponse(raw);
+      } catch {
+        // Fall back to provider or heuristic
+      }
+    }
+
+    if (!parsed && this.providerRegistry) {
+      try {
+        const largeProvider = this.providerRegistry.getProvider('large');
+        const activeConfig = this.providerRegistry.getConfig();
+        const model = activeConfig.large?.model ?? 'large';
+
+        const response = await largeProvider.chat({
+          model,
+          messages: [
+            { role: 'system', content: SCAFFOLD_DECOMPOSITION_PROMPT },
+            { role: 'user', content: promptText },
+          ],
+          temperature: 0.1,
+          maxTokens: 1500,
+        });
+
+        parsed = this.parseScaffoldResponse(response.content);
+      } catch {
+        // Fall back to heuristic
+      }
+    }
+
+    if (parsed && Array.isArray(parsed.phases)) {
+      return this.buildScaffoldQueueSubtasks(task, parsed, existingFiles);
+    }
+
+    return null;
+  }
+
+  /**
+   * Builds an ordered SubTask queue from dynamic scaffold decomposition.
+   */
+  buildScaffoldQueueSubtasks(
+    task: AgentTask,
+    response: DecomposedScaffoldResponse,
+    existingFiles: string[] = [],
+  ): SubTask[] {
+    const contract =
+      response.contract?.trim() || this.extractArchitecturalContract(task.problemStatement);
+    const subtasks: SubTask[] = [];
+    let stepIndex = 0;
+    const existingSet = new Set(existingFiles.map((f) => f.replace(/^\.\//, '')));
+
+    // Filter out target files that already exist on disk
+    const filteredPhases = response.phases
+      .map((phase) => ({
+        ...phase,
+        targetFiles: phase.targetFiles.filter((f) => !existingSet.has(f.replace(/^\.\//, ''))),
+      }))
+      .filter((phase) => phase.targetFiles.length > 0);
+
+    const allTargetFiles = Array.from(new Set(filteredPhases.flatMap((p) => p.targetFiles)));
+
+    // Phase 0: Workspace Reconnaissance (only if workspace was empty)
+    if (existingFiles.length === 0) {
+      const exploreFeatures: SubtaskRoutingFeatures = {
+        step_type: 'explore',
+        estimated_tokens: 500,
+        file_count: Math.max(1, allTargetFiles.length),
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_step_0_recon`,
+        stepIndex: stepIndex++,
+        type: 'explore',
+        goal: `Inspect workspace layout with list_directory once. Verify empty or existing project layout. Conclude immediately with Final Answer.`,
+        targetFiles: allTargetFiles.slice(0, 5),
+        estimatedTokens: 500,
+        status: 'pending',
+        retryCount: 0,
+        features: exploreFeatures,
+        contract,
+      });
+    }
+
+    // Dynamic Implementation Phases
+    for (const phase of filteredPhases) {
+      const type: SubtaskType = 'edit_multi_file';
+      const fileCount = Math.max(1, phase.targetFiles.length);
+      const estTokens = Math.min(4000, 1500 + fileCount * 500);
+
+      const features: SubtaskRoutingFeatures = {
+        step_type: 'edit_multi_file',
+        estimated_tokens: estTokens,
+        file_count: fileCount,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: Math.max(2, fileCount),
+      };
+
+      const phaseKey = phase.id
+        ? phase.id.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+        : `phase_${stepIndex}`;
+
+      subtasks.push({
+        id: `${task.taskId}_scaffold_${phaseKey}`,
+        stepIndex: stepIndex++,
+        type,
+        goal: phase.goal,
+        targetFiles: phase.targetFiles,
+        estimatedTokens: estTokens,
+        status: 'pending',
+        retryCount: 0,
+        features,
+        contract,
+      });
+    }
+
+    // Final Phase: Verification
+    if (this.config.verify_after_edit) {
+      const allExpectedFiles = Array.from(new Set([...existingFiles, ...allTargetFiles]));
+      const verifyFeatures: SubtaskRoutingFeatures = {
+        step_type: 'plan',
+        estimated_tokens: 600,
+        file_count: Math.max(1, allExpectedFiles.length),
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      };
+
+      subtasks.push({
+        id: `${task.taskId}_scaffold_verify`,
+        stepIndex: stepIndex++,
+        type: 'plan',
+        goal: `Verify that all created project files exist on disk using list_directory once, and verify mock data / test seeds. Conclude immediately.`,
+        targetFiles: allExpectedFiles,
+        estimatedTokens: 600,
+        status: 'pending',
+        retryCount: 0,
+        features: verifyFeatures,
+        contract,
+      });
+    }
+
+    return subtasks;
   }
 
   /**
@@ -925,6 +1197,42 @@ export class PlanGenerator {
       const parsed = JSON.parse(raw) as DecomposedIssuesResponse;
       if (typeof parsed?.isMultiBug === 'boolean' && Array.isArray(parsed?.issues)) {
         return parsed;
+      }
+    } catch {
+      // Return null on parsing failure
+    }
+    return null;
+  }
+
+  /**
+   * Parses the JSON response emitted by the scaffold decomposition prompt.
+   */
+  private parseScaffoldResponse(content: string): DecomposedScaffoldResponse | null {
+    try {
+      let raw = content.trim();
+      if (raw.startsWith('```')) {
+        raw = raw.replace(/^```(?:json)?\s*/i, '');
+        raw = raw.replace(/\s*```\s*$/, '');
+        raw = raw.trim();
+      }
+
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        raw = jsonMatch[0];
+      }
+
+      const parsed = JSON.parse(raw) as DecomposedScaffoldResponse;
+      if (Array.isArray(parsed?.phases)) {
+        const validPhases = parsed.phases.filter(
+          (p) =>
+            typeof p.goal === 'string' &&
+            Array.isArray(p.targetFiles) &&
+            p.targetFiles.length > 0,
+        );
+        return {
+          contract: typeof parsed.contract === 'string' ? parsed.contract : undefined,
+          phases: validPhases,
+        };
       }
     } catch {
       // Return null on parsing failure

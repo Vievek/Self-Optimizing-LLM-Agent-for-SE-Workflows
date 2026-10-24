@@ -317,15 +317,28 @@ Action Input: {
       expect(parsed.toolCall?.args.truncated).toBe(true);
     });
 
-    it('rejects treating malformed JSON as raw file path in write_file fallback', () => {
-      const output = `Thought: Attempting to write.
-Action: write_file
-Action Input: { "files": [ { invalid_syntax `;
+    it('parses ReAct Action Input with Markdown code block and trailing commentary text', () => {
+      const output = `**Thought**: Let's write the route files now.
+**Action**: write_file
+**Action Input**:
+\`\`\`json
+{
+  "files": [
+    { "path": "server/routes/auth.js", "content": "const express = require('express');" },
+    { "path": "server/routes/projects.js", "content": "const express = require('express');" }
+  ]
+}
+\`\`\`
+
+This batch action creates all the necessary route files adhering to the contract.`;
 
       const parsed = ToolCallParser.parse(output);
       expect(parsed.toolCall?.toolName).toBe('write_file');
-      expect(parsed.toolCall?.args.path).toBeUndefined();
-      expect(parsed.toolCall?.args.error).toBeDefined();
+      expect(parsed.toolCall?.args.error).toBeUndefined();
+      expect(parsed.toolCall?.args.files).toHaveLength(2);
+      expect((parsed.toolCall?.args.files as Array<{ path: string }>)[0]?.path).toBe(
+        'server/routes/auth.js',
+      );
     });
   });
 });

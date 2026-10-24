@@ -47,13 +47,16 @@ export class ReactAgent {
 
     // Initialize conversation history if new
     if (historyManager.getMessages().length === 0) {
+      const isScaffold = params.subtask.id.includes('scaffold');
       const promptBuilder = new PromptBuilder({
         maxBatchWriteFiles: params.maxBatchWriteFiles,
         maxBatchReadFiles: params.maxBatchReadFiles,
         customGuidelines: [
           'Think step-by-step before selecting an action.',
           'You may call multiple tools or batch actions in one turn if needed to gather context or make changes efficiently.',
-          'Always verify files and test outcomes before concluding.',
+          isScaffold
+            ? 'For scaffolding subtasks, write the required files with write_file and conclude immediately without calling read_file; full verification is reserved for the final verification step.'
+            : 'Always verify files and test outcomes before concluding.',
         ],
       });
 
@@ -233,6 +236,13 @@ export class ReactAgent {
             if (isDuplicate) {
               loopNotice =
                 '\n\n⚠️ STEERING NOTICE: You have already inspected this path. You have sufficient information about the workspace. Do NOT call list_directory or read_file again. Proceed immediately to write the required missing files using write_file.';
+            } else if (
+              params.subtask.id.includes('scaffold') &&
+              call.toolName === 'read_file' &&
+              writtenFiles.size > 0
+            ) {
+              loopNotice =
+                '\n\n⚠️ STEERING NOTICE: Target files for this scaffolding phase have already been written. Do NOT call read_file to re-read them; centralized verification will run in the final verification phase. Conclude this subtask now with **Thought** and **Final Answer**.';
             } else if (
               (params.subtask.type === 'edit_multi_file' ||
                 params.subtask.type === 'edit_single_file') &&
