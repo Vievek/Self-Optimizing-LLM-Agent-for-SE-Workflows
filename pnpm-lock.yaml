@@ -37,6 +37,9 @@ importers:
       '@soa/eval-harness':
         specifier: workspace:*
         version: link:../../packages/eval-harness
+      '@soa/heae':
+        specifier: workspace:*
+        version: link:../../packages/heae
       '@soa/memory-agent':
         specifier: workspace:*
         version: link:../../packages/memory-agent

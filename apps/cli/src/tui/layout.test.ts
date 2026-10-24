@@ -106,9 +106,9 @@ describe('Full-screen layout', () => {
     const app = new TuiApp('heae', 'cyber', { animate: false });
     app.setSize(120, 40);
     const frame = frameLines(app).join('\n');
-    expect(frame).toContain('┏─ ◢ ATTRIBUTED DIAGNOSTICS & FAILURE RULES ◣');
+    expect(frame).toContain('┏─ ◢ OVERVIEW ◣');
     expect(frame).toContain('┗');
-    expect(frame).toContain('// KÙZU GRAPH STORE');
+    expect(frame).toContain('┏─ ◢ HEAE DATA STATUS ◣');
   });
 
   it('stays exact while scrolling, on every tab and in every theme', () => {

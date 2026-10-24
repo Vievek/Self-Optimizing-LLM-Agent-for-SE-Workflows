@@ -28,6 +28,7 @@
   "dependencies": {
     "@soa/contracts": "workspace:*",
     "@soa/eval-harness": "workspace:*",
+    "@soa/heae": "workspace:*",
     "@soa/memory-agent": "workspace:*",
     "@soa/mocks": "workspace:*",
     "@soa/orchestrator": "workspace:*",
