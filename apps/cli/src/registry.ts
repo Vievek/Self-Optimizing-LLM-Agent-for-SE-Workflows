@@ -1,19 +1,13 @@
-import {
-  SCHEMA_VERSION,
-  OUTCOME_EVIDENCE_SCHEMA_VERSION,
-  OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-  REFINED_MEMORY_SCHEMA_VERSION,
-  CONFIG_SCHEMA_VERSION,
-} from '@soa/contracts';
+import { OUTCOME_EVIDENCE_SCHEMA_VERSION } from '@soa/contracts';
 import { TaskLoader } from '@soa/eval-harness';
-import { MockExecCore, MockHeae, MockMemoryAgent } from '@soa/mocks';
+import { MockExecCore, MockHeae } from '@soa/mocks';
 import { renderRecordTable } from './components/record-table.js';
 import { renderStageProgress, StageItem } from './components/stage-progress.js';
-import {
-  renderContractCheckPanel,
-  ContractCheckResult,
-} from './components/contract-check-panel.js';
+import { renderContractCheckPanel } from './components/contract-check-panel.js';
+import { runContractHealthCheck } from './contract-health.js';
 import { runOrchCommand } from './commands/orch/index.js';
+import { runMemoryCommand } from './commands/memory/index.js';
+import { TuiApp } from './tui/app.js';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
@@ -43,33 +37,7 @@ export class CommandRegistry {
   private registerDefaults(): void {
     // 1. soa check - Run contract validation checks
     this.register('check', async () => {
-      const results: ContractCheckResult[] = [
-        {
-          contract: 'TraceSpan (OTel Spans)',
-          version: SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'OutcomeEvidence (HEAE -> Memory)',
-          version: OUTCOME_EVIDENCE_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'OptimizationSignal (HEAE -> Orch)',
-          version: OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'RefinedMemory (Memory -> Store)',
-          version: REFINED_MEMORY_SCHEMA_VERSION,
-          valid: true,
-        },
-        {
-          contract: 'FullAgentConfig (Orch -> Exec)',
-          version: CONFIG_SCHEMA_VERSION,
-          valid: true,
-        },
-      ];
+      const results = runContractHealthCheck();
       return renderContractCheckPanel(results);
     });
 
@@ -139,24 +107,8 @@ export class CommandRegistry {
       return renderRecordTable(headers, rows, `HEAE Failure Attribution: ${taskId}`);
     });
 
-    // 4. soa memory - Run Memory Agent view
-    this.register('memory', async (args) => {
-      const query = args.join(' ') || 'regex trailing newline';
-      const mem = new MockMemoryAgent();
-      const notes = await mem.retrieve(query, 'django/django', 'fb8b75e7a9b8f2d');
-
-      const headers = ['Memory ID', 'Task', 'Files', 'Action', 'Score', 'Lifecycle'];
-      const rows = notes.map((n) => [
-        n.memory_id.slice(0, 12) + '...',
-        n.note.task.slice(0, 30) + '...',
-        n.note.files.join(', '),
-        n.action,
-        n.score.total,
-        n.lifecycle,
-      ]);
-
-      return renderRecordTable(headers, rows, `Memory Agent Retrieval (Query: "${query}")`);
-    });
+    // 4. soa memory - Memory Agent TUI: soa memory <sub> [args]
+    this.register('memory', async (args) => runMemoryCommand(args));
 
     // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
     this.register('orch', async (args) => {
@@ -191,17 +143,28 @@ export class CommandRegistry {
         `SWE-bench Lite Dataset (Total: ${taskLoader.size} tasks)`,
       );
     });
+
+    // 7. soa tui - Launch or render interactive TUI views
+    this.register('tui', async (args) => {
+      const initialView = args[0] || 'exec';
+      const app = new TuiApp(initialView);
+      return app.renderCurrent();
+    });
   }
 
   private renderHelp(): string {
     return `
 Usage: soa <component> [args...]
 
+Interactive TUI:
+  soa                Launch interactive Claude Code-style TUI with LazyVim menu
+  soa tui [module]   Launch interactive TUI focused on a module (exec, heae, memory, orch)
+
 Available Components:
   soa check          Check status and schema compliance of all shared contracts
   soa exec [taskId]  Run execution trace and view stage progress & span tables
   soa heae [taskId]  Run HEAE failure attribution and view diagnostic signals
-  soa memory [query] Query long-term memory notes and view reflection scores
+  soa memory <sub>   Memory notes: seed, list, show, verify, check, stale-eval
   soa orch           View runtime configuration axes and optimization history
   soa bench          Inspect SWE-bench Lite subset partitioning and task counts
 `;

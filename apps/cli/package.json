@@ -15,11 +15,20 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "start": "node dist/cli.js",
+    "tui": "node dist/cli.js",
+    "tui:exec": "node dist/cli.js tui exec",
+    "tui:heae": "node dist/cli.js tui heae",
+    "tui:memory": "node dist/cli.js tui memory",
+    "tui:orch": "node dist/cli.js tui orch",
+    "tui:menu": "node dist/cli.js tui menu",
+    "tui:help": "node dist/cli.js tui help"
   },
   "dependencies": {
     "@soa/contracts": "workspace:*",
     "@soa/eval-harness": "workspace:*",
+    "@soa/memory-agent": "workspace:*",
     "@soa/mocks": "workspace:*",
     "@soa/orchestrator": "workspace:*",
     "@soa/store": "workspace:*"

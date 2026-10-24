@@ -1,0 +1,58 @@
+{
+  "caseId": "workflow-004",
+  "source": "datasets/workflow-contrast-v1/traces/workflow-004.jsonl",
+  "datasetProvenance": "synthetic_development",
+  "evaluationMode": "rule_only",
+  "traceSha256": "9e669e046d74ffa1365763748b0c6fcee1c75f3b940eabd339e6e626abc86cd7",
+  "summary": {
+    "traceId": "b4000000000000000000000000000004",
+    "outcome": "fail",
+    "categories": ["tool"],
+    "observationCount": 1,
+    "hypothesisCount": 1,
+    "judgeStatus": "unavailable",
+    "saved": false,
+    "graphSaved": false,
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
+  },
+  "attribution": {
+    "traceId": "b4000000000000000000000000000004",
+    "ruleReport": {
+      "traceId": "b4000000000000000000000000000004",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "TOOL-02",
+          "category": "tool",
+          "observation": "Tool execution reported an error",
+          "evidenceNodeIds": ["b400000000000004"],
+          "details": {
+            "toolName": "apply_patch",
+            "error": "FILE_NOT_FOUND: target file src/api/missing_handler.py does not exist",
+            "spanStatus": "error",
+            "toolStatus": "error",
+            "latencyMs": 8000
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "tool",
+          "status": "unverified",
+          "summary": "A tool operation may have contributed",
+          "supportingRuleIds": ["TOOL-02"],
+          "evidenceNodeIds": ["b400000000000004"],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
+  }
+}

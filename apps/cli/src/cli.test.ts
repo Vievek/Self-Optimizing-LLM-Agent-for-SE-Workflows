@@ -109,12 +109,11 @@ describe('CommandRegistry', () => {
     expect(output).toContain('tool_description_refine');
   });
 
-  it('executes soa memory', async () => {
+  it('executes soa memory (unknown subcommand shows the memory help)', async () => {
     const output = await registry.execute('memory', ['django', 'trailing', 'newline']);
-    expect(output).toContain('Memory Agent Retrieval');
-    expect(output).toContain('Memory ID');
-    expect(output).toContain('Score');
-    expect(output).toContain('KEEP');
+    expect(output).toContain('Unknown memory subcommand "django"');
+    expect(output).toContain('Usage: soa memory <subcommand>');
+    expect(output).toContain('stale-eval');
   });
 
   it('executes soa orch', async () => {

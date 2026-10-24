@@ -1,0 +1,11 @@
+# Local Ollama model storage
+.ollama/
+models/
+
+# Downloaded machine-learning model files
+*.gguf
+*.safetensors
+*.ggml
+
+# Generated research evaluation reports
+# Add report exclusions later if required

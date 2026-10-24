@@ -1,0 +1,20 @@
+{
+  "provenance": "synthetic_development",
+  "independentlyValidated": false,
+  "datasets": [
+    {
+      "datasetName": "controlled-v1",
+      "totalCases": 5,
+      "exactMatches": 4,
+      "microF1": 0.8571428571428571,
+      "macroF1": 0.6
+    },
+    {
+      "datasetName": "workflow-contrast-v1",
+      "totalCases": 5,
+      "exactMatches": 5,
+      "microF1": 1,
+      "macroF1": 0.4
+    }
+  ]
+}

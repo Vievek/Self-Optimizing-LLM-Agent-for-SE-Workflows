@@ -8,7 +8,8 @@
     { "path": "../../packages/contracts" },
     { "path": "../../packages/store" },
     { "path": "../../packages/mocks" },
-    { "path": "../../packages/eval-harness" }
+    { "path": "../../packages/eval-harness" },
+    { "path": "../../packages/memory-agent" }
   ],
   "include": ["src/**/*"]
 }

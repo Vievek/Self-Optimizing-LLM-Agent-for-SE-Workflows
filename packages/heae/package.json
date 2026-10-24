@@ -2,6 +2,9 @@
   "name": "@soa/heae",
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "heae": "./dist/cli/main.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,9 +15,14 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "cd ../.. && vitest run packages/heae"
   },
   "dependencies": {
-    "@soa/contracts": "workspace:*"
+    "@soa/contracts": "workspace:*",
+    "@soa/llm": "workspace:*",
+    "@soa/store": "workspace:*",
+    "kuzu": "0.11.3",
+    "zod": "3.25.76"
   }
 }

@@ -1,0 +1,58 @@
+{
+  "caseId": "workflow-001",
+  "source": "datasets/workflow-contrast-v1/traces/workflow-001.jsonl",
+  "datasetProvenance": "synthetic_development",
+  "evaluationMode": "rule_only",
+  "traceSha256": "80ddccc546b583cbcb2720fbbaf76f6f06a0f9763acf780782799dae17a8812f",
+  "summary": {
+    "traceId": "b1000000000000000000000000000001",
+    "outcome": "fail",
+    "categories": ["workflow"],
+    "observationCount": 1,
+    "hypothesisCount": 1,
+    "judgeStatus": "unavailable",
+    "saved": false,
+    "graphSaved": false,
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
+  },
+  "attribution": {
+    "traceId": "b1000000000000000000000000000001",
+    "ruleReport": {
+      "traceId": "b1000000000000000000000000000001",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "WORKFLOW-01",
+          "category": "workflow",
+          "observation": "Patch operation succeeded, but the unsuccessful output reports no tests executed",
+          "evidenceNodeIds": ["b100000000000005", "b100000000000004"],
+          "details": {
+            "result": "fail",
+            "testsRun": 0,
+            "patchHash": "cccccccccccccccccccccccccccccccccccccccc",
+            "patchToolCount": 1,
+            "outputSpanStatus": "error"
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "workflow",
+          "status": "unverified",
+          "summary": "A workflow verification issue may have contributed",
+          "supportingRuleIds": ["WORKFLOW-01"],
+          "evidenceNodeIds": ["b100000000000005", "b100000000000004"],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": ["LLM judge unavailable: provider or model not configured."]
+  }
+}

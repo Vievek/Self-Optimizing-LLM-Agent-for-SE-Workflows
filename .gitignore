@@ -52,3 +52,5 @@ venv/
 
 ai-frienly/
 .groq_key_state.json
+# Local HEAE evaluation history
+.heae/

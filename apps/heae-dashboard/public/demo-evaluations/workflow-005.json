@@ -1,0 +1,38 @@
+{
+  "caseId": "workflow-005",
+  "source": "datasets/workflow-contrast-v1/traces/workflow-005.jsonl",
+  "datasetProvenance": "synthetic_development",
+  "evaluationMode": "rule_only",
+  "traceSha256": "b49535dbcdd8a86fbd850a5355fbbd45026ceadd611c3002e381f293ec3ebcb2",
+  "summary": {
+    "traceId": "b5000000000000000000000000000005",
+    "outcome": "fail",
+    "categories": [],
+    "observationCount": 0,
+    "hypothesisCount": 0,
+    "judgeStatus": "unavailable",
+    "saved": false,
+    "graphSaved": false,
+    "warnings": [
+      "The task failed, but no deterministic attribution evidence was found",
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  },
+  "attribution": {
+    "traceId": "b5000000000000000000000000000005",
+    "ruleReport": {
+      "traceId": "b5000000000000000000000000000005",
+      "outcome": "fail",
+      "observations": [],
+      "hypotheses": [],
+      "warnings": ["The task failed, but no deterministic attribution evidence was found"],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": [
+      "The task failed, but no deterministic attribution evidence was found",
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  }
+}
