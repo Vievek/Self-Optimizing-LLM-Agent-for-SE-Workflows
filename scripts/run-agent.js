@@ -157,6 +157,15 @@ async function main() {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
+        if (
+          entry.name === 'node_modules' ||
+          entry.name === '.git' ||
+          entry.name === 'dist' ||
+          entry.name === 'build' ||
+          entry.name === '.soa_graph.json'
+        ) {
+          continue;
+        }
         const relPath = path.join(prefix, entry.name);
         if (entry.isDirectory()) {
           listFilesRecursively(path.join(dir, entry.name), relPath);

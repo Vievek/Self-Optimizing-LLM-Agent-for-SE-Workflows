@@ -2,6 +2,7 @@ import { PlanningConfig, CONFIG_SCHEMA_VERSION } from '@soa/contracts';
 import type { ProviderRegistry } from '@soa/llm';
 import { AgentTask, SubTask } from '../types.js';
 import { SubtaskRoutingFeatures, SubtaskType } from '../../routing/types.js';
+import { WorkspaceAuditor } from './workspace-auditor.js';
 
 export const DEFAULT_PLANNING_CONFIG: PlanningConfig = {
   schema_version: CONFIG_SCHEMA_VERSION,
@@ -91,14 +92,21 @@ Decompose the project into a strict Architectural Contract and ordered implement
 CRITICAL REQUIREMENTS:
 1. Each phase must contain an explicit list of CONCRETE file paths to create (e.g. "server/models/User.js", "server/routes/auth.js"). NEVER use bare directory names like "server/routes" or "client/src".
 2. INCREMENTAL / DELTA SCAFFOLDING RULE:
-   - Check the list of existing workspace files provided in the prompt.
-   - If files already exist in the workspace, DO NOT queue phases or targets to re-create or overwrite them!
-   - Plan phases ONLY for the REMAINING MISSING subsystems and files needed to fulfill the user's requested application.
+   - Check the list of existing workspace files and the Workspace Subsystem Audit provided in the prompt.
+   - If files or subsystems already exist in the workspace, DO NOT queue phases or targets to re-create or overwrite them!
+   - DO NOT invent alternate or redundant files for subsystems that already exist! For example:
+     * If database entity models already exist (e.g. User, Project, Task, Comment), do NOT create new model files.
+     * If backend controllers/routes already exist, do NOT recreate them with different names.
+     * If mock data/persistence already exists (e.g. server/data/*.json), do NOT queue a seedData.js or duplicate data files.
+     * If frontend components and styling already exist (e.g. in client/src/), do NOT queue duplicate setup files.
+     * If test suites already exist (e.g. server/tests/, client/src/__tests__/), do NOT queue duplicate tests.
+   - Plan phases ONLY if a critical subsystem requested by the user is completely missing.
 3. COHESIVE SUBSYSTEM GROUPING:
-   - Do NOT create tiny single-file phases (e.g. do NOT create a separate phase just for an .env file or single config file alone). Group environment and configuration files directly into their respective subsystem phase (e.g. group client setup, tailwind, and UI components into the Frontend phase; group server configs, models, and routes into backend phases).
+   - Do NOT create tiny single-file phases (e.g. do NOT create a separate phase just for an .env file or single config file alone). Group environment and configuration files directly into their respective subsystem phase.
    - All code generation phases use "type": "edit_multi_file".
 4. Provide an Architectural Contract specifying canonical entity schemas, required fields, API routes, and authentication rules.
-5. If all application code is already present, return an empty "phases": [] array so the agent can proceed straight to verification.
+5. FULL PROJECT COMPLETION RULE:
+   - If the existing files already satisfy the core user requirements, you MUST return an empty "phases": [] array!
 6. The number of phases is dynamic—create as many or as few cohesive phases as needed to implement the remaining files.
 
 Respond ONLY with a valid JSON object matching this schema, with no markdown code blocks or preamble:
@@ -718,10 +726,36 @@ export class PlanGenerator {
     task: AgentTask,
     existingFiles: string[] = [],
   ): Promise<SubTask[] | null> {
+    // 1. Audit workspace for completed subsystems, overlaps, and gap analysis
+    if (existingFiles.length > 0) {
+      const audit = WorkspaceAuditor.auditWorkspace(task, existingFiles);
+      console.log(WorkspaceAuditor.formatAuditReport(audit));
+
+      // If workspace already implements all core requested capabilities, skip generation!
+      if (audit.isFullyComplete) {
+        return this.buildScaffoldQueueSubtasks(
+          task,
+          {
+            contract: '# ARCHITECTURAL CONTRACT: All required subsystems are verified complete on disk.',
+            phases: [],
+          },
+          existingFiles,
+        );
+      }
+    }
+
     let parsed: DecomposedScaffoldResponse | null = null;
+    let auditNotice = '';
+    if (existingFiles.length > 0) {
+      const audit = WorkspaceAuditor.auditWorkspace(task, existingFiles);
+      const completedList = audit.completedSubsystems.map((s) => s.name).join(', ');
+      const missingList = audit.missingSubsystems.map((s) => s.name).join(', ');
+      auditNotice = `\n\nWORKSPACE SUBSYSTEM AUDIT:\n- Completed Subsystems (DO NOT RECREATE OR OVERWRITE): ${completedList || 'None'}\n- Missing Subsystems Needed: ${missingList || 'None'}${audit.overlaps.length > 0 ? `\n- Overlaps Resolved: ${audit.overlaps.join('; ')}` : ''}`;
+    }
+
     const existingNotice =
       existingFiles.length > 0
-        ? `\n\nExisting files already present in the workspace (${existingFiles.length} files):\n${existingFiles.map((f) => `- ${f}`).join('\n')}\n\nIMPORTANT: Do NOT recreate or overwrite these existing files. Plan phases ONLY for missing files!`
+        ? `\n\nExisting files already present in the workspace (${existingFiles.length} files):\n${existingFiles.map((f) => `- ${f}`).join('\n')}\n\nIMPORTANT: Do NOT recreate or overwrite these existing files. Do NOT invent variant files for completed subsystems. Plan phases ONLY for missing subsystems!${auditNotice}`
         : '\n\nWorkspace is currently empty. Plan the full project from scratch.';
 
     const promptText = `${task.problemStatement}${existingNotice}`;
@@ -858,11 +892,16 @@ export class PlanGenerator {
         symbol_count: 1,
       };
 
+      const verifyGoal =
+        filteredPhases.length === 0 && existingFiles.length > 0
+          ? `All requested project components (models, auth, frontend, mock data, tests, README) are already present on disk (${existingFiles.length} files). Inspect workspace layout with list_directory once to confirm completeness and conclude immediately.`
+          : `Verify that all created project files exist on disk using list_directory once, and verify mock data / test seeds. Conclude immediately.`;
+
       subtasks.push({
         id: `${task.taskId}_scaffold_verify`,
         stepIndex: stepIndex++,
         type: 'plan',
-        goal: `Verify that all created project files exist on disk using list_directory once, and verify mock data / test seeds. Conclude immediately.`,
+        goal: verifyGoal,
         targetFiles: allExpectedFiles,
         estimatedTokens: 600,
         status: 'pending',
