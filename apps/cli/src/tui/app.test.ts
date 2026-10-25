@@ -85,6 +85,7 @@ describe('TUI Theme & CSS-Like Styling Engine', () => {
 describe('TuiApp Global Navigation & Keybindings', () => {
   it('initializes to exec view by default', () => {
     const app = new TuiApp('exec');
+    app.setSize(100, 30);
     expect(app.getState().activeView).toBe('exec');
     const output = app.renderCurrent();
     expect(output).toContain('Execution Core');
@@ -93,6 +94,7 @@ describe('TuiApp Global Navigation & Keybindings', () => {
 
   it('toggles LazyVim main menu with "m" key and returns on "m" or Escape', () => {
     const app = new TuiApp('memory');
+    app.setSize(100, 30);
     expect(app.getState().activeView).toBe('memory');
 
     // Press 'm' to open LazyVim Menu
@@ -114,6 +116,7 @@ describe('TuiApp Global Navigation & Keybindings', () => {
 
   it('toggles help view with "?" or "h" key', () => {
     const app = new TuiApp('exec');
+    app.setSize(100, 30);
     expect(app.getState().activeView).toBe('exec');
 
     app.handleInput('?');
@@ -129,6 +132,7 @@ describe('TuiApp Global Navigation & Keybindings', () => {
 
   it('switches views with number shortcuts 1-4', () => {
     const app = new TuiApp('menu');
+    app.setSize(100, 30);
 
     app.handleInput('1');
     expect(app.getState().activeView).toBe('exec');
@@ -139,14 +143,15 @@ describe('TuiApp Global Navigation & Keybindings', () => {
 
     app.handleInput('3');
     expect(app.getState().activeView).toBe('memory');
+    expect(app.getState().activeTab).toBe(0);
     const memOutput = app.renderCurrent();
     expect(memOutput).toContain('Code-grounded Memory Agent');
     expect(memOutput).toContain('Pipeline');
     expect(memOutput).toContain('Focus working memory');
-    expect(memOutput).toContain('Code-grounded verification');
     // Section labels are drawn in the HUD style: "// STORE", "// REPO STATUS".
     expect(memOutput).toContain('// STORE');
-    expect(memOutput).toContain('// REPO STATUS');
+    expect(memOutput).toContain('VERIFIED');
+    expect(memOutput).toContain('STALE');
 
     app.handleInput('4');
     expect(app.getState().activeView).toBe('orch');
@@ -238,6 +243,7 @@ describe('TuiApp keys (readline keypress names)', () => {
 
   it('runs the selected action on "return"', () => {
     const app = new TuiApp('memory', 'nord', { animate: false });
+    app.setSize(100, 30);
     app.handleInput({ name: 'down' });
     app.handleInput({ name: 'down' });
     app.handleInput({ name: 'down' }); // Code-grounded verification
