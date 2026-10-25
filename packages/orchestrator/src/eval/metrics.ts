@@ -32,7 +32,12 @@ function pearsonCorrelation(pairs: Array<{ confidence: number; successDelta: num
   const xMean = mean(xs);
   const yMean = mean(ys);
 
-  const numerator = mean(xs.map((x, i) => (x - xMean) * (ys[i] - yMean)));
+  const numerator = mean(
+    xs.map((x, i) => {
+      const y = ys[i] ?? yMean;
+      return (x - xMean) * (y - yMean);
+    }),
+  );
   const xStd = Math.sqrt(mean(xs.map((x) => (x - xMean) ** 2)));
   const yStd = Math.sqrt(mean(ys.map((y) => (y - yMean) ** 2)));
 
@@ -46,8 +51,19 @@ function median(values: number[]): number {
 
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
+  const middleValue = sorted[middle];
 
-  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+  if (middleValue === undefined) return 0;
+
+  if (sorted.length % 2 !== 0) {
+    return middleValue;
+  }
+
+  const previousValue = sorted[middle - 1];
+
+  if (previousValue === undefined) return middleValue;
+
+  return (previousValue + middleValue) / 2;
 }
 
 export function computeMetrics(data: MetricRunData): OrchEvalMetrics {
