@@ -51,3 +51,4 @@ __pycache__/
 venv/
 
 # Local HEAE evaluation history
+.heae/
