@@ -206,6 +206,29 @@ export class OptimizationOrchestrator implements ConfigProvider {
     };
   }
 
+  async recordTaskOutcome(taskIndex: number, success: boolean): Promise<string | null> {
+    const ver = this.configStore.getActiveVersion();
+
+    this.stabilityController.recordMetric(taskIndex, success, ver);
+
+    if (!this.stabilityController.shouldRollback()) {
+      return null;
+    }
+
+    // Find the version immediately before the active version.
+    const versions = await this.configStore.listVersions();
+    const idx = versions.indexOf(ver);
+    const previous = idx > 0 ? versions[idx - 1] : null;
+
+    if (!previous) {
+      return null;
+    }
+
+    await this.rollback(previous, 'regression_window');
+
+    return previous;
+  }
+
   async rollback(
     targetVersion: string,
     reason: string = 'Manual rollback',

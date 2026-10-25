@@ -3,23 +3,51 @@ import {
   type OrchEvalMetrics,
   type SimulatedTaskOutcome,
 } from './types.js';
+import type { OptimizationOrchestrator } from '../orchestrator.js';
 
 export interface SimulatedRunOptions {
-  /** Number of consecutive simulated tasks. Proposal default: 100. */
   taskCount?: number;
-  /** When true, Orchestrator.processSignal is skipped (no-optimization baseline). */
   orchOff?: boolean;
+  orchestrator?: OptimizationOrchestrator;
 }
 
-/**
- * 100-task simulated evaluation loop – skeleton only.
- *
- * Later this will: load MockHeae signals, optionally call Orchestrator,
- * record success / cost / version, then compute convergence, stability,
- * and regression recovery. CI must keep MockLlmProvider; no live model calls.
- */
 export async function runSimulatedTasks(
-  _options: SimulatedRunOptions = {},
+  options: SimulatedRunOptions = {},
 ): Promise<{ outcomes: SimulatedTaskOutcome[]; metrics: OrchEvalMetrics }> {
-  return { outcomes: [], metrics: { ...EMPTY_ORCH_EVAL_METRICS } };
+  const taskCount = options.taskCount ?? 100;
+  const outcomes: SimulatedTaskOutcome[] = [];
+
+  let configVersion = options.orchestrator?.configStore.getActiveVersion() ?? 'cfg_0001';
+
+  for (let taskIndex = 0; taskIndex < taskCount; taskIndex++) {
+    // Deterministic sample: first five tasks fail, remaining tasks succeed.
+    // Replace this with your actual simulated task runner when available.
+    const success = taskIndex >= 5;
+
+    let rolledBack = false;
+
+    if (!options.orchOff && options.orchestrator) {
+      const previousVersion = configVersion;
+
+      const rolledBackTo = await options.orchestrator.recordTaskOutcome(taskIndex, success);
+
+      configVersion = options.orchestrator.configStore.getActiveVersion();
+
+      rolledBack = rolledBackTo !== null && configVersion !== previousVersion;
+    }
+
+    outcomes.push({
+      taskIndex,
+      taskId: `task_${String(taskIndex + 1).padStart(3, '0')}`,
+      success,
+      tokens: 0,
+      configVersion,
+      rolledBack,
+    });
+  }
+
+  return {
+    outcomes,
+    metrics: { ...EMPTY_ORCH_EVAL_METRICS },
+  };
 }
