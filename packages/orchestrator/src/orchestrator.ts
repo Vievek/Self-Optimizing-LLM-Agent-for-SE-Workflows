@@ -90,25 +90,71 @@ export class OptimizationOrchestrator implements ConfigProvider {
       };
     }
 
-    // 2. Route signal to axis optimizer
-    let candidateConfig: FullAgentConfig | null = null;
-    try {
-      candidateConfig = this.router.route(signal, currentConfig);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      return {
-        status: 'rejected',
-        previousVersion: currentVer,
-        reason,
-      };
-    }
+    // 2. Generate a proposed value using the LLM or the existing optimizer
+    let proposedValue: unknown;
 
-    if (!candidateConfig) {
-      return {
-        status: 'skipped',
-        previousVersion: currentVer,
-        reason: `Axis optimizer for "${signal.target.axis}" returned no changes.`,
-      };
+    if (this.fixGenerator && shouldUseLlmFix(signal)) {
+      try {
+        const currentVal = this.readPathValue(currentConfig, signal.target.config_path);
+
+        const fix = await this.fixGenerator.generateFix(signal, currentVal);
+        proposedValue = fix.proposedValue;
+      } catch (err) {
+        const reason =
+          err instanceof Error
+            ? `LLM fix generation failed: ${err.message}`
+            : `LLM fix generation failed: ${String(err)}`;
+
+        await this.auditLogger.record({
+          ts: Date.now(),
+          signal_id: signal.signal_id,
+          config_path: signal.target.config_path,
+          version_before: currentVer,
+          version_after: currentVer,
+          action: 'reject',
+          reason,
+        });
+
+        return {
+          status: 'rejected',
+          previousVersion: currentVer,
+          reason,
+        };
+      }
+    } else {
+      let candidateConfig: FullAgentConfig | null = null;
+
+      try {
+        candidateConfig = this.router.route(signal, currentConfig);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+
+        await this.auditLogger.record({
+          ts: Date.now(),
+          signal_id: signal.signal_id,
+          config_path: signal.target.config_path,
+          version_before: currentVer,
+          version_after: currentVer,
+          action: 'reject',
+          reason,
+        });
+
+        return {
+          status: 'rejected',
+          previousVersion: currentVer,
+          reason,
+        };
+      }
+
+      if (!candidateConfig) {
+        return {
+          status: 'skipped',
+          previousVersion: currentVer,
+          reason: `Axis optimizer for "${signal.target.axis}" returned no changes.`,
+        };
+      }
+
+      proposedValue = this.readPathValue(candidateConfig, signal.target.config_path);
     }
 
     // 3. Validation: verify against FullAgentConfigSchema and parameter ranges
@@ -116,7 +162,7 @@ export class OptimizationOrchestrator implements ConfigProvider {
     const valResult = this.validator.validateCandidate(
       currentConfig,
       signal.target.config_path,
-      this.readPathValue(candidateConfig, signal.target.config_path),
+      proposedValue,
     );
 
     if (!valResult.valid || !valResult.config) {
@@ -196,4 +242,15 @@ export class OptimizationOrchestrator implements ConfigProvider {
     }
     return curr;
   }
+}
+
+/**
+ * Determines whether a signal should use LLM-generated fixes.
+ */
+function shouldUseLlmFix(signal: OptimizationSignal): boolean {
+  return (
+    signal.classifier === 'llm_judge' ||
+    signal.suggested_action === 'tool_description_refine' ||
+    signal.target.axis === 'prompt'
+  );
 }
