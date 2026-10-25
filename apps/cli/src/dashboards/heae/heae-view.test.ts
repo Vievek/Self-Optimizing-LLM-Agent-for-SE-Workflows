@@ -89,6 +89,11 @@ const supportedEvaluation = {
   ...insufficientEvaluation,
   result: {
     ...insufficientEvaluation.result,
+    judgeProvenance: {
+      mode: 'simulated' as const,
+      provider: 'simulated-test-provider',
+      model: 'simulated-test-judge',
+    },
     judgment: {
       ...insufficientEvaluation.result.judgment,
       findings: [
@@ -651,6 +656,10 @@ describe('HEAE dashboard view', () => {
     expect(output).toContain('sig_saved_tool_01');
     expect(output).toContain('schema: 2.0');
     expect(output).toContain('evidence: span-1');
+    expect(output).toContain('failure: tool · confidence: 0.8');
+    expect(output).toContain('target: tool · tools.execution');
+    expect(output).toContain('action: tool_description_refine');
+    expect(output).toContain('Judge provenance: simulated · simulated-test-provider');
     expect(output).not.toContain('timestamp:');
   });
 

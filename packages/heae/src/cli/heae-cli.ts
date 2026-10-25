@@ -8,6 +8,8 @@ import { EvaluationHistory } from '../persistence/evaluation-history.js';
 import { KuzuInteractionStore } from '../persistence/kuzu-interaction-store.js';
 
 import type { InteractionGraphStore } from '../persistence/interaction-graph-store.js';
+import type { JudgeProvenance } from '../attribution/judge-schema.js';
+import { runControlledSignalIntegration } from '../commands/controlled-signal-integration.js';
 
 /**
  * Optional dependencies for testing and integration.
@@ -17,6 +19,7 @@ export interface HeaeCliOptions {
   graphStore?: InteractionGraphStore;
   provider?: LlmProvider;
   model?: string;
+  judgeProvenance?: JudgeProvenance;
 }
 
 /**
@@ -32,11 +35,13 @@ const HELP = [
   '  heae evaluate <trace.jsonl> --judge --recover',
   '  heae history',
   '  heae history <traceId>',
+  '  heae controlled-signal --simulated-judge',
   '  heae help',
   '',
   'Options:',
   '  --judge     Enable pretrained LLM-as-Judge evaluation.',
   '  --recover   Recover an incomplete Kuzu/FileStore save.',
+  '  --simulated-judge  Explicitly opt into the controlled positive integration scenario.',
   '',
   'Storage:',
   '  Reports: .heae/history',
@@ -63,6 +68,14 @@ export async function runHeaeCli(args: string[], options: HeaeCliOptions = {}): 
   // --------------------------------------------------
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     return HELP;
+  }
+
+  if (command === 'controlled-signal') {
+    if (commandArgs.length !== 1 || commandArgs[0] !== '--simulated-judge') {
+      throw new Error('Usage: heae controlled-signal --simulated-judge');
+    }
+
+    return JSON.stringify(await runControlledSignalIntegration(), null, 2);
   }
 
   if (command !== 'evaluate' && command !== 'history') {
@@ -99,6 +112,7 @@ export async function runHeaeCli(args: string[], options: HeaeCliOptions = {}): 
     // STEP 3: Configure the optional LLM judge.
     let provider: LlmProvider | undefined;
     let model: string | undefined;
+    let providerName: string | undefined;
 
     if (useJudge) {
       if (options.provider) {
@@ -107,6 +121,7 @@ export async function runHeaeCli(args: string[], options: HeaeCliOptions = {}): 
         model = options.model ?? 'test-judge';
       } else {
         const config = loadModelsConfig().large;
+        providerName = config.provider;
 
         const credentialConfigured =
           Boolean(config.apiKey) || Boolean(config.apiKeyEnv && process.env[config.apiKeyEnv]);
@@ -151,6 +166,17 @@ export async function runHeaeCli(args: string[], options: HeaeCliOptions = {}): 
         graphStore,
         provider,
         model,
+        judgeProvenance:
+          options.judgeProvenance ??
+          (useJudge
+            ? {
+                mode: options.provider ? 'simulated' : 'real',
+                provider: options.provider
+                  ? 'simulated-test-provider'
+                  : providerName ?? 'configured',
+                model: model ?? 'unknown',
+              }
+            : undefined),
         recovery: useRecovery,
       });
 

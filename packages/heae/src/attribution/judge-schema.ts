@@ -18,3 +18,14 @@ export const JudgeResponseSchema = z
   .strict();
 
 export type JudgeResponse = z.infer<typeof JudgeResponseSchema>;
+
+/** Identifies whether a completed judgment came from a model or a test double. */
+export const JudgeProvenanceSchema = z
+  .object({
+    mode: z.enum(['real', 'simulated']),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+  })
+  .strict();
+
+export type JudgeProvenance = z.infer<typeof JudgeProvenanceSchema>;

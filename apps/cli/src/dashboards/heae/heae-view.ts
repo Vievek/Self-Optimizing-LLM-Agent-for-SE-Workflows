@@ -870,6 +870,11 @@ export class HeaeDashboardView implements DashboardView {
       sectionLabel('Read-only eligibility checks', theme),
       '',
       `  Judge status: ${evaluation.result.judgeStatus}`,
+      ...(evaluation.result.judgeProvenance
+        ? [
+            `  Judge provenance: ${evaluation.result.judgeProvenance.mode} · ${evaluation.result.judgeProvenance.provider} · ${evaluation.result.judgeProvenance.model}`,
+          ]
+        : []),
       `  Rule hypotheses: ${evaluation.result.ruleReport.hypotheses.length}`,
       `  Published matching signals: ${this.signals.length}`,
       '',
@@ -910,6 +915,8 @@ export class HeaeDashboardView implements DashboardView {
     return [
       `  ${renderBadge('PUBLISHED', 'built', theme)} ${signal.signal_id}`,
       `     schema: ${signal.schema_version} · trace: ${signal.trace_id}`,
+      `     failure: ${signal.failure_class} · confidence: ${signal.confidence}`,
+      `     target: ${signal.target.axis} · ${signal.target.config_path}`,
       `     evidence: ${signal.root_cause.evidence_node_ids.join(', ') || 'none recorded'}`,
       `     classifier: ${signal.classifier} · action: ${signal.suggested_action}`,
       `     ${theme.fgMuted}The persisted event is evidence of publication, not proof of root causality.${ANSI.reset}`,

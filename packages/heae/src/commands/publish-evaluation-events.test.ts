@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
+import type { ChatResponse, LlmProvider } from '@soa/llm';
+import { OptimizationSignalSchema } from '@soa/contracts';
 import { MemoryStore } from '@soa/store';
 
 import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
@@ -18,6 +20,7 @@ import type { ReviewedOptimizationProposal } from '../signals/optimization-signa
 import { OUTCOME_EVENT_PATH, OPTIMIZATION_EVENT_PATH } from '../events/heae-event-publisher.js';
 
 import { publishEvaluationEvents } from './publish-evaluation-events.js';
+import { evaluateTrace } from './evaluate-trace.js';
 
 const fixture = readFileSync(new URL('../../fixtures/tool-error.jsonl', import.meta.url), 'utf8');
 
@@ -114,6 +117,89 @@ async function saveEvaluation(store: MemoryStore, supported = true): Promise<str
 }
 
 describe('HEAE saved-evaluation event publication', () => {
+  it('evaluates through the simulated judge interface and publishes a validated signal', async () => {
+    const store = new MemoryStore();
+    const provider: LlmProvider = {
+      async chat(request): Promise<ChatResponse> {
+        return {
+          content: JSON.stringify({
+            findings: [
+              {
+                category: 'tool',
+                assessment: 'supported',
+                explanation: 'The recorded tool failure is supported by the trace evidence.',
+                evidenceNodeIds: ['1000000000000006'],
+                limitations: [
+                  'This controlled provider does not establish causality beyond the trace.',
+                ],
+              },
+            ],
+            overallUncertainty: 'This is a controlled simulated-judge integration scenario.',
+          }),
+          tokensIn: 0,
+          tokensOut: 0,
+          model: request.model,
+          provider: 'simulated-test-provider',
+        };
+      },
+      async embed(): Promise<number[][]> {
+        return [];
+      },
+    };
+
+    const evaluated = await evaluateTrace(fixture, {
+      store,
+      provider,
+      model: 'simulated-test-judge',
+      judgeProvenance: {
+        mode: 'simulated',
+        provider: 'simulated-test-provider',
+        model: 'simulated-test-judge',
+      },
+    });
+
+    expect(evaluated.summary.judgeStatus).toBe('completed');
+    expect(evaluated.attribution.judgeProvenance?.mode).toBe('simulated');
+
+    const saved = await new EvaluationHistory(store).load(evaluated.summary.traceId);
+    expect(saved?.traceId).toBe(evaluated.summary.traceId);
+    expect(saved?.result.judgeProvenance?.mode).toBe('simulated');
+
+    const scenarioProposal = {
+      ...proposal,
+      runId: 'run_20261012T0900_memory_full_01',
+    };
+
+    const result = await publishEvaluationEvents(evaluated.summary.traceId, {
+      store,
+      optimizationProposal: scenarioProposal,
+    });
+
+    expect(result.optimization?.status).toBe('published');
+    expect(result.optimization?.event?.trace_id).toBe(evaluated.summary.traceId);
+
+    const signal = result.optimization?.event;
+    expect(signal).toBeDefined();
+    expect(OptimizationSignalSchema.safeParse(signal).success).toBe(true);
+    expect(signal).toMatchObject({
+      signal_id: scenarioProposal.signalId,
+      trace_id: saved?.traceId,
+      failure_class: 'tool',
+      target: { axis: 'tool', config_path: 'config/tools.yaml' },
+      suggested_action: 'tool_description_refine',
+      classifier: 'llm_judge',
+      config_version_at_failure: 'cfg_0001',
+    });
+    expect(signal?.root_cause.evidence_node_ids).toEqual(['1000000000000006']);
+
+    const retry = await publishEvaluationEvents(evaluated.summary.traceId, {
+      store,
+      optimizationProposal: scenarioProposal,
+    });
+    expect(retry.optimization?.status).toBe('already_exists');
+    expect(await store.readJsonl(OPTIMIZATION_EVENT_PATH)).toHaveLength(1);
+  });
+
   it('publishes both events from a saved evaluation', async () => {
     const store = new MemoryStore();
     const traceId = await saveEvaluation(store);

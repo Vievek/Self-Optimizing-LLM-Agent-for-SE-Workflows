@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "ab2c5238acee8bbaaff35d76227c7674",
+  "traceFingerprint": "3efa727c5ed2d30df6c1a81edf5357909ba89000f3128a376167f7135bf77f49",
+  "result": {
+    "traceId": "ab2c5238acee8bbaaff35d76227c7674",
+    "ruleReport": {
+      "traceId": "ab2c5238acee8bbaaff35d76227c7674",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "TOOL-02",
+          "category": "tool",
+          "observation": "Tool execution reported an error",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "details": {
+            "toolName": "apply_patch",
+            "error": "PATCH_APPLY_FAILED: context mismatch",
+            "spanStatus": "error",
+            "toolStatus": "error",
+            "latencyMs": 1400
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "tool",
+          "status": "unverified",
+          "summary": "A tool operation may have contributed",
+          "supportingRuleIds": [
+            "TOOL-02"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": {
+      "findings": [
+        {
+          "category": "tool",
+          "assessment": "supported",
+          "explanation": "Controlled simulated judgment supports the rule hypothesis.",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "This result is simulated for an integration demonstration."
+          ]
+        }
+      ],
+      "overallUncertainty": "This is a controlled simulated-judge integration scenario."
+    },
+    "judgeStatus": "completed",
+    "judgeProvenance": {
+      "mode": "simulated",
+      "provider": "simulated-test-provider",
+      "model": "controlled-simulated-judge"
+    },
+    "warnings": []
+  }
+}

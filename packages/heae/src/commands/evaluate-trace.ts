@@ -8,6 +8,7 @@ import {
   evaluateHybridAttribution,
   type HybridAttributionResult,
 } from '../attribution/hybrid-attribution.js';
+import type { JudgeProvenance } from '../attribution/judge-schema.js';
 
 import { attributeTrace } from '../attribution/evidence-attribution.js';
 import { EvaluationHistory, type StoredEvaluation } from '../persistence/evaluation-history.js';
@@ -20,6 +21,7 @@ export interface EvaluateTraceOptions {
   model?: string;
   store?: Store;
   graphStore?: InteractionGraphStore;
+  judgeProvenance?: JudgeProvenance;
 
   // Explicitly allow repair of one missing persistence record.
   // Normal duplicate protection remains enabled by default.
@@ -177,6 +179,7 @@ export async function evaluateTrace(
     : await evaluateHybridAttribution(graph, {
         provider: options.provider,
         model: options.model,
+        judgeProvenance: options.judgeProvenance,
       });
 
   // These flags represent whether the data exists

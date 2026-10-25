@@ -24,4 +24,5 @@ export * from './intake/execution-trace-source.js';
 export * from './commands/evaluate-execution-trace.js';
 export * from './events/heae-event-publisher.js';
 export * from './commands/publish-evaluation-events.js';
+export * from './commands/controlled-signal-integration.js';
 export * from './providers/ollama-provider.js';

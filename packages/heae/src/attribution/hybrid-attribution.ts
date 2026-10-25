@@ -2,7 +2,7 @@ import type { LlmProvider } from '@soa/llm';
 import type { TraceGraph } from '../trace-graph.js';
 import { attributeTrace, type AttributionReport } from './evidence-attribution.js';
 import { judgeTrace } from './llm-judge.js';
-import type { JudgeResponse } from './judge-schema.js';
+import type { JudgeProvenance, JudgeResponse } from './judge-schema.js';
 
 export type HybridJudgeStatus = 'completed' | 'skipped' | 'unavailable';
 
@@ -11,12 +11,14 @@ export interface HybridAttributionResult {
   ruleReport: AttributionReport;
   judgment: JudgeResponse | null;
   judgeStatus: HybridJudgeStatus;
+  judgeProvenance?: JudgeProvenance;
   warnings: string[];
 }
 
 export interface HybridAttributionOptions {
   provider?: LlmProvider;
   model?: string;
+  judgeProvenance?: JudgeProvenance;
 }
 
 export async function evaluateHybridAttribution(
@@ -71,6 +73,7 @@ export async function evaluateHybridAttribution(
       ruleReport,
       judgment: result.judgment,
       judgeStatus: 'completed',
+      judgeProvenance: options.judgeProvenance,
       warnings,
     };
   } catch (error) {

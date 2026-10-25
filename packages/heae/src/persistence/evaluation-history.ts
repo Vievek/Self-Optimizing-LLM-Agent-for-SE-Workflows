@@ -3,7 +3,7 @@ import type { Store } from '@soa/store';
 
 import type { HybridAttributionResult } from '../attribution/hybrid-attribution.js';
 
-import { JudgeResponseSchema } from '../attribution/judge-schema.js';
+import { JudgeProvenanceSchema, JudgeResponseSchema } from '../attribution/judge-schema.js';
 
 const TraceIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
 
@@ -60,6 +60,8 @@ export const StoredEvaluationSchema = z
       judgment: JudgeResponseSchema.nullable(),
 
       judgeStatus: z.enum(['completed', 'skipped', 'unavailable']),
+
+      judgeProvenance: JudgeProvenanceSchema.optional(),
 
       warnings: z.array(z.string()),
     }),
