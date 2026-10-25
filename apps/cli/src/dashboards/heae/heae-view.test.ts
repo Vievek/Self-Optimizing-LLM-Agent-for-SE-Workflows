@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { OptimizationSignalSchema } from '@soa/contracts';
 import { stripAnsi } from '../../theme/text.js';
 import { TuiApp } from '../../tui/app.js';
-import { HeaeDataSource } from './heae-data.js';
 import type { TraceGraph } from '@soa/heae';
 import { HeaeDashboardView } from './heae-view.js';
 
@@ -323,25 +322,24 @@ describe('HEAE dashboard view', () => {
     expect(output).toContain('not persisted');
   });
 
-  it('renders the persisted completed Ollama judgment without upgrading it to causality', async () => {
-    const evaluations = await new HeaeDataSource().list();
-    const target = evaluations.find((item) => item.traceId === '882fc48ada7f4181bdc6dbc94186e44f');
-    expect(target?.result.judgeStatus).toBe('completed');
-    expect(target?.result.judgment?.findings[0]?.assessment).toBe('insufficient_evidence');
+  it('renders a persisted completed judgment without upgrading it to causality', async () => {
+    const evaluation = insufficientEvaluation;
+    expect(evaluation.result.judgeStatus).toBe('completed');
+    expect(evaluation.result.judgment.findings[0]?.assessment).toBe('insufficient_evidence');
 
-    const view = new HeaeDashboardView({ list: async () => (target ? [target] : []) });
+    const view = new HeaeDashboardView({ list: async () => [evaluation] });
     await view.ready();
     const detailState = { ...state, activeTab: 3 };
-    const topOutput = stripAnsi(view.render(detailState));
     const output = allDetailScrollFrames(view, detailState);
 
-    expect(topOutput).toContain('1000000000000006');
     expect(output).toContain('INSUFFICIENT_EVIDENCE');
-    expect(output).toContain('PATCH_APPLY_FAILED: context mismatch');
-    expect(output).toContain('1000000000000006');
-    expect(output).toContain('Insufficient information to determine the exact cause');
+    expect(output).toContain('span-1');
+    expect(output).toContain('The recorded tool error does not establish its exact cause.');
+    expect(output).toContain('More execution context is required.');
     expect(output).toContain('Overall uncertainty:');
+    expect(output).toContain('The precise cause remains uncertain.');
     expect(output).toContain('not proof of causality');
+    expect(output).not.toContain('Causality proven');
   });
 
   it('renders graph nodes and relationships from the selected trace', async () => {
