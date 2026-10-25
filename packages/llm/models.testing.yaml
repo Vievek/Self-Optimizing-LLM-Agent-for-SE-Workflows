@@ -1,0 +1,27 @@
+# Testing models configuration using Groq API (High-throughput free tier: 14,400 RPD)
+# Get a free key at: https://console.groq.com/keys
+small:
+  provider: openai_compat
+  baseUrl: https://api.groq.com/openai/v1
+  model: qwen/qwen3.8-27b
+  apiKeyEnv: GROQ_API_KEY
+  maxTokens: 1000
+  pacingMs: 4000
+  maxBatchWriteFiles: 2
+  maxBatchReadFiles: 8
+
+large:
+  provider: openai_compat
+  baseUrl: https://api.groq.com/openai/v1
+  model: qwen/qwen3.8-27b
+  apiKeyEnv: GROQ_API_KEY
+  maxTokens: 1000
+  pacingMs: 5000
+  maxBatchWriteFiles: 2
+  maxBatchReadFiles: 8
+
+embed:
+  provider: openai_compat
+  baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: text-embedding-004
+  apiKeyEnv: GEMINI_API_KEY

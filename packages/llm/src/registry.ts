@@ -57,6 +57,10 @@ export class ProviderRegistry {
     this.instances.set(canonicalKey, provider);
     return provider;
   }
+
+  getConfig(): ModelsConfig {
+    return this.config;
+  }
 }
 
 // Global default singleton registry

@@ -2,6 +2,7 @@ import { ToolHandler } from '../types.js';
 import { ReadFileHandler } from './handlers/read-file.js';
 import { WriteFileHandler } from './handlers/write-file.js';
 import { EditFileHandler } from './handlers/edit-file.js';
+import { DeleteFileHandler } from './handlers/delete-file.js';
 import { RunCommandHandler } from './handlers/run-command.js';
 import { RunTestsHandler } from './handlers/run-tests.js';
 import { RetrieveContextHandler } from './handlers/retrieve-context.js';
@@ -42,6 +43,7 @@ export function createDefaultToolRegistry(): ToolRegistry {
     .register(new ReadFileHandler())
     .register(new WriteFileHandler())
     .register(new EditFileHandler())
+    .register(new DeleteFileHandler())
     .register(new RunCommandHandler())
     .register(new RunTestsHandler())
     .register(new RetrieveContextHandler())

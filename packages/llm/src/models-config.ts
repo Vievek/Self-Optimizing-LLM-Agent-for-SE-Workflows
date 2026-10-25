@@ -7,6 +7,10 @@ export interface ModelTierConfig {
   model: string;
   apiKeyEnv?: string;
   apiKey?: string;
+  maxTokens?: number;
+  pacingMs?: number;
+  maxBatchWriteFiles?: number;
+  maxBatchReadFiles?: number;
 }
 
 export interface ModelsConfig {
@@ -21,12 +25,20 @@ export const DEFAULT_MODELS_CONFIG: ModelsConfig = {
     baseUrl: 'https://router.huggingface.co/v1',
     model: 'Qwen/Qwen2.5-Coder-7B-Instruct',
     apiKeyEnv: 'HF_TOKEN',
+    maxTokens: 1000,
+    pacingMs: 300,
+    maxBatchWriteFiles: 6,
+    maxBatchReadFiles: 12,
   },
   large: {
     provider: 'openai_compat',
     baseUrl: 'https://router.huggingface.co/v1',
     model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
     apiKeyEnv: 'HF_TOKEN',
+    maxTokens: 3000,
+    pacingMs: 300,
+    maxBatchWriteFiles: 8,
+    maxBatchReadFiles: 15,
   },
   embed: {
     provider: 'openai_compat',
@@ -88,6 +100,14 @@ export function parseModelsYaml(content: string): ModelsConfig {
       model: raw['model'] || fallback.model,
       apiKeyEnv: raw['apiKeyEnv'] || fallback.apiKeyEnv,
       apiKey: raw['apiKey'] || fallback.apiKey,
+      maxTokens: raw['maxTokens'] ? parseInt(raw['maxTokens'], 10) : fallback.maxTokens,
+      pacingMs: raw['pacingMs'] ? parseInt(raw['pacingMs'], 10) : fallback.pacingMs,
+      maxBatchWriteFiles: raw['maxBatchWriteFiles']
+        ? parseInt(raw['maxBatchWriteFiles'], 10)
+        : fallback.maxBatchWriteFiles,
+      maxBatchReadFiles: raw['maxBatchReadFiles']
+        ? parseInt(raw['maxBatchReadFiles'], 10)
+        : fallback.maxBatchReadFiles,
     };
   };
 
@@ -104,6 +124,7 @@ export function parseModelsYaml(content: string): ModelsConfig {
 export function loadModelsConfig(filePath?: string): ModelsConfig {
   const candidates = [
     filePath,
+    process.env['MODELS_CONFIG_PATH'],
     path.resolve(process.cwd(), 'packages/llm/models.yaml'),
     path.resolve(process.cwd(), 'models.yaml'),
     new URL('../models.yaml', import.meta.url).pathname,

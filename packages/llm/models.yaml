@@ -3,12 +3,20 @@ small:
   baseUrl: https://router.huggingface.co/v1
   model: Qwen/Qwen2.5-Coder-7B-Instruct
   apiKeyEnv: HF_TOKEN
+  maxTokens: 2048
+  pacingMs: 300
+  maxBatchWriteFiles: 4
+  maxBatchReadFiles: 8
 
 large:
   provider: openai_compat
   baseUrl: https://router.huggingface.co/v1
   model: Qwen/Qwen2.5-Coder-32B-Instruct
   apiKeyEnv: HF_TOKEN
+  maxTokens: 2048
+  pacingMs: 300
+  maxBatchWriteFiles: 8
+  maxBatchReadFiles: 15
 
 embed:
   provider: openai_compat
