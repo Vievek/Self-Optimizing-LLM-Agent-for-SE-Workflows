@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "882fc48ada7f4181bdc6dbc94186e44f",
+  "traceFingerprint": "8f396c835d75b0806cbbbf9a4b73ad1933cbb67af9e46700a75f08c394f82d00",
+  "result": {
+    "traceId": "882fc48ada7f4181bdc6dbc94186e44f",
+    "ruleReport": {
+      "traceId": "882fc48ada7f4181bdc6dbc94186e44f",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "TOOL-02",
+          "category": "tool",
+          "observation": "Tool execution reported an error",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "details": {
+            "toolName": "apply_patch",
+            "error": "PATCH_APPLY_FAILED: context mismatch",
+            "spanStatus": "error",
+            "toolStatus": "error",
+            "latencyMs": 1400
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "tool",
+          "status": "unverified",
+          "summary": "A tool operation may have contributed",
+          "supportingRuleIds": [
+            "TOOL-02"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": {
+      "findings": [
+        {
+          "category": "tool",
+          "assessment": "insufficient_evidence",
+          "explanation": "The error message 'PATCH_APPLY_FAILED: context mismatch' does not provide enough information to determine the exact cause of the failure. The context mismatch could be due to various reasons such as incorrect patch file, mismatched environment, or incorrect patch application order. Without additional context or logs, it is not possible to conclusively determine if the tool operation contributed to the failure.",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Insufficient information to determine the exact cause of the failure."
+          ]
+        }
+      ],
+      "overallUncertainty": "The error message 'PATCH_APPLY_FAILED: context mismatch' does not provide enough information to determine the exact cause of the failure."
+    },
+    "judgeStatus": "completed",
+    "warnings": []
+  }
+}

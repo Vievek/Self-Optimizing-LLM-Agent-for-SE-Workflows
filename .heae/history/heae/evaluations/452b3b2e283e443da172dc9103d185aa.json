@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "452b3b2e283e443da172dc9103d185aa",
+  "traceFingerprint": "ac93b38a2e523b34037c675bcec7a6f02b01f4035f5f162b1c8440b5126b88a5",
+  "result": {
+    "traceId": "452b3b2e283e443da172dc9103d185aa",
+    "ruleReport": {
+      "traceId": "452b3b2e283e443da172dc9103d185aa",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "TOOL-02",
+          "category": "tool",
+          "observation": "Tool execution reported an error",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "details": {
+            "toolName": "apply_patch",
+            "error": "PATCH_APPLY_FAILED: context mismatch",
+            "spanStatus": "error",
+            "toolStatus": "error",
+            "latencyMs": 1400
+          }
+        },
+        {
+          "ruleId": "RETRIEVAL-01",
+          "category": "retrieval",
+          "observation": "Retrieval returned no results",
+          "evidenceNodeIds": [
+            "1000000000000003"
+          ],
+          "details": {
+            "source": "code",
+            "strategy": "graph",
+            "query": "find UsernameValidator regex",
+            "depth": 1,
+            "resultCount": 0
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "tool",
+          "status": "unverified",
+          "summary": "A tool operation may have contributed",
+          "supportingRuleIds": [
+            "TOOL-02"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        },
+        {
+          "category": "retrieval",
+          "status": "unverified",
+          "summary": "A retrieval issue may have contributed",
+          "supportingRuleIds": [
+            "RETRIEVAL-01"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000003"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": [
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  }
+}

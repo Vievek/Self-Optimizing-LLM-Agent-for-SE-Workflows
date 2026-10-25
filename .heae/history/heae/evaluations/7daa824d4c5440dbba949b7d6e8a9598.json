@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "7daa824d4c5440dbba949b7d6e8a9598",
+  "traceFingerprint": "090ffba670b3da10f9c01555dbc26f210346418be0aa91ae66bbb239a38813ad",
+  "result": {
+    "traceId": "7daa824d4c5440dbba949b7d6e8a9598",
+    "ruleReport": {
+      "traceId": "7daa824d4c5440dbba949b7d6e8a9598",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "PROMPT-01",
+          "category": "prompt",
+          "observation": "Prompt operation reported an error",
+          "evidenceNodeIds": [
+            "1000000000000005"
+          ],
+          "details": {
+            "templateId": "prompt_patch_gen",
+            "templateVersion": "1.0.0",
+            "model": "Qwen/Qwen2.5-Coder-32B-Instruct",
+            "provider": "openai_compat",
+            "tokensIn": 1240,
+            "tokensOut": 260,
+            "spanStatus": "error"
+          }
+        },
+        {
+          "ruleId": "WORKFLOW-01",
+          "category": "workflow",
+          "observation": "Patch operation succeeded, but the unsuccessful output reports no tests executed",
+          "evidenceNodeIds": [
+            "1000000000000007",
+            "1000000000000006"
+          ],
+          "details": {
+            "result": "fail",
+            "testsRun": 0,
+            "patchHash": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            "patchToolCount": 1,
+            "outputSpanStatus": "error"
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "prompt",
+          "status": "unverified",
+          "summary": "A prompt-related operation may have contributed",
+          "supportingRuleIds": [
+            "PROMPT-01"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000005"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        },
+        {
+          "category": "workflow",
+          "status": "unverified",
+          "summary": "A workflow verification issue may have contributed",
+          "supportingRuleIds": [
+            "WORKFLOW-01"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000007",
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": [
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  }
+}
