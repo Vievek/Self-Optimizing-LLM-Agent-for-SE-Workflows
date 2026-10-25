@@ -310,13 +310,118 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       const active = await orch.load();
       expect(active.retrieval.top_k).toBe(5);
     });
+
+    it('automatically rolls back after five consecutive failures', async () => {
+      // Deploy cfg_0002.
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_auto_rollback';
+      signal.group_id = 'grp_auto_rollback';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      // Record five failed task outcomes against the active version.
+      let rolledBackTo: string | null = null;
+
+      for (let i = 0; i < 5; i++) {
+        rolledBackTo = await orch.recordTaskOutcome(i, false);
+      }
+
+      expect(rolledBackTo).toBe('cfg_0001');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(5);
+
+      const audit = await orch.auditLogger.query({ action: 'rollback' });
+      expect(
+        audit.some(
+          (entry) => entry.version_after === 'cfg_0001' && entry.reason === 'regression_window',
+        ),
+      ).toBe(true);
+    });
+
+    it('does not roll back for a mixed-success metric window', async () => {
+      // Deploy cfg_0002.
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_mixed_outcomes';
+      signal.group_id = 'grp_mixed_outcomes';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      // Record mixed outcomes. Keep the failure rate below 50%.
+      const outcomes = [false, true, false, true, true];
+
+      for (let i = 0; i < outcomes.length; i++) {
+        const rolledBackTo = await orch.recordTaskOutcome(i, outcomes[i]!);
+        expect(rolledBackTo).toBeNull();
+      }
+
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      const audit = await orch.auditLogger.query({ action: 'rollback' });
+      expect(audit).toHaveLength(0);
+    });
   });
 
   describe('Simulated Run Evaluator Stub', () => {
-    it('returns empty simulated outcomes and metrics', async () => {
+    let orch: OptimizationOrchestrator;
+    let mockLlm: MockLlmProvider;
+
+    beforeEach(() => {
+      mockLlm = new MockLlmProvider();
+      orch = new OptimizationOrchestrator({
+        llmProvider: mockLlm,
+      });
+    });
+
+    it('returns simulated outcomes and metrics', async () => {
       const res = await runSimulatedTasks({ taskCount: 10 });
-      expect(res.outcomes).toEqual([]);
+
+      expect(res.outcomes).toHaveLength(10);
+      expect(res.outcomes[0]).toMatchObject({
+        taskIndex: 0,
+        taskId: 'task_001',
+        success: false,
+        tokens: 0,
+        configVersion: 'cfg_0001',
+        rolledBack: false,
+      });
       expect(res.metrics.configStabilityCv).toBe(0);
+    });
+
+    it('records task outcomes and triggers automatic rollback', async () => {
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_eval_rollback';
+      signal.group_id = 'grp_eval_rollback';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const deployed = await orch.processSignal(signal);
+      expect(deployed.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      const result = await runSimulatedTasks({
+        taskCount: 5,
+        orchestrator: orch,
+      });
+
+      expect(result.outcomes).toHaveLength(5);
+      expect(result.outcomes.every((outcome) => !outcome.success)).toBe(true);
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
+      expect(result.outcomes.some((outcome) => outcome.rolledBack)).toBe(true);
     });
   });
 });
