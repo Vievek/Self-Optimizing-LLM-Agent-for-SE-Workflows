@@ -419,6 +419,7 @@ export class TuiApp {
     }
 
     if (key === 'up' || key === 'k' || key === 'down' || key === 'j') {
+      if (this.activeView().handleKey?.(key, this.state)) return true;
       const step = key === 'up' || key === 'k' ? -1 : 1;
       const max = this.itemCount() - 1;
       this.state.selectedItemIndex = Math.max(

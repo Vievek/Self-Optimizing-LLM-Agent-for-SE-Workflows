@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "d06e3649f30f46a6a12619cda39dc942",
+  "traceFingerprint": "4db8c8f9dad8aa172ce97e97562aeaa0e57ef0df23ea2dbaee658157450ad654",
+  "result": {
+    "traceId": "d06e3649f30f46a6a12619cda39dc942",
+    "ruleReport": {
+      "traceId": "d06e3649f30f46a6a12619cda39dc942",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "RETRIEVAL-01",
+          "category": "retrieval",
+          "observation": "Retrieval returned no results",
+          "evidenceNodeIds": [
+            "1000000000000003"
+          ],
+          "details": {
+            "source": "code",
+            "strategy": "graph",
+            "query": "find UsernameValidator regex",
+            "depth": 1,
+            "resultCount": 0
+          }
+        },
+        {
+          "ruleId": "WORKFLOW-01",
+          "category": "workflow",
+          "observation": "Patch operation succeeded, but the unsuccessful output reports no tests executed",
+          "evidenceNodeIds": [
+            "1000000000000007",
+            "1000000000000006"
+          ],
+          "details": {
+            "result": "fail",
+            "testsRun": 0,
+            "patchHash": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+            "patchToolCount": 1,
+            "outputSpanStatus": "error"
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "retrieval",
+          "status": "unverified",
+          "summary": "A retrieval issue may have contributed",
+          "supportingRuleIds": [
+            "RETRIEVAL-01"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000003"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        },
+        {
+          "category": "workflow",
+          "status": "unverified",
+          "summary": "A workflow verification issue may have contributed",
+          "supportingRuleIds": [
+            "WORKFLOW-01"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000007",
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": [
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  }
+}

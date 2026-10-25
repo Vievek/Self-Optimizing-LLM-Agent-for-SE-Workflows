@@ -37,6 +37,9 @@ importers:
       '@soa/eval-harness':
         specifier: workspace:*
         version: link:../../packages/eval-harness
+      '@soa/heae':
+        specifier: workspace:*
+        version: link:../../packages/heae
       '@soa/memory-agent':
         specifier: workspace:*
         version: link:../../packages/memory-agent
@@ -49,6 +52,9 @@ importers:
       '@soa/store':
         specifier: workspace:*
         version: link:../../packages/store
+      kuzu:
+        specifier: 0.11.3
+        version: 0.11.3
 
   apps/heae-dashboard:
     dependencies:

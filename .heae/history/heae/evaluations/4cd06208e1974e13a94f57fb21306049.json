@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "traceId": "4cd06208e1974e13a94f57fb21306049",
+  "traceFingerprint": "0c7fff8b96b27b750a3840a577aeda9ef87e557c78abf6e625c024160371409b",
+  "result": {
+    "traceId": "4cd06208e1974e13a94f57fb21306049",
+    "ruleReport": {
+      "traceId": "4cd06208e1974e13a94f57fb21306049",
+      "outcome": "fail",
+      "observations": [
+        {
+          "ruleId": "TOOL-02",
+          "category": "tool",
+          "observation": "Tool execution reported an error",
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "details": {
+            "toolName": "apply_patch",
+            "error": "PATCH_APPLY_FAILED: context mismatch",
+            "spanStatus": "error",
+            "toolStatus": "error",
+            "latencyMs": 1400
+          }
+        }
+      ],
+      "hypotheses": [
+        {
+          "category": "tool",
+          "status": "unverified",
+          "summary": "A tool operation may have contributed",
+          "supportingRuleIds": [
+            "TOOL-02"
+          ],
+          "evidenceNodeIds": [
+            "1000000000000006"
+          ],
+          "limitations": [
+            "Rule observations do not establish causality",
+            "An independent attribution assessment is required"
+          ]
+        }
+      ],
+      "warnings": [],
+      "requiresJudge": true
+    },
+    "judgment": null,
+    "judgeStatus": "unavailable",
+    "warnings": [
+      "LLM judge unavailable: provider or model not configured."
+    ]
+  }
+}
