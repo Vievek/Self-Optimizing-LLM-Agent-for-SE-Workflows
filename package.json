@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:contract": "vitest run --dir packages/contracts",
     "build": "pnpm -r build",
+    "run-agent": "node --env-file=.env scripts/run-agent.js",
     "build:cli": "pnpm --filter @soa/cli build",
     "tui": "node apps/cli/dist/cli.js",
     "tui:exec": "node apps/cli/dist/cli.js tui exec",

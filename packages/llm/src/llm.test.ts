@@ -61,10 +61,16 @@ small:
   provider: openai_compat
   baseUrl: https://router.huggingface.co/v1
   model: Qwen/Qwen2.5-Coder-7B-Instruct
+  pacingMs: 4000
+  maxBatchWriteFiles: 3
+  maxBatchReadFiles: 8
 large:
   provider: openai_compat
   baseUrl: https://router.huggingface.co/v1
   model: Qwen/Qwen2.5-Coder-32B-Instruct
+  pacingMs: 5000
+  maxBatchWriteFiles: 4
+  maxBatchReadFiles: 10
 embed:
   provider: openai_compat
   baseUrl: https://router.huggingface.co/v1
@@ -72,7 +78,12 @@ embed:
       `;
       const config = parseModelsYaml(yaml);
       expect(config.small.model).toBe('Qwen/Qwen2.5-Coder-7B-Instruct');
+      expect(config.small.pacingMs).toBe(4000);
+      expect(config.small.maxBatchWriteFiles).toBe(3);
+      expect(config.small.maxBatchReadFiles).toBe(8);
       expect(config.large.model).toBe('Qwen/Qwen2.5-Coder-32B-Instruct');
+      expect(config.large.pacingMs).toBe(5000);
+      expect(config.large.maxBatchWriteFiles).toBe(4);
       expect(config.embed.model).toBe('BAAI/bge-small-en-v1.5');
     });
 

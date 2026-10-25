@@ -161,4 +161,91 @@ describe('ModelSelector (Model Selection Module)', () => {
       });
     }).toThrow();
   });
+
+  describe('Role Hierarchy Routing Rule Method (Decision-Making -> LLM, Code Generation -> SLM)', () => {
+    const roleSelector = new ModelSelector({ routingRule: 'role_hierarchy' });
+
+    it('routes decision-making, planning, batch edits, and multi-file steps to LLM', () => {
+      const locDecision = roleSelector.selectTier({
+        step_type: 'localize',
+        estimated_tokens: 700,
+        file_count: 2,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 2,
+      });
+      expect(locDecision.tier).toBe('llm');
+      expect(locDecision.reasoning).toContain('High-reasoning step');
+
+      const planDecision = roleSelector.selectTier({
+        step_type: 'plan',
+        estimated_tokens: 500,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(planDecision.tier).toBe('llm');
+
+      // Batch / multi-file edit -> LLM
+      const multiEditDecision = roleSelector.selectTier({
+        step_type: 'edit_multi_file',
+        estimated_tokens: 1500,
+        file_count: 2,
+        prior_failures: 0,
+        requires_cross_file_reasoning: true,
+        symbol_count: 3,
+      });
+      expect(multiEditDecision.tier).toBe('llm');
+    });
+
+    it('routes low-complexity tactical single-file steps (edit_single_file, test, explore) to SLM', () => {
+      // Single-file targeted surgical patch with score <= small_tier_threshold -> SLM
+      const editDecision = roleSelector.selectTier({
+        step_type: 'edit_single_file',
+        estimated_tokens: 800,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(editDecision.tier).toBe('slm');
+      expect(editDecision.reasoning).toContain('Tactical execution step (edit_single_file');
+
+      // Single-file layout explore -> SLM
+      const exploreDecision = roleSelector.selectTier({
+        step_type: 'explore',
+        estimated_tokens: 500,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(exploreDecision.tier).toBe('slm');
+      expect(exploreDecision.reasoning).toContain('Tactical execution step (explore');
+
+      const testDecision = roleSelector.selectTier({
+        step_type: 'test',
+        estimated_tokens: 800,
+        file_count: 1,
+        prior_failures: 0,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(testDecision.tier).toBe('slm');
+    });
+
+    it('escalates code generation to LLM when prior failures reach threshold', () => {
+      const failedEdit = roleSelector.selectTier({
+        step_type: 'edit_single_file',
+        estimated_tokens: 800,
+        file_count: 1,
+        prior_failures: 2,
+        requires_cross_file_reasoning: false,
+        symbol_count: 1,
+      });
+      expect(failedEdit.tier).toBe('llm');
+      expect(failedEdit.reasoning).toContain('Escalated to LLM due to 2 prior failures');
+    });
+  });
 });

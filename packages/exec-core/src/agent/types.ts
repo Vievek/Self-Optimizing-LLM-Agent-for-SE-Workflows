@@ -8,9 +8,12 @@ import {
   TraceSpanSchema,
   FullAgentConfig,
 } from '@soa/contracts';
+import { ProviderRegistry } from '@soa/llm';
 import { SandboxService, WorkspaceId } from '@soa/sandbox';
 import { SubtaskType, SubtaskRoutingFeatures, ModelTier } from '../routing/types.js';
 import { GraphRetriever } from '../retrieval/graph/graph-retriever.js';
+import { CodeGraph } from '../retrieval/graph/code-graph.js';
+import { ReActLlmCaller } from './react/types.js';
 
 export type PlanSpanAttributes = z.infer<typeof PlanSpanAttributesSchema>;
 export type ToolCallSpanAttributes = z.infer<typeof ToolCallSpanAttributesSchema>;
@@ -46,6 +49,7 @@ export interface SubTask {
   retryCount: number;
   lastError?: string;
   features?: SubtaskRoutingFeatures;
+  contract?: string;
 }
 
 /**
@@ -67,6 +71,7 @@ export interface ToolContext {
   sandbox: SandboxService;
   taskId: string;
   retriever?: GraphRetriever;
+  graph?: CodeGraph;
   workingDir?: string;
 }
 
@@ -117,7 +122,10 @@ export interface AgentRunnerOptions {
   config?: Partial<FullAgentConfig>;
   condition?: 'baseline' | 'amem' | 'focus' | 'memory_full' | 'orch_off' | 'orch_on';
   llmCaller?: LLMCaller;
+  reactLlmCaller?: ReActLlmCaller;
+  providerRegistry?: ProviderRegistry;
   maxIterations?: number;
+  maxTurnsPerSubtask?: number;
   baseCommit?: string;
 }
 
@@ -132,6 +140,7 @@ export interface AgentRunResult {
   outcomeEvidence: OutcomeEvidence;
   spans: TraceSpan[];
   planState: PlanState;
+  finalAnswer?: string;
 }
 
 export { SubtaskType, SubtaskRoutingFeatures, PlanningConfig, ToolsConfig, ModelTier };

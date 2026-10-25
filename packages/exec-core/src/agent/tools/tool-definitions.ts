@@ -7,29 +7,48 @@ export const TOOL_DEFINITIONS = {
   read_file: {
     name: 'read_file',
     description:
-      'Read the contents of a file in the workspace with optional line offset and limit.',
+      'Read file contents from workspace. Supports reading a single file via "path" or batch-reading multiple files via "paths: string[]".',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to the file in the workspace' },
+        path: { type: 'string', description: 'Relative path to a single file in the workspace' },
+        paths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of relative file paths to batch-read in a single call',
+        },
         offset: { type: 'number', description: '1-based line number to start reading from' },
         limit: { type: 'number', description: 'Maximum number of lines to read' },
       },
-      required: ['path'],
     },
     timeout_s: 30,
   },
   write_file: {
     name: 'write_file',
     description:
-      'Write complete content to a file in the workspace, creating parent directories if needed.',
+      'Write complete content to one or multiple files in workspace. Supports single file ("path" and "content") or batch writing ("files: Array<{ path, content }>").',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to the file to create or overwrite' },
+        path: {
+          type: 'string',
+          description: 'Relative path to a single file to create or overwrite',
+        },
         content: { type: 'string', description: 'Full UTF-8 text content to write' },
+        files: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string', description: 'Relative file path' },
+              content: { type: 'string', description: 'Full UTF-8 text content' },
+            },
+            required: ['path', 'content'],
+          },
+          description:
+            'Array of files to batch write in one turn (recommended: 2-3 files per batch)',
+        },
       },
-      required: ['path', 'content'],
     },
     timeout_s: 30,
   },
@@ -44,6 +63,24 @@ export const TOOL_DEFINITIONS = {
         new_str: { type: 'string', description: 'The replacement string snippet' },
       },
       required: ['path', 'old_str', 'new_str'],
+    },
+    timeout_s: 30,
+  },
+  delete_file: {
+    name: 'delete_file',
+    description:
+      'Delete a single file or multiple files from the workspace (e.g. redundant, conflicting, or deprecated files).',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to a single file to delete' },
+        paths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of relative file paths to delete in one call',
+        },
+        reason: { type: 'string', description: 'Optional explanation for deleting the file(s)' },
+      },
     },
     timeout_s: 30,
   },
@@ -93,11 +130,16 @@ export const TOOL_DEFINITIONS = {
   },
   list_directory: {
     name: 'list_directory',
-    description: 'List files and subdirectories in the specified workspace directory.',
+    description:
+      'List files and subdirectories recursively up to depth 4 by default, showing full project structure in one call. Avoid querying subdirectories individually.',
     parameters: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Relative directory path (defaults to root ".")' },
+        depth: {
+          type: 'number',
+          description: 'Directory traversal depth (1 to 6, defaults to 4)',
+        },
       },
     },
     timeout_s: 30,

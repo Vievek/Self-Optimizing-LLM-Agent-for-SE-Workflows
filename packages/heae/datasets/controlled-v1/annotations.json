@@ -1,0 +1,117 @@
+{
+  "datasetName": "HEAE Controlled Synthetic Evaluation v1",
+  "datasetVersion": "1.0",
+  "annotations": [
+    {
+      "caseId": "pilot-001",
+      "traceFile": "traces/pilot-001.jsonl",
+      "observedOutcome": "pass",
+      "expectedCategories": [],
+      "categoryEvidence": [],
+      "causalAssessments": [],
+      "limitations": [
+        "This is a controlled synthetic execution, not an observed real-world run.",
+        "The trace records successful execution and tests, but does not independently prove the correctness of the simulated code change."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "pilot-002",
+      "traceFile": "traces/pilot-002.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": ["tool"],
+      "categoryEvidence": [
+        {
+          "category": "tool",
+          "spanIds": ["a200000000000005"],
+          "justification": "The apply_patch tool returned FILE_NOT_FOUND for its target file."
+        }
+      ],
+      "causalAssessments": [
+        {
+          "category": "tool",
+          "judgment": "supported",
+          "explanation": "The unsuccessful final output explicitly references the failed patch operation.",
+          "evidenceSpanIds": ["a200000000000005", "a200000000000006"]
+        }
+      ],
+      "limitations": [
+        "The trace does not establish why the agent selected the nonexistent target path.",
+        "This is a controlled synthetic execution rather than an observed Execution Core run."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "pilot-003",
+      "traceFile": "traces/pilot-003.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": ["retrieval"],
+      "categoryEvidence": [
+        {
+          "category": "retrieval",
+          "spanIds": ["a300000000000003", "a300000000000005"],
+          "justification": "The required configuration-file retrieval returned no results, and the final output records that the task could not proceed."
+        }
+      ],
+      "causalAssessments": [
+        {
+          "category": "retrieval",
+          "judgment": "supported",
+          "explanation": "The final failure explicitly records the required file was not found and references the retrieval span.",
+          "evidenceSpanIds": ["a300000000000003", "a300000000000005"]
+        }
+      ],
+      "limitations": [
+        "The trace does not establish whether the configuration file was genuinely absent or whether the retrieval strategy failed to locate an existing file.",
+        "This is a controlled synthetic scenario, not a real Execution Core execution."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "pilot-004",
+      "traceFile": "traces/pilot-004.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": ["planning"],
+      "categoryEvidence": [
+        {
+          "category": "planning",
+          "spanIds": ["a400000000000002", "a400000000000004"],
+          "justification": "The planning operation reports a missing prerequisite, and the output confirms migration was not attempted."
+        }
+      ],
+      "causalAssessments": [
+        {
+          "category": "planning",
+          "judgment": "supported",
+          "explanation": "The final unsuccessful output explicitly refers to the missing planning prerequisite.",
+          "evidenceSpanIds": ["a400000000000002", "a400000000000004"]
+        }
+      ],
+      "limitations": [
+        "The scenario is synthetic, and no actual database migration was executed.",
+        "The trace does not independently establish whether the required schema was absent from a real repository."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    },
+    {
+      "caseId": "pilot-005",
+      "traceFile": "traces/pilot-005.jsonl",
+      "observedOutcome": "fail",
+      "expectedCategories": [],
+      "categoryEvidence": [],
+      "causalAssessments": [],
+      "limitations": [
+        "The final task outcome is fail, but the trace does not establish a specific failure category.",
+        "No tests were recorded as executed; the trace does not establish whether verification was required or omitted.",
+        "The underlying reason for the unsuccessful execution cannot be determined from the available spans.",
+        "This is a controlled synthetic scenario, not an actual Execution Core run."
+      ],
+      "annotationStatus": "draft",
+      "datasetProvenance": "synthetic_development"
+    }
+  ]
+}

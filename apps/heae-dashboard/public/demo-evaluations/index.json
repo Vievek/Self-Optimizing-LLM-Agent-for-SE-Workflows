@@ -1,0 +1,52 @@
+{
+  "dataset": "workflow-contrast-v1",
+  "provenance": "synthetic_development",
+  "evaluationMode": "rule_only",
+  "cases": [
+    {
+      "caseId": "workflow-001",
+      "traceId": "b1000000000000000000000000000001",
+      "outcome": "fail",
+      "categories": ["workflow"],
+      "observationCount": 1,
+      "hypothesisCount": 1,
+      "judgeStatus": "unavailable"
+    },
+    {
+      "caseId": "workflow-002",
+      "traceId": "b2000000000000000000000000000002",
+      "outcome": "fail",
+      "categories": [],
+      "observationCount": 0,
+      "hypothesisCount": 0,
+      "judgeStatus": "unavailable"
+    },
+    {
+      "caseId": "workflow-003",
+      "traceId": "b3000000000000000000000000000003",
+      "outcome": "error",
+      "categories": [],
+      "observationCount": 0,
+      "hypothesisCount": 0,
+      "judgeStatus": "unavailable"
+    },
+    {
+      "caseId": "workflow-004",
+      "traceId": "b4000000000000000000000000000004",
+      "outcome": "fail",
+      "categories": ["tool"],
+      "observationCount": 1,
+      "hypothesisCount": 1,
+      "judgeStatus": "unavailable"
+    },
+    {
+      "caseId": "workflow-005",
+      "traceId": "b5000000000000000000000000000005",
+      "outcome": "fail",
+      "categories": [],
+      "observationCount": 0,
+      "hypothesisCount": 0,
+      "judgeStatus": "unavailable"
+    }
+  ]
+}

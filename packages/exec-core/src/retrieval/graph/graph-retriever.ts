@@ -36,6 +36,11 @@ export class GraphRetriever {
     // 1. Identify starting anchor symbols from query
     const anchors = this.extractAnchorSymbols(queryObj);
 
+    // Query tokens for fine-grained relevance ranking
+    const queryTokens = (queryObj.query.match(/\b([a-zA-Z_][a-zA-Z0-9_]{2,})\b/g) || []).map((t) =>
+      t.toLowerCase(),
+    );
+
     // 2. Multi-hop traversal starting from each anchor
     const snippetMap = new Map<string, RetrievedSnippet>();
 
@@ -46,15 +51,49 @@ export class GraphRetriever {
         const node = this.graph.getNode(p.nodeId);
         if (!node) continue;
 
-        // Compute relevance based on distance from anchor and node kind
-        const distancePenalty = Math.max(0.1, 1.0 - p.depth * 0.25);
-        let kindBonus = 0.0;
-        if (node.kind === 'function' || node.kind === 'test') kindBonus = 0.15;
-        if (node.kind === 'class') kindBonus = 0.1;
+        const nodeNameLower = node.name.toLowerCase();
+        const baseName =
+          (node.filePath || '').split('/').pop()?.split('\\').pop()?.split('.')[0]?.toLowerCase() ||
+          '';
+        const lowerFile = (node.filePath || '').toLowerCase();
 
-        const relevanceScore = Math.min(
-          1.0,
-          Math.round((distancePenalty + kindBonus) * 1000) / 1000,
+        let matchQuality = 0.5;
+
+        // Exact symbol name match (e.g. "Project")
+        if (queryTokens.some((t) => t === nodeNameLower)) {
+          matchQuality = 1.0;
+        }
+        // File basename matches token (e.g. "Project.js" or "projectController.js")
+        else if (queryTokens.some((t) => t === baseName)) {
+          matchQuality = 0.9;
+        }
+        // Node name contains token (e.g. "ProjectDetail", "createProject")
+        else if (queryTokens.some((t) => nodeNameLower.includes(t))) {
+          matchQuality = 0.8;
+        }
+        // File path contains token
+        else if (queryTokens.some((t) => lowerFile.includes(t))) {
+          if (node.kind === 'class' || node.kind === 'module') {
+            matchQuality = 0.7;
+          } else if (node.name.startsWith('handle') || node.name.startsWith('on')) {
+            matchQuality = 0.3;
+          } else {
+            matchQuality = 0.5;
+          }
+        }
+
+        // Distance penalty for multi-hop
+        const depthPenalty = p.depth * 0.15;
+
+        // Kind bonus: Models/Schemas (+0.15), Controllers/Functions (+0.1), Modules (+0.05)
+        let kindBonus = 0.0;
+        if (node.kind === 'class') kindBonus = 0.15;
+        else if (node.kind === 'function') kindBonus = 0.1;
+        else if (node.kind === 'module') kindBonus = 0.05;
+
+        const relevanceScore = Math.max(
+          0.1,
+          Math.min(1.0, Math.round((matchQuality - depthPenalty + kindBonus) * 100) / 100),
         );
 
         if (relevanceScore < this.config.min_score) {
@@ -132,9 +171,42 @@ export class GraphRetriever {
     let match: RegExpExecArray | null;
     while ((match = tokenRegex.exec(queryObj.query)) !== null) {
       const token = match[1]!;
+      const lowerToken = token.toLowerCase();
+
+      // 1. Symbol name matching (exact)
       const matchingNodes = this.graph.findNodesByName(token);
-      if (matchingNodes.length > 0) {
-        anchors.add(token);
+      for (const node of matchingNodes) {
+        anchors.add(node.id);
+      }
+
+      // 2. Nodes containing token in name (e.g. ProjectDetail, createProject, projectSchema)
+      for (const node of this.graph.getAllNodes()) {
+        const lowerName = node.name.toLowerCase();
+        if (lowerName.includes(lowerToken)) {
+          anchors.add(node.id);
+        }
+      }
+
+      // 3. File / Module matching: if file basename or path matches, add module node and definitions
+      for (const node of this.graph.getAllNodes()) {
+        const lowerFile = (node.filePath || '').toLowerCase();
+        if (lowerFile.includes(lowerToken)) {
+          const baseName = (node.filePath || '')
+            .split('/')
+            .pop()
+            ?.split('\\')
+            .pop()
+            ?.split('.')[0]
+            ?.toLowerCase();
+          if (
+            node.kind === 'module' ||
+            node.kind === 'class' ||
+            baseName === lowerToken ||
+            baseName?.includes(lowerToken)
+          ) {
+            anchors.add(node.id);
+          }
+        }
       }
     }
 
@@ -147,11 +219,18 @@ export class GraphRetriever {
   }
 
   private searchNodesByFuzzyMatch(queryText: string): CodeNode[] {
-    const lowerQuery = queryText.toLowerCase();
+    const lowerQuery = queryText.toLowerCase().replace(/\.[a-z]+$/, '');
     const matches: CodeNode[] = [];
 
     for (const node of this.graph.getAllNodes()) {
-      if (lowerQuery.includes(node.name.toLowerCase())) {
+      const lowerName = node.name.toLowerCase();
+      const lowerFile = (node.filePath || '').toLowerCase();
+      if (
+        lowerQuery.includes(lowerName) ||
+        lowerName.includes(lowerQuery) ||
+        lowerFile.includes(lowerQuery) ||
+        lowerQuery.includes(lowerFile)
+      ) {
         matches.push(node);
       }
     }
