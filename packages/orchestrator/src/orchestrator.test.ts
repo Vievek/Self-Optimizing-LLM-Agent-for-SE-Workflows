@@ -260,6 +260,56 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       expect(audit.length).toBe(1);
       expect(audit[0]?.version_after).toBe('cfg_0001');
     });
+
+    it('deploys an LLM-generated retrieval.top_k value', async () => {
+      mockLlm.registerCanned(
+        /Current Value:\s*5/,
+        JSON.stringify({
+          proposedValue: 8,
+          rationale: 'Increase retrieval recall',
+        }),
+      );
+
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_llm_top_k';
+      signal.group_id = 'grp_llm_top_k';
+      signal.classifier = 'llm_judge';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(result.config?.retrieval.top_k).toBe(8);
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(8);
+    });
+
+    it('rejects an invalid LLM-generated retrieval.top_k value', async () => {
+      mockLlm.registerCanned(
+        /Current Value:\s*5/,
+        JSON.stringify({
+          proposedValue: 99,
+          rationale: 'Test out-of-range value',
+        }),
+      );
+
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_llm_invalid_top_k';
+      signal.group_id = 'grp_llm_invalid_top_k';
+      signal.classifier = 'llm_judge';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('rejected');
+      expect(result.validation?.valid).toBe(false);
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(5);
+    });
   });
 
   describe('Simulated Run Evaluator Stub', () => {
