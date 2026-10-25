@@ -386,19 +386,23 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       });
     });
 
-    it('returns simulated outcomes and metrics', async () => {
-      const res = await runSimulatedTasks({ taskCount: 10 });
+    it('runs a baseline and returns finite metrics', async () => {
+      const res = await runSimulatedTasks({
+        taskCount: 20,
+        orchOff: true,
+      });
 
-      expect(res.outcomes).toHaveLength(10);
+      expect(res.outcomes).toHaveLength(20);
       expect(res.outcomes[0]).toMatchObject({
         taskIndex: 0,
-        taskId: 'task_001',
-        success: false,
-        tokens: 0,
-        configVersion: 'cfg_0001',
+        taskId: 'sim_000',
+        success: true,
+        tokens: 100,
         rolledBack: false,
       });
-      expect(res.metrics.configStabilityCv).toBe(0);
+
+      expect(Object.values(res.metrics).every(Number.isFinite)).toBe(true);
+      expect(res.metrics.successRateDelta).toBe(0);
     });
 
     it('records task outcomes and triggers automatic rollback', async () => {
