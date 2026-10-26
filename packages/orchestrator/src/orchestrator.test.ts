@@ -260,13 +260,182 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       expect(audit.length).toBe(1);
       expect(audit[0]?.version_after).toBe('cfg_0001');
     });
+
+    it('deploys an LLM-generated retrieval.top_k value', async () => {
+      mockLlm.registerCanned(
+        /Current Value:\s*5/,
+        JSON.stringify({
+          proposedValue: 8,
+          rationale: 'Increase retrieval recall',
+        }),
+      );
+
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_llm_top_k';
+      signal.group_id = 'grp_llm_top_k';
+      signal.classifier = 'llm_judge';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(result.config?.retrieval.top_k).toBe(8);
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(8);
+    });
+
+    it('rejects an invalid LLM-generated retrieval.top_k value', async () => {
+      mockLlm.registerCanned(
+        /Current Value:\s*5/,
+        JSON.stringify({
+          proposedValue: 99,
+          rationale: 'Test out-of-range value',
+        }),
+      );
+
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_llm_invalid_top_k';
+      signal.group_id = 'grp_llm_invalid_top_k';
+      signal.classifier = 'llm_judge';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('rejected');
+      expect(result.validation?.valid).toBe(false);
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(5);
+    });
+
+    it('automatically rolls back after five consecutive failures', async () => {
+      // Deploy cfg_0002.
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_auto_rollback';
+      signal.group_id = 'grp_auto_rollback';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      // Record five failed task outcomes against the active version.
+      let rolledBackTo: string | null = null;
+
+      for (let i = 0; i < 5; i++) {
+        rolledBackTo = await orch.recordTaskOutcome(i, false);
+      }
+
+      expect(rolledBackTo).toBe('cfg_0001');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
+
+      const active = await orch.load();
+      expect(active.retrieval.top_k).toBe(5);
+
+      const audit = await orch.auditLogger.query({ action: 'rollback' });
+      expect(
+        audit.some(
+          (entry) => entry.version_after === 'cfg_0001' && entry.reason === 'regression_window',
+        ),
+      ).toBe(true);
+    });
+
+    it('does not roll back for a mixed-success metric window', async () => {
+      // Deploy cfg_0002.
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_mixed_outcomes';
+      signal.group_id = 'grp_mixed_outcomes';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const result = await orch.processSignal(signal);
+
+      expect(result.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      // Record mixed outcomes. Keep the failure rate below 50%.
+      const outcomes = [false, true, false, true, true];
+
+      for (let i = 0; i < outcomes.length; i++) {
+        const rolledBackTo = await orch.recordTaskOutcome(i, outcomes[i]!);
+        expect(rolledBackTo).toBeNull();
+      }
+
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      const audit = await orch.auditLogger.query({ action: 'rollback' });
+      expect(audit).toHaveLength(0);
+    });
   });
 
   describe('Simulated Run Evaluator Stub', () => {
-    it('returns empty simulated outcomes and metrics', async () => {
-      const res = await runSimulatedTasks({ taskCount: 10 });
-      expect(res.outcomes).toEqual([]);
-      expect(res.metrics.configStabilityCv).toBe(0);
+    let orch: OptimizationOrchestrator;
+    let mockLlm: MockLlmProvider;
+
+    beforeEach(() => {
+      mockLlm = new MockLlmProvider();
+      orch = new OptimizationOrchestrator({
+        llmProvider: mockLlm,
+      });
+    });
+
+    it('runs a baseline and returns finite metrics', async () => {
+      const res = await runSimulatedTasks({
+        taskCount: 20,
+        orchOff: true,
+      });
+
+      expect(res.outcomes).toHaveLength(20);
+      expect(res.outcomes[0]).toMatchObject({
+        taskIndex: 0,
+        taskId: 'sim_000',
+        success: true,
+        tokens: 100,
+        rolledBack: false,
+      });
+
+      expect(Object.values(res.metrics).every(Number.isFinite)).toBe(true);
+      expect(res.metrics.successRateDelta).toBe(0);
+    });
+
+    it('records task outcomes and triggers automatic rollback', async () => {
+      const signal = structuredClone(SAMPLE_SIGNAL);
+      signal.signal_id = 'sig_eval_rollback';
+      signal.group_id = 'grp_eval_rollback';
+      signal.target.axis = 'retrieval';
+      signal.target.config_path = 'retrieval.top_k';
+      signal.suggested_action = 'retrieval_param_update';
+
+      const deployed = await orch.processSignal(signal);
+      expect(deployed.status).toBe('deployed');
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0002');
+
+      const result = await runSimulatedTasks({
+        taskCount: 5,
+        orchestrator: orch,
+      });
+
+      expect(result.outcomes).toHaveLength(5);
+      expect(result.outcomes.every((outcome) => !outcome.success)).toBe(true);
+      expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
+      expect(result.outcomes.some((outcome) => outcome.rolledBack)).toBe(true);
+    });
+
+    it('loads the default config and creates cfg_0001 when no options are provided', async () => {
+      const store = new ConfigStore();
+
+      const config = await store.load();
+
+      expect(config.config_version).toBe('cfg_0001');
+      expect(() => FullAgentConfigSchema.parse(config)).not.toThrow();
+      expect(config).toEqual(BASE_CONFIG);
     });
   });
 });

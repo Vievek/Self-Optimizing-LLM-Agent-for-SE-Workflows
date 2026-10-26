@@ -28,7 +28,7 @@ Config Path: ${signal.target.config_path}
 Suggested Action: ${signal.suggested_action}
 Current Value: ${JSON.stringify(currentValue)}
 
-Propose a validated JSON object with updated configuration for "${signal.target.config_path}":
+Propose a minimal configuration update as a valid JSON object:
 {
   "proposedValue": <value>,
   "rationale": "<short rationale>"
@@ -37,25 +37,57 @@ Propose a validated JSON object with updated configuration for "${signal.target.
     const res = await this.llm.chat({
       model: this.model,
       messages: [
-        { role: 'system', content: 'You generate structured JSON configuration patches.' },
+        {
+          role: 'system',
+          content:
+            'You generate structured JSON configuration patches. Return a valid JSON object containing proposedValue and rationale, without additional explanation.',
+        },
         { role: 'user', content: prompt },
       ],
       temperature: 0.1,
     });
 
-    try {
-      const parsed = JSON.parse(res.content);
-      return {
-        configPath: signal.target.config_path,
-        proposedValue: parsed.proposedValue ?? currentValue,
-        rationale: parsed.rationale ?? 'LLM-generated configuration update',
-      };
-    } catch {
-      // Fallback for mock or text responses
+    // Extract the first JSON object from the model response.
+    const jsonMatch = res.content.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
       return {
         configPath: signal.target.config_path,
         proposedValue: currentValue,
-        rationale: res.content.slice(0, 100),
+        rationale: 'LLM response did not contain a JSON object; current value retained.',
+      };
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(jsonMatch[0]);
+
+      if (typeof parsed !== 'object' || parsed === null || !('proposedValue' in parsed)) {
+        return {
+          configPath: signal.target.config_path,
+          proposedValue: currentValue,
+          rationale: 'LLM JSON did not contain proposedValue; current value retained.',
+        };
+      }
+
+      const result = parsed as {
+        proposedValue?: unknown;
+        rationale?: unknown;
+      };
+
+      return {
+        configPath: signal.target.config_path,
+        proposedValue: result.proposedValue ?? currentValue,
+        rationale:
+          typeof result.rationale === 'string'
+            ? result.rationale
+            : 'LLM-generated configuration update',
+      };
+    } catch {
+      // Keep the pipeline running if the model returns malformed JSON.
+      return {
+        configPath: signal.target.config_path,
+        proposedValue: currentValue,
+        rationale: 'LLM response contained invalid JSON; current value retained.',
       };
     }
   }
