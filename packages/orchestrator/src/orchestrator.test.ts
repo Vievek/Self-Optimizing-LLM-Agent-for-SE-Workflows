@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FullAgentConfigSchema } from '@soa/contracts';
 import { MockLlmProvider } from '@soa/mocks';
+import { MemoryStore } from '@soa/store';
 import {
   ConfigStore,
   SignalIntake,
@@ -53,6 +54,32 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       bad.config_version = 'not_a_valid_version';
       await expect(store.saveVersion(bad as typeof BASE_CONFIG)).rejects.toThrow();
     });
+
+    it('loads the validated JSON default config fixture', async () => {
+      const store = await ConfigStore.create();
+      const config = await store.load();
+
+      expect(FullAgentConfigSchema.safeParse(config).success).toBe(true);
+      expect(config).toEqual(BASE_CONFIG);
+    });
+
+    it('persists the active version and rollback across store instances', async () => {
+      const storage = new MemoryStore();
+      const first = await ConfigStore.create({ store: storage, configDir: 'config' });
+      const next = structuredClone(BASE_CONFIG);
+      next.config_version = 'cfg_0002';
+      next.retrieval.top_k = 8;
+      await first.saveVersion(next);
+
+      const restarted = await ConfigStore.create({ store: storage, configDir: 'config' });
+      expect((await restarted.load()).config_version).toBe('cfg_0002');
+      expect((await restarted.load()).retrieval.top_k).toBe(8);
+
+      await restarted.activateVersion('cfg_0001');
+      const afterRollback = await ConfigStore.create({ store: storage, configDir: 'config' });
+      expect((await afterRollback.load()).config_version).toBe('cfg_0001');
+      expect((await afterRollback.load()).retrieval.top_k).toBe(5);
+    });
   });
 
   describe('SignalIntake (FR1)', () => {
@@ -98,6 +125,12 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       const res = validator.validateCandidate(BASE_CONFIG, 'unknown_axis.param', 123);
       expect(res.valid).toBe(false);
       expect(res.error).toContain('Unknown configuration path axis');
+    });
+
+    it('rejects unknown nested configuration paths', () => {
+      const res = validator.validateCandidate(BASE_CONFIG, 'retrieval.not_a_field', 123);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain('Unknown configuration path');
     });
   });
 
