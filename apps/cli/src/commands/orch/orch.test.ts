@@ -73,4 +73,76 @@ describe('soa orch command', () => {
     expect(audit).toContain('reject');
     expect(audit).toContain('Unknown configuration path');
   });
+
+  it('supports the documented demo command sequence in order', async () => {
+    const store = new MemoryStore();
+    const demoSignal = {
+      ...SAMPLE_SIGNAL,
+      signal_id: 'sig_demo_001',
+      group_id: 'grp_demo_001',
+      target: {
+        ...SAMPLE_SIGNAL.target,
+        axis: 'retrieval' as const,
+        config_path: 'retrieval.top_k',
+      },
+      suggested_action: 'retrieval_param_update' as const,
+    };
+    await store.append('store/events/optimization_signals.jsonl', demoSignal);
+    await store.append('store/events/optimization_signals.jsonl', {
+      signal_id: 'invalid_demo',
+      schema_version: '2.0',
+    });
+
+    const dashboard = await runOrchCommand(['dashboard'], { store });
+    expect(dashboard).toContain('SOA ORCH · active cfg_0001');
+    expect(dashboard).toContain('Signal Queue');
+    expect(dashboard).toContain('Config History');
+    expect(dashboard).toContain('Audit Log');
+    expect(dashboard).toContain('CONTRACT HEALTH CHECK PANEL');
+
+    const check = await runOrchCommand(['check'], { store });
+    expect(check).toContain('FullAgentConfig cfg_0001');
+    expect(check).toContain('OptimizationSignal sig_demo_001');
+    expect(check).toContain('[FAIL] OptimizationSignal invalid_demo');
+
+    const queue = await runOrchCommand(['queue'], { store });
+    expect(queue).toContain('sig_demo_001');
+    expect(queue).toContain('pending');
+    expect(queue).toContain('invalid_demo');
+    expect(queue).toContain('rejected');
+    expect(queue).toContain('signal_id');
+
+    const candidate = await runOrchCommand(['process', 'sig_demo_001'], { store });
+    expect(candidate).toContain('retrieval.top_k');
+    expect(candidate).toContain('5');
+    expect(candidate).toContain('6');
+    expect(candidate).toContain('PASS');
+    expect(candidate).toContain('cfg_0002');
+
+    const history = await runOrchCommand(['history'], { store });
+    expect(history).toContain('cfg_0001');
+    expect(history).toContain('cfg_0002');
+    expect(history).toContain('retrieval.top_k');
+    expect(history).toContain('sig_demo_001');
+
+    const auditBySignal = await runOrchCommand(['audit', '--signal', 'sig_demo_001'], {
+      store,
+    });
+    expect(auditBySignal).toContain('sig_demo_001');
+    expect(auditBySignal).toContain('retrieval.top_k');
+
+    const auditByPath = await runOrchCommand(['audit', '--path', 'retrieval.top_k'], { store });
+    expect(auditByPath).toContain('sig_demo_001');
+    expect(auditByPath).toContain('retrieval.top_k');
+
+    const rollback = await runOrchCommand(['rollback', 'cfg_0001'], { store });
+    expect(rollback).toContain('cfg_0001');
+    const rolledBackDashboard = await runOrchCommand(['dashboard'], { store });
+    expect(rolledBackDashboard).toContain('SOA ORCH · active cfg_0001');
+
+    const redeploy = await runOrchCommand(['deploy', 'cfg_0002'], { store });
+    expect(redeploy).toContain('cfg_0002');
+    const redeployedDashboard = await runOrchCommand(['dashboard'], { store });
+    expect(redeployedDashboard).toContain('SOA ORCH · active cfg_0002');
+  });
 });
