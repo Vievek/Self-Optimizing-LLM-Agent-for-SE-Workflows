@@ -12,7 +12,7 @@ import {
 import { keepStyle, visibleLength } from '../theme/text.js';
 import { MIN_COLS, MIN_ROWS, centerBlock, fitBlock, overlayBlock } from '../theme/layout.js';
 import type { DashboardView, TuiState } from '../dashboards/types.js';
-import { ExecCoreDashboardView } from '../dashboards/exec-core/index.js';
+import { ExecCoreDashboardView, ExecRunnerService } from '../dashboards/exec-core/index.js';
 import { HeaeDashboardView } from '../dashboards/heae/index.js';
 import { MemoryDashboardView } from '../dashboards/memory/index.js';
 import { OrchDashboardView } from '../dashboards/orch/index.js';
@@ -162,6 +162,13 @@ export class TuiApp {
       height: rows,
       selectedItemIndex: 0,
     };
+
+    // Live frame refresh during agent execution
+    ExecRunnerService.getInstance().subscribe(() => {
+      if (this.isRunning) {
+        this.requestRedraw();
+      }
+    });
   }
 
   registerView(view: DashboardView): void {
@@ -365,7 +372,7 @@ export class TuiApp {
   handleInput(input: KeyInput): boolean {
     const key = normalizeKey(input);
 
-    if (key === 'q' || key === 'ctrl+c') return false;
+    if (key === 'ctrl+c') return false;
 
     // Any key skips the splash.
     if (this.splashUntil !== undefined) {
@@ -373,6 +380,13 @@ export class TuiApp {
       this.syncTicker();
       return true;
     }
+
+    // Give active view first chance to consume the key (e.g. typing prompt)
+    if (this.activeView().handleKey?.(key, this.state)) {
+      return true;
+    }
+
+    if (key === 'q') return false;
 
     if (key === 'escape') {
       if (this.busy) {

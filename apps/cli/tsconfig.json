@@ -10,7 +10,10 @@
     { "path": "../../packages/store" },
     { "path": "../../packages/mocks" },
     { "path": "../../packages/eval-harness" },
-    { "path": "../../packages/memory-agent" }
+    { "path": "../../packages/memory-agent" },
+    { "path": "../../packages/exec-core" },
+    { "path": "../../packages/llm" },
+    { "path": "../../packages/sandbox" }
   ],
   "include": ["src/**/*"]
 }

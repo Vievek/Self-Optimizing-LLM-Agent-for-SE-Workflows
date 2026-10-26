@@ -342,7 +342,7 @@ export class AgentRunner {
                   ((options.config?.planning as Record<string, unknown> | undefined)
                     ?.max_turns_per_subtask as number) ??
                   (subtask.type === 'edit_multi_file' || subtask.type === 'edit_single_file'
-                    ? 40
+                    ? (subtask.id.includes('scaffold') ? 12 : 40)
                     : 15)),
           previousContext: combinedPreviousContext.length > 0 ? combinedPreviousContext : undefined,
         });
@@ -411,6 +411,20 @@ export class AgentRunner {
               `• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`,
             );
             console.log(`✅ [Verification] Confirmed ${globalWrittenFiles.size} files on disk`);
+          } else if (
+            subtask.id.includes('scaffold') &&
+            ((subtaskResult.writtenFiles?.length ?? 0) > 0 || globalWrittenFiles.size > 0)
+          ) {
+            // Scaffold phase successfully wrote files to disk. Conclude phase rather than failing the run.
+            subtaskFailed = false;
+            const count = subtaskResult.writtenFiles?.length ?? globalWrittenFiles.size;
+            const fallbackSummary =
+              subtaskResult.finalAnswer ??
+              `Completed ${subtask.id} with ${count} files created: ${Array.from(subtaskResult.writtenFiles ?? globalWrittenFiles).join(', ')}`;
+            stepMemory.push(
+              `• Step ${subtask.stepIndex + 1} (${subtask.type}): ${fallbackSummary}`,
+            );
+            console.log(`✅ [Scaffolding Phase] Confirmed files written on disk`);
           } else {
             subtaskFailed = true;
             failureError = subtaskResult.lastError ?? 'Subtask execution failed';

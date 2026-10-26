@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "timestamp": 1792941986987,
+  "nodes": [
+    {
+      "id": "module:.........src.auth",
+      "name": ".........src.auth",
+      "filePath": "../../../src/auth.py",
+      "startLine": 1,
+      "endLine": 12,
+      "kind": "module",
+      "moduleName": ".........src.auth",
+      "imports": [
+        {
+          "sourceModule": "sqlite3",
+          "importedSymbols": [
+            "sqlite3"
+          ],
+          "isWildcard": false,
+          "lineNumber": 5
+        }
+      ]
+    },
+    {
+      "id": "func:.........src.auth.authenticate",
+      "name": "authenticate",
+      "filePath": "../../../src/auth.py",
+      "startLine": 3,
+      "endLine": 6,
+      "kind": "function",
+      "isAsync": false,
+      "params": [
+        "username",
+        "password"
+      ],
+      "calls": []
+    },
+    {
+      "id": "module:.........src.main",
+      "name": ".........src.main",
+      "filePath": "../../../src/main.py",
+      "startLine": 1,
+      "endLine": 14,
+      "kind": "module",
+      "moduleName": ".........src.main",
+      "imports": [
+        {
+          "sourceModule": "auth",
+          "importedSymbols": [
+            "authenticate"
+          ],
+          "isWildcard": false,
+          "lineNumber": 3
+        }
+      ]
+    },
+    {
+      "id": "func:.........src.main.login",
+      "name": "login",
+      "filePath": "../../../src/main.py",
+      "startLine": 5,
+      "endLine": 12,
+      "kind": "function",
+      "isAsync": false,
+      "params": [],
+      "calls": [
+        "input",
+        "authenticate"
+      ]
+    },
+    {
+      "id": "module:src.auth",
+      "name": "src.auth",
+      "filePath": "src/auth.py",
+      "startLine": 1,
+      "endLine": 12,
+      "kind": "module",
+      "moduleName": "src.auth",
+      "imports": [
+        {
+          "sourceModule": "sqlite3",
+          "importedSymbols": [
+            "sqlite3"
+          ],
+          "isWildcard": false,
+          "lineNumber": 5
+        }
+      ]
+    },
+    {
+      "id": "func:src.auth.authenticate",
+      "name": "authenticate",
+      "filePath": "src/auth.py",
+      "startLine": 3,
+      "endLine": 6,
+      "kind": "function",
+      "isAsync": false,
+      "params": [
+        "username",
+        "password"
+      ],
+      "calls": []
+    },
+    {
+      "id": "module:src.main",
+      "name": "src.main",
+      "filePath": "src/main.py",
+      "startLine": 1,
+      "endLine": 14,
+      "kind": "module",
+      "moduleName": "src.main",
+      "imports": [
+        {
+          "sourceModule": "auth",
+          "importedSymbols": [
+            "authenticate"
+          ],
+          "isWildcard": false,
+          "lineNumber": 3
+        }
+      ]
+    },
+    {
+      "id": "func:src.main.login",
+      "name": "login",
+      "filePath": "src/main.py",
+      "startLine": 5,
+      "endLine": 12,
+      "kind": "function",
+      "isAsync": false,
+      "params": [],
+      "calls": [
+        "input",
+        "authenticate"
+      ]
+    },
+    {
+      "id": "module:.........routes.index",
+      "name": ".........routes.index",
+      "filePath": "../../../routes/index.js",
+      "startLine": 1,
+      "endLine": 9,
+      "kind": "module",
+      "moduleName": ".........routes.index",
+      "imports": [
+        {
+          "sourceModule": "express",
+          "importedSymbols": [
+            "express"
+          ],
+          "isWildcard": false,
+          "lineNumber": 1
+        }
+      ]
+    },
+    {
+      "id": "module:.........routes.api",
+      "name": ".........routes.api",
+      "filePath": "../../../routes/api.js",
+      "startLine": 1,
+      "endLine": 20,
+      "kind": "module",
+      "moduleName": ".........routes.api",
+      "imports": [
+        {
+          "sourceModule": "express",
+          "importedSymbols": [
+            "express"
+          ],
+          "isWildcard": false,
+          "lineNumber": 1
+        },
+        {
+          "sourceModule": "../controllers/userController",
+          "importedSymbols": [
+            "userController"
+          ],
+          "isWildcard": false,
+          "lineNumber": 3
+        },
+        {
+          "sourceModule": "../controllers/dataController",
+          "importedSymbols": [
+            "dataController"
+          ],
+          "isWildcard": false,
+          "lineNumber": 4
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "module:.........src.auth",
+      "targetId": "module:sqlite3",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "sqlite3"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:.........src.auth",
+      "targetId": "func:.........src.auth.authenticate",
+      "kind": "DEFINES"
+    },
+    {
+      "sourceId": "module:.........src.main",
+      "targetId": "module:auth",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "authenticate"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:.........src.main",
+      "targetId": "func:.........src.main.login",
+      "kind": "DEFINES"
+    },
+    {
+      "sourceId": "func:.........src.main.login",
+      "targetId": "func:input",
+      "kind": "CALLS"
+    },
+    {
+      "sourceId": "func:.........src.main.login",
+      "targetId": "func:authenticate",
+      "kind": "CALLS"
+    },
+    {
+      "sourceId": "module:src.auth",
+      "targetId": "module:sqlite3",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "sqlite3"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:src.auth",
+      "targetId": "func:src.auth.authenticate",
+      "kind": "DEFINES"
+    },
+    {
+      "sourceId": "module:src.main",
+      "targetId": "module:auth",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "authenticate"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:src.main",
+      "targetId": "func:src.main.login",
+      "kind": "DEFINES"
+    },
+    {
+      "sourceId": "func:src.main.login",
+      "targetId": "func:input",
+      "kind": "CALLS"
+    },
+    {
+      "sourceId": "func:src.main.login",
+      "targetId": "func:authenticate",
+      "kind": "CALLS"
+    },
+    {
+      "sourceId": "module:.........routes.index",
+      "targetId": "module:express",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "express"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:.........routes.api",
+      "targetId": "module:express",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "express"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:.........routes.api",
+      "targetId": "module:../controllers/userController",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "userController"
+        ]
+      }
+    },
+    {
+      "sourceId": "module:.........routes.api",
+      "targetId": "module:../controllers/dataController",
+      "kind": "IMPORTS",
+      "metadata": {
+        "symbols": [
+          "dataController"
+        ]
+      }
+    }
+  ]
+}

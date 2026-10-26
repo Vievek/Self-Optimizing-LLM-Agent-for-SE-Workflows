@@ -1,7 +1,11 @@
 #!/usr/bin/env node
+import { autoLoadEnv } from './env.js';
 import { CommandRegistry } from './registry.js';
 import { TuiApp } from './tui/app.js';
 import { parseCliOptions } from './tui/cli-options.js';
+
+// Automatically load environment variables from .env
+autoLoadEnv();
 
 const TUI_MODULES = ['exec', 'heae', 'memory', 'orch', 'menu'];
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FRAME_MS, OVERLAY_MIN_MS, SPLASH_MS, TuiApp } from './app.js';
 import { parseCliOptions } from './cli-options.js';
 import { runContractHealthCheck, summarizeContractHealth } from '../contract-health.js';
+import { ExecRunnerService } from '../dashboards/exec-core/index.js';
 import { renderFrameUpdate } from './screen.js';
 import { stripAnsi } from '../theme/text.js';
 import {
@@ -90,6 +91,38 @@ describe('TuiApp Global Navigation & Keybindings', () => {
     const output = app.renderCurrent();
     expect(output).toContain('Execution Core');
     expect(output).toContain('Task Stream');
+  });
+
+  it('renders all 5 execution core tabs with dedicated views', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    // Tab 0: Agent Console
+    let out = app.renderCurrent();
+    expect(out).toContain('Thinking...');
+    expect(out).toContain('INTERACTIVE CONSOLE INPUT');
+
+    // Tab 1: Task Stream
+    app.handleInput({ name: 'tab' });
+    out = app.renderCurrent();
+    expect(out).toContain('REACT EXECUTION PIPELINE');
+    expect(out).toContain('DYNAMIC MODEL TIER ROUTING');
+
+    // Tab 2: Tool Spans
+    app.handleInput({ name: 'tab' });
+    out = app.renderCurrent();
+    expect(out).toContain('OPENTELEMETRY TOOL CALL SPANS');
+    expect(out).toContain('SPAN INSPECTOR');
+
+    // Tab 3: AST Graph
+    app.handleInput({ name: 'tab' });
+    out = app.renderCurrent();
+    expect(out).toContain('CODEBASE AST HIERARCHY');
+    expect(out).toContain('SYMBOL INSPECTOR');
+
+    // Tab 4: Sandbox
+    app.handleInput({ name: 'tab' });
+    out = app.renderCurrent();
+    expect(out).toContain('EPHEMERAL SANDBOX EXECUTION');
+    expect(out).toContain('GENERATED PATCH');
   });
 
   it('toggles LazyVim main menu with "m" key and returns on "m" or Escape', () => {
@@ -200,13 +233,13 @@ describe('TuiApp keys (readline keypress names)', () => {
   });
 
   it('moves forward with "tab" and back with shift+tab, using the real tab count', () => {
-    const exec = new TuiApp('exec'); // 4 tabs
-    for (let i = 0; i < 3; i++) exec.handleInput({ name: 'tab', sequence: '\t' });
-    expect(exec.getState().activeTab).toBe(3);
+    const exec = new TuiApp('exec'); // 5 tabs: Agent Console, Task Stream, Tool Spans, AST Graph, Sandbox
+    for (let i = 0; i < 4; i++) exec.handleInput({ name: 'tab', sequence: '\t' });
+    expect(exec.getState().activeTab).toBe(4);
     exec.handleInput({ name: 'tab', sequence: '\t' });
     expect(exec.getState().activeTab).toBe(0);
     exec.handleInput({ name: 'tab', shift: true, sequence: '\x1b[Z' });
-    expect(exec.getState().activeTab).toBe(3);
+    expect(exec.getState().activeTab).toBe(4);
 
     const memory = new TuiApp('memory'); // 6 tabs
     for (let i = 0; i < 5; i++) memory.handleInput({ name: 'tab' });
@@ -400,5 +433,160 @@ describe('Boot sequence', () => {
     expect(app.isSplashVisible()).toBe(false);
     expect(vi.getTimerCount()).toBe(0);
     expect(stripAnsi(app.renderCurrent())).not.toContain('INIT  core runtime');
+  });
+});
+
+describe('Execution Core Interactive Agent Console & Dynamic Real Data', () => {
+  it('supports interactive prompt typing in insert mode', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    const runner = ExecRunnerService.getInstance();
+    runner.clearPrompt();
+
+    // 1. Enter Insert Mode using 'i'
+    app.handleInput('i');
+    let out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('[INSERT MODE]');
+
+    // 2. Type characters: "Fix bug"
+    for (const ch of 'Fix bug') {
+      app.handleInput(ch);
+    }
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('Fix bug');
+    expect(runner.getState().prompt).toBe('Fix bug');
+
+    // 3. Backspace deletes last character
+    app.handleInput({ name: 'backspace' });
+    expect(runner.getState().prompt).toBe('Fix bu');
+
+    // 4. Escape leaves insert mode
+    app.handleInput({ name: 'escape' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('[NORMAL MODE]');
+    expect(out).toContain('Fix bu');
+  });
+
+  it('scans real workspace symbols dynamically for AST Graph view without mock data', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    // Switch to Tab 3 (AST Graph)
+    app.handleInput({ name: 'tab' }); // Tab 1
+    app.handleInput({ name: 'tab' }); // Tab 2
+    app.handleInput({ name: 'tab' }); // Tab 3
+    const out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('CODEBASE AST HIERARCHY');
+    expect(out).toContain('SYMBOL INSPECTOR');
+    // Ensure hardcoded Django/Mongoose sample nodes are completely absent
+    expect(out).not.toContain('server/models/Project.js');
+    expect(out).not.toContain('CommonJS exports = mongoose.model');
+  });
+
+  it('renders clean real sandbox view without hardcoded mock command or diff', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    // Switch to Tab 4 (Sandbox)
+    app.handleInput({ name: 'tab' }); // 1
+    app.handleInput({ name: 'tab' }); // 2
+    app.handleInput({ name: 'tab' }); // 3
+    app.handleInput({ name: 'tab' }); // 4
+    const out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('EPHEMERAL SANDBOX EXECUTION');
+    expect(out).toContain('GENERATED PATCH');
+    // Ensure hardcoded test command and mock Project.js diff are completely absent
+    expect(out).not.toContain('npm test -- server/tests/projectController.test.js');
+    expect(out).not.toContain('module.exports = ProjectSchema');
+  });
+
+  it('starts fresh on new open and supports history navigation and fresh reset', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    const runner = ExecRunnerService.getInstance();
+    runner.resetToFresh();
+
+    // Default startup must be clean and centered
+    let out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('SELF-OPTIMIZING SE AGENT');
+    expect(out).toContain('INTERACTIVE CONSOLE INPUT');
+    expect(out).toContain('READY');
+
+    // Simulate N key resets back to fresh session
+    app.handleInput({ sequence: 'N' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('READY');
+    expect(out).toContain('SELF-OPTIMIZING SE AGENT');
+  });
+
+  it('toggles interactive history trace picker on H key and closes on escape', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    const runner = ExecRunnerService.getInstance();
+    runner.resetToFresh();
+
+    // Press H to open History picker
+    app.handleInput({ sequence: 'H' });
+    let out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('EXECUTION TRACE HISTORY');
+
+    // Press escape to close History picker
+    app.handleInput({ name: 'escape' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).not.toContain('EXECUTION TRACE HISTORY');
+    expect(out).toContain('SELF-OPTIMIZING SE AGENT');
+  });
+
+  it('renders turn inspector in Task Stream, span inspector in Tool Spans, and report in Console', () => {
+    const app = new TuiApp('exec', 'cyber', { animate: false });
+    const runner = ExecRunnerService.getInstance();
+    runner.resetToFresh();
+
+    // Populate a test turn, span, and final resolution
+    (runner as any).state.turns = [
+      {
+        turnIndex: 1,
+        action: 'list_directory',
+        thought: 'Inspecting workspace directories',
+        actionInput: { path: '.' },
+        observation: 'Found client, server, package.json',
+        status: 'ok',
+      },
+    ];
+    (runner as any).state.spans = [
+      {
+        span_id: 'span-abc-123',
+        trace_id: 'trace-xyz-789',
+        name: 'list_directory',
+        start_ts: new Date().toISOString(),
+        end_ts: new Date().toISOString(),
+        status: 'ok',
+        attributes: { tool_name: 'list_directory', args: { path: '.' }, output: 'Found files' },
+      },
+    ];
+    (runner as any).state.finalAnswer = 'Comprehensive project architecture report.';
+
+    // Tab 0: Agent Console should render formatted report and omit Thinking card
+    let out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('AGENT RESOLUTION & REPORT');
+    expect(out).toContain('Comprehensive project architecture report');
+    expect(out).not.toContain('Thinking...');
+
+    // Pressing return on Tab 0 with empty active prompt enters insert mode without re-running
+    app.handleInput({ name: 'return' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('[INSERT MODE]');
+    app.handleInput({ name: 'escape' }); // back to normal mode
+
+    // Tab 1: Task Stream should render Turn 1 Inspector and full execution summary
+    app.handleInput({ name: 'tab' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('TURN 1 INSPECTOR');
+    expect(out).toContain('Inspecting workspace directories');
+    expect(out).toContain('Found client, server, package.json');
+    expect(out).toContain('TOTAL EXECUTION SUMMARY & METRICS');
+    expect(out).toContain('Time Taken:');
+    expect(out).toContain('Tokens In:');
+    expect(out).toContain('Tokens Out:');
+
+    // Tab 2: Tool Spans should render Span Inspector with output
+    app.handleInput({ name: 'tab' });
+    out = stripAnsi(app.renderCurrent());
+    expect(out).toContain('SPAN INSPECTOR & ARGUMENTS');
+    expect(out).toContain('span-abc-123');
+    expect(out).toContain('TOOL OUTPUT / RESULT');
   });
 });

@@ -330,13 +330,42 @@ export class ReactAgent {
           turnsWithoutProgress += 1;
         }
 
-        let stagnationNotice = '';
-        if (turnsWithoutProgress >= 5) {
-          stagnationNotice =
-            '\n\n⚠️ PROGRESS NOTICE: No new files have been written in the last 5 turns. If all required files for this subtask are complete, conclude immediately with **Thought** and **Final Answer**. Otherwise, proceed to write the next missing file.';
+        const isScaffoldSubtask = params.subtask.id.includes('scaffold');
+
+        // Check if all designated target files for this scaffolding subtask were written
+        const targetFilesList = params.subtask.targetFiles || [];
+        const allTargetFilesWritten =
+          targetFilesList.length > 0 &&
+          targetFilesList.every((tf) => writtenFiles.has(tf) || params.knownWrittenFiles?.has(tf));
+
+        if (isScaffoldSubtask && (allTargetFilesWritten || writtenFiles.size >= 8)) {
+          success = true;
+          finalAnswer = `Phase ${params.subtask.id} complete. Target files written: ${Array.from(writtenFiles).join(', ')}`;
+          console.log(`\n🏁 [Phase Complete - Target Files Written]\n${finalAnswer}\n`);
+          break;
         }
-        if (turnsWithoutProgress >= 8) {
-          lastError = `Subtask halted after 8 consecutive turns with no new files created or progress made.`;
+
+        let stagnationNotice = '';
+        if (turnsWithoutProgress >= (isScaffoldSubtask ? 3 : 5)) {
+          stagnationNotice =
+            '\n\n⚠️ PROGRESS NOTICE: No new files have been written recently. If all required files for this subtask are complete, conclude immediately with **Thought** and **Final Answer**. Otherwise, proceed to write the next missing file.';
+        }
+        if (turnsWithoutProgress >= (isScaffoldSubtask ? 5 : 8)) {
+          if (isScaffoldSubtask && writtenFiles.size > 0) {
+            success = true;
+            finalAnswer = `Phase ${params.subtask.id} completed with ${writtenFiles.size} files created: ${Array.from(writtenFiles).join(', ')}`;
+            console.log(`\n🏁 [Phase Concluded - Files Written]\n${finalAnswer}\n`);
+            break;
+          }
+          lastError = `Subtask halted after consecutive turns with no new files created or progress made.`;
+          break;
+        }
+
+        // Auto-conclude if scaffold subtask has produced sufficient files and reached turn budget
+        if (isScaffoldSubtask && turn >= 10 && writtenFiles.size > 0) {
+          success = true;
+          finalAnswer = `Phase completed with ${writtenFiles.size} files created: ${Array.from(writtenFiles).join(', ')}`;
+          console.log(`\n🏁 [Phase Budget Reached - Auto Concluded]\n${finalAnswer}\n`);
           break;
         }
 

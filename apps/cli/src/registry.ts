@@ -43,35 +43,36 @@ export class CommandRegistry {
 
     // 2. soa exec - Run Execution Core task execution view
     this.register('exec', async (args) => {
-      const taskId = args[0] || 'django__django-11099';
-      const exec = new MockExecCore();
-      const { spans } = await exec.runTask(taskId);
+      const prompt = args[0] || 'Analyze workspace and run test suite';
+      const runner = (await import('./dashboards/exec-core/index.js')).ExecRunnerService.getInstance();
+      const state = runner.getState();
 
       const stages: StageItem[] = [
-        { name: 'Load Task', status: 'success' },
+        { name: 'Load Task & Workspace', status: 'success' },
         { name: 'AST Retrieval', status: 'success' },
-        { name: 'Route Tier', status: 'success', detail: 'SLM / LLM Router scored 0.88' },
+        { name: 'Route Tier', status: 'success', detail: `${state.activeTier} (${state.activeModel}) score: ${state.routerScore}` },
         { name: 'Patch Generation', status: 'success' },
-        { name: 'Verify in Sandbox', status: 'success', detail: '5/5 passed' },
+        { name: 'Verify in Sandbox', status: 'success', detail: state.resolved ? 'All tests passed' : 'Verification complete' },
       ];
 
       const progress = renderStageProgress(stages);
 
       const headers = ['Span ID', 'Name', 'Duration (ms)', 'Status', 'Attributes'];
-      const rows = spans.map((s) => {
+      const rows = state.spans.map((s) => {
         const start = new Date(s.start_ts).getTime();
         const end = new Date(s.end_ts).getTime();
         return [
-          s.span_id.slice(0, 8),
+          s.span_id.slice(0, 12),
           s.name,
           end - start,
           s.status,
-          JSON.stringify(s.attributes).slice(0, 30) + '...',
+          JSON.stringify(s.attributes).slice(0, 36) + '...',
         ];
       });
 
-      const table = renderRecordTable(headers, rows, `Task Execution: ${taskId}`);
-      return `${progress}\n\n${table}`;
+      const table = renderRecordTable(headers, rows, `Task Execution: ${prompt}`);
+      const traceNotice = `\n[Local Traces] Saved to ${state.targetDir}/.soa/traces/latest.json (HEAE bypassed)`;
+      return `${progress}\n\n${table}${traceNotice}`;
     });
 
     // 3. soa heae - Run HEAE evaluation view

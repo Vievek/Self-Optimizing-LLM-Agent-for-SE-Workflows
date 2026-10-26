@@ -28,10 +28,13 @@
   "dependencies": {
     "@soa/contracts": "workspace:*",
     "@soa/eval-harness": "workspace:*",
+    "@soa/exec-core": "workspace:*",
     "@soa/heae": "workspace:*",
+    "@soa/llm": "workspace:*",
     "@soa/memory-agent": "workspace:*",
     "@soa/mocks": "workspace:*",
     "@soa/orchestrator": "workspace:*",
+    "@soa/sandbox": "workspace:*",
     "@soa/store": "workspace:*",
     "kuzu": "0.11.3"
   }
