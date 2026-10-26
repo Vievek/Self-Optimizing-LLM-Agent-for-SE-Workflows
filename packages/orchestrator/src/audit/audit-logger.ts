@@ -30,6 +30,8 @@ export class AuditLogger {
   private readonly logPath: string;
   private readonly inMemoryEntries: AuditEntry[] = [];
 
+  private readonly retentionMs = 90 * 24 * 60 * 60 * 1000;
+
   constructor(options: { store?: Store; logPath?: string } = {}) {
     this.store = options.store;
     this.logPath = options.logPath ?? 'store/logs/orch-audit.jsonl';
@@ -37,6 +39,7 @@ export class AuditLogger {
 
   async record(entry: AuditEntry): Promise<void> {
     this.inMemoryEntries.push(entry);
+
     if (this.store) {
       await this.store.append(this.logPath, entry);
     }
@@ -49,23 +52,73 @@ export class AuditLogger {
       try {
         const stored = await this.store.readJsonl<AuditEntry>(this.logPath);
         const map = new Map<string, AuditEntry>();
-        for (const e of [...entries, ...stored]) {
-          const key = `${e.ts}_${e.signal_id}_${e.version_after}_${e.action}`;
-          map.set(key, e);
+
+        for (const entry of [...entries, ...stored]) {
+          const key = `${entry.ts}_${entry.signal_id}_${entry.version_after}_${entry.action}`;
+          map.set(key, entry);
         }
+
         entries = Array.from(map.values());
       } catch {
-        // Fall back to inMemoryEntries
+        // Fall back to in-memory entries.
       }
     }
 
-    return entries.filter((e) => {
-      if (filter.signal_id && e.signal_id !== filter.signal_id) return false;
-      if (filter.config_path && e.config_path !== filter.config_path) return false;
-      if (filter.action && e.action !== filter.action) return false;
-      if (filter.since && e.ts < filter.since) return false;
+    return entries.filter((entry) => {
+      if (filter.signal_id && entry.signal_id !== filter.signal_id) {
+        return false;
+      }
+
+      if (filter.config_path && entry.config_path !== filter.config_path) {
+        return false;
+      }
+
+      if (filter.action && entry.action !== filter.action) {
+        return false;
+      }
+
+      if (filter.since !== undefined && entry.ts < filter.since) {
+        return false;
+      }
+
       return true;
     });
+  }
+
+  /**
+   * Removes audit entries older than 90 days.
+   *
+   * @param now Timestamp used to calculate the retention cutoff.
+   *            Supplying it makes unit tests deterministic.
+   * @returns Number of entries removed from in-memory storage.
+   */
+  async prune(now = Date.now()): Promise<number> {
+    const cutoff = now - this.retentionMs;
+
+    // Rewrite persistent JSONL storage, if configured.
+    if (this.store && (await this.store.exists(this.logPath))) {
+      const stored = await this.store.readJsonl<AuditEntry>(this.logPath);
+
+      const retainedStored = stored.filter((entry) => entry.ts >= cutoff);
+
+      // Only rewrite when at least one stored entry has expired.
+      if (retainedStored.length !== stored.length) {
+        await this.store.delete(this.logPath);
+
+        for (const entry of retainedStored) {
+          await this.store.append(this.logPath, entry);
+        }
+      }
+    }
+
+    // Remove expired entries from memory.
+    const before = this.inMemoryEntries.length;
+
+    const retainedInMemory = this.inMemoryEntries.filter((entry) => entry.ts >= cutoff);
+
+    this.inMemoryEntries.splice(0, this.inMemoryEntries.length, ...retainedInMemory);
+
+    return before - this.inMemoryEntries.length;
   }
 
   getEntries(): AuditEntry[] {
