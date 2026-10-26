@@ -427,5 +427,15 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       expect(orch.configStore.getActiveVersion()).toBe('cfg_0001');
       expect(result.outcomes.some((outcome) => outcome.rolledBack)).toBe(true);
     });
+
+    it('loads the default config and creates cfg_0001 when no options are provided', async () => {
+      const store = new ConfigStore();
+
+      const config = await store.load();
+
+      expect(config.config_version).toBe('cfg_0001');
+      expect(() => FullAgentConfigSchema.parse(config)).not.toThrow();
+      expect(config).toEqual(BASE_CONFIG);
+    });
   });
 });
