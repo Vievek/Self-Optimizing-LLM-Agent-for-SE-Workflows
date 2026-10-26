@@ -80,6 +80,22 @@ describe('Optimization Orchestrator Skeleton Tests', () => {
       expect((await afterRollback.load()).config_version).toBe('cfg_0001');
       expect((await afterRollback.load()).retrieval.top_k).toBe(5);
     });
+
+    it('does not reuse version numbers after restart and rollback', async () => {
+      const storage = new MemoryStore();
+      const first = await ConfigStore.create({ store: storage, configDir: 'config' });
+      const second = structuredClone(BASE_CONFIG);
+      second.config_version = 'cfg_0002';
+      await first.saveVersion(second);
+
+      const third = structuredClone(BASE_CONFIG);
+      third.config_version = 'cfg_0003';
+      await first.saveVersion(third);
+      await first.activateVersion('cfg_0001');
+
+      const restarted = await ConfigStore.create({ store: storage, configDir: 'config' });
+      expect(restarted.getNextVersionId()).toBe('cfg_0004');
+    });
   });
 
   describe('SignalIntake (FR1)', () => {

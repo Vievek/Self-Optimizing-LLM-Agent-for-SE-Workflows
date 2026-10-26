@@ -24,6 +24,11 @@ describe('soa orch command', () => {
     expect(result).toContain('PASS');
     expect(result).toContain('cfg_0002');
 
+    const duplicate = await runOrchCommand(['process', SAMPLE_SIGNAL.signal_id], { store });
+    expect(duplicate).toContain('already deployed as cfg_0002');
+    const duplicateHistory = await runOrchCommand(['history'], { store });
+    expect(duplicateHistory).not.toContain('cfg_0003');
+
     const restarted = await runOrchCommand(['history'], { store });
     expect(restarted).toContain('cfg_0002');
     expect(restarted).toContain('deploy');

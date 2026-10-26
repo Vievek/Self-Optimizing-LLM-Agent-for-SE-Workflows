@@ -65,8 +65,13 @@ export class ConfigStore implements ConfigProvider {
     let initialConfig = FullAgentConfigSchema.parse(
       options.initialConfig ?? (await loadDefaultConfigFixture()),
     );
+    let savedVersions: string[] = [];
 
     if (options.store) {
+      const files = await options.store.list(`${configDir}/`);
+      savedVersions = files
+        .map((file) => file.match(/(?:^|\/)(cfg_\d{4})\.json$/)?.[1])
+        .filter((version): version is string => version !== undefined);
       if (await options.store.exists(activeVersionPath)) {
         const active = await options.store.read<{ version?: unknown }>(activeVersionPath);
         if (typeof active.version !== 'string') {
@@ -78,12 +83,7 @@ export class ConfigStore implements ConfigProvider {
         }
         initialConfig = FullAgentConfigSchema.parse(await options.store.read(versionPath));
       } else {
-        const files = await options.store.list(`${configDir}/`);
-        const versions = files
-          .map((file) => file.match(/(?:^|\/)(cfg_\d{4})\.json$/)?.[1])
-          .filter((version): version is string => version !== undefined)
-          .sort();
-        const latestVersion = versions.at(-1);
+        const latestVersion = [...savedVersions].sort().at(-1);
         if (latestVersion) {
           initialConfig = FullAgentConfigSchema.parse(
             await options.store.read(`${configDir}/${latestVersion}.json`),
@@ -93,6 +93,12 @@ export class ConfigStore implements ConfigProvider {
     }
 
     const configStore = new ConfigStore({ ...options, initialConfig });
+    for (const version of savedVersions) {
+      const number = Number(version.slice(4));
+      if (Number.isInteger(number)) {
+        configStore.versionCounter = Math.max(configStore.versionCounter, number);
+      }
+    }
     if (options.store) {
       const versionPath = `${configDir}/${initialConfig.config_version}.json`;
       if (!(await options.store.exists(versionPath))) {

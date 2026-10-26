@@ -128,7 +128,11 @@ export async function renderContractCheck(
       contract: `OptimizationSignal ${id}`,
       version: OPTIMIZATION_SIGNAL_SCHEMA_VERSION,
       valid: parsed.success,
-      error: parsed.success ? undefined : parsed.error.message.slice(0, 120),
+      error: parsed.success
+        ? undefined
+        : parsed.error.issues
+            .map((issue) => `${issue.path.join('.') || 'signal'}: ${issue.message}`)
+            .join('; '),
     });
   });
   return renderContractCheckPanel(results);

@@ -123,21 +123,60 @@ async function processSignals(
   processAll = false,
 ): Promise<string> {
   const { valid, dropped } = await readQueue(context);
-  const selected = requestedId
+  const selectedSignals = requestedId
     ? valid.filter((signal) => signal.signal_id === requestedId)
     : processAll
       ? valid
       : valid.slice(0, 1);
-  if (requestedId && selected.length === 0) {
+  if (requestedId && selectedSignals.length === 0) {
     return [
       `No valid queued signal found with ID "${requestedId}".`,
       ...(dropped.length ? ['', renderDroppedSignals(dropped)] : []),
     ].join('\n');
   }
-  if (selected.length === 0) return renderDroppedSignals(dropped);
+  if (selectedSignals.length === 0) return renderDroppedSignals(dropped);
 
+  const auditEntries = await context.auditLogger.query();
+  const signalById = new Map(valid.map((signal) => [signal.signal_id, signal]));
+  const deployedGroups = new Set(
+    auditEntries
+      .filter((entry) => entry.action === 'deploy')
+      .map((entry) => signalById.get(entry.signal_id)?.group_id)
+      .filter((groupId): groupId is string => groupId !== undefined),
+  );
   const candidates: string[] = [];
-  for (const signal of selected) {
+  for (const signal of selectedSignals) {
+    const priorDeploy = auditEntries
+      .filter((entry) => entry.signal_id === signal.signal_id && entry.action === 'deploy')
+      .sort((a, b) => b.ts - a.ts)[0];
+    if (priorDeploy) {
+      candidates.push(
+        `Signal ${signal.signal_id} was already deployed as ${priorDeploy.version_after}; skipped duplicate.`,
+      );
+      continue;
+    }
+    if (deployedGroups.has(signal.group_id)) {
+      const reason = `Signal group "${signal.group_id}" already produced a configuration update.`;
+      const activeVersion = context.configStore.getActiveVersion();
+      await context.auditLogger.record({
+        ts: Date.now(),
+        signal_id: signal.signal_id,
+        config_path: signal.target.config_path,
+        version_before: activeVersion,
+        version_after: activeVersion,
+        action: 'reject',
+        reason,
+      });
+      candidates.push(
+        renderCandidateView({
+          signalId: signal.signal_id,
+          configPath: signal.target.config_path,
+          valid: false,
+          reason,
+        }),
+      );
+      continue;
+    }
     const result = await context.orchestrator.processSignal(signal);
     const validation = result.validation;
     candidates.push(
@@ -151,6 +190,7 @@ async function processSignals(
         version: result.newVersion,
       }),
     );
+    if (result.status === 'deployed') deployedGroups.add(signal.group_id);
   }
   if (dropped.length) candidates.push(renderDroppedSignals(dropped));
   return candidates.join('\n\n');
