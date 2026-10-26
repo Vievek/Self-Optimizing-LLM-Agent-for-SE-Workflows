@@ -19,7 +19,7 @@ export class SignalIntake {
 
   constructor(options: { store?: Store; eventsPath?: string } = {}) {
     this.store = options.store;
-    this.eventsPath = options.eventsPath ?? 'store/events/optimization_signals.jsonl';
+    this.eventsPath = options.eventsPath ?? 'events/optimization_signals.jsonl';
   }
 
   processBatch(items: unknown[]): IntakeResult {

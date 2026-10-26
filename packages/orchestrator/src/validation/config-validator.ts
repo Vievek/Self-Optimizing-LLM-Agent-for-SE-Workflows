@@ -47,6 +47,13 @@ export class ConfigValidator {
 
     // Read oldValue and apply proposedValue
     const oldValue = this.getByPath(cloned, segments);
+    if (oldValue === undefined) {
+      return {
+        valid: false,
+        error: `Unknown configuration path: "${configPath}"`,
+        newValue: proposedValue,
+      };
+    }
     const applied = this.setByPath(cloned, segments, proposedValue);
 
     if (!applied) {

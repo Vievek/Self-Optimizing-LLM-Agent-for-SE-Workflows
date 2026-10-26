@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { MemoryStore } from '@soa/store';
 import {
   renderRecordTable,
   renderStageProgress,
@@ -69,7 +70,7 @@ describe('CLI Shared TUI Components', () => {
 });
 
 describe('CommandRegistry', () => {
-  const registry = new CommandRegistry();
+  const registry = new CommandRegistry({ store: new MemoryStore() });
 
   it('renders help for unknown commands', async () => {
     const help = await registry.execute('unknown_cmd', []);

@@ -7,12 +7,18 @@ export interface ContractCheckResult {
 
 export function renderContractCheckPanel(results: ContractCheckResult[], minWidth = 72): string {
   const title = 'CONTRACT HEALTH CHECK PANEL';
+  const formatStatus = (res: ContractCheckResult): string => {
+    if (res.valid) return 'OK';
+    if (!res.error) return 'INVALID';
+    const error = res.error.replace(/\s+/g, ' ').trim();
+    return `ERR: ${error.length > 100 ? `${error.slice(0, 97)}...` : error}`;
+  };
 
   let maxRowLen = title.length + 4;
   for (const res of results) {
     const icon = res.valid ? '[PASS]' : '[FAIL]';
     const row = `${icon} ${res.contract} (v${res.version})`;
-    const status = res.valid ? 'OK' : res.error ? `ERR: ${res.error}` : 'INVALID';
+    const status = formatStatus(res);
     maxRowLen = Math.max(maxRowLen, row.length + status.length + 4);
   }
   const width = Math.max(minWidth, maxRowLen);
@@ -25,7 +31,7 @@ export function renderContractCheckPanel(results: ContractCheckResult[], minWidt
     if (res.valid) totalValid++;
     const icon = res.valid ? '[PASS]' : '[FAIL]';
     const row = `${icon} ${res.contract} (v${res.version})`;
-    const status = res.valid ? 'OK' : res.error ? `ERR: ${res.error}` : 'INVALID';
+    const status = formatStatus(res);
     const spaceCount = Math.max(1, width - 2 - row.length - status.length);
     const content = `${row}${' '.repeat(spaceCount)}${status}`;
     lines.push(`║ ${content.padEnd(width - 2)} ║`);

@@ -6,15 +6,16 @@ import { renderStageProgress, StageItem } from './components/stage-progress.js';
 import { renderContractCheckPanel } from './components/contract-check-panel.js';
 import { runContractHealthCheck } from './contract-health.js';
 import { runOrchCommand } from './commands/orch/index.js';
-import { runMemoryCommand } from './commands/memory/index.js';
-import { TuiApp } from './tui/app.js';
+import type { Store } from '@soa/store';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
 export class CommandRegistry {
   private readonly commands = new Map<string, CommandHandler>();
+  private readonly store?: Store;
 
-  constructor() {
+  constructor(options: { store?: Store } = {}) {
+    this.store = options.store;
     this.registerDefaults();
   }
 
@@ -108,11 +109,14 @@ export class CommandRegistry {
     });
 
     // 4. soa memory - Memory Agent TUI: soa memory <sub> [args]
-    this.register('memory', async (args) => runMemoryCommand(args));
+    this.register('memory', async (args) => {
+      const { runMemoryCommand } = await import('./commands/memory/index.js');
+      return runMemoryCommand(args);
+    });
 
     // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
     this.register('orch', async (args) => {
-      return runOrchCommand(args);
+      return runOrchCommand(args, this.store ? { store: this.store } : {});
     });
 
     // 6. soa bench - SWE-bench Lite subset overview
@@ -147,6 +151,7 @@ export class CommandRegistry {
     // 7. soa tui - Launch or render interactive TUI views
     this.register('tui', async (args) => {
       const initialView = args[0] || 'exec';
+      const { TuiApp } = await import('./tui/app.js');
       const app = new TuiApp(initialView);
       return app.renderCurrent();
     });
@@ -165,7 +170,7 @@ Available Components:
   soa exec [taskId]  Run execution trace and view stage progress & span tables
   soa heae [taskId]  Run HEAE failure attribution and view diagnostic signals
   soa memory <sub>   Memory notes: seed, list, show, verify, check, stale-eval
-  soa orch           View runtime configuration axes and optimization history
+  soa orch [command] Process signals, inspect config history, audit, deploy, and roll back
   soa bench          Inspect SWE-bench Lite subset partitioning and task counts
 `;
   }
