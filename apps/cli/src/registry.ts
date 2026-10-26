@@ -6,8 +6,6 @@ import { renderStageProgress, StageItem } from './components/stage-progress.js';
 import { renderContractCheckPanel } from './components/contract-check-panel.js';
 import { runContractHealthCheck } from './contract-health.js';
 import { runOrchCommand } from './commands/orch/index.js';
-import { runMemoryCommand } from './commands/memory/index.js';
-import { TuiApp } from './tui/app.js';
 import type { Store } from '@soa/store';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
@@ -111,7 +109,10 @@ export class CommandRegistry {
     });
 
     // 4. soa memory - Memory Agent TUI: soa memory <sub> [args]
-    this.register('memory', async (args) => runMemoryCommand(args));
+    this.register('memory', async (args) => {
+      const { runMemoryCommand } = await import('./commands/memory/index.js');
+      return runMemoryCommand(args);
+    });
 
     // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
     this.register('orch', async (args) => {
@@ -150,6 +151,7 @@ export class CommandRegistry {
     // 7. soa tui - Launch or render interactive TUI views
     this.register('tui', async (args) => {
       const initialView = args[0] || 'exec';
+      const { TuiApp } = await import('./tui/app.js');
       const app = new TuiApp(initialView);
       return app.renderCurrent();
     });

@@ -1,4 +1,6 @@
 import type { OptimizationSignal } from '@soa/contracts';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   AuditLogger,
   ConfigStore,
@@ -17,13 +19,14 @@ import {
 } from './views.js';
 
 const EVENTS_PATH = 'store/events/optimization_signals.jsonl';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
 export interface OrchCommandOptions {
   store?: Store;
 }
 
 async function createContext(options: OrchCommandOptions) {
-  const store = options.store ?? new FileStore('.');
+  const store = options.store ?? new FileStore(REPO_ROOT);
   const configStore = await ConfigStore.create({
     store,
     configDir: 'store/config',
