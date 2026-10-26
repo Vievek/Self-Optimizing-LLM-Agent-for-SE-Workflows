@@ -34,7 +34,7 @@ export class AuditLogger {
 
   constructor(options: { store?: Store; logPath?: string } = {}) {
     this.store = options.store;
-    this.logPath = options.logPath ?? 'store/logs/orch-audit.jsonl';
+    this.logPath = options.logPath ?? 'logs/orch-audit.jsonl';
   }
 
   async record(entry: AuditEntry): Promise<void> {

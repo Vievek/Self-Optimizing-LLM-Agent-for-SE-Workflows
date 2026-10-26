@@ -8,13 +8,16 @@ import { runContractHealthCheck } from './contract-health.js';
 import { runOrchCommand } from './commands/orch/index.js';
 import { runMemoryCommand } from './commands/memory/index.js';
 import { TuiApp } from './tui/app.js';
+import type { Store } from '@soa/store';
 
 export type CommandHandler = (args: string[]) => Promise<string>;
 
 export class CommandRegistry {
   private readonly commands = new Map<string, CommandHandler>();
+  private readonly store?: Store;
 
-  constructor() {
+  constructor(options: { store?: Store } = {}) {
+    this.store = options.store;
     this.registerDefaults();
   }
 
@@ -112,7 +115,7 @@ export class CommandRegistry {
 
     // 5. soa orch - Run Optimization Orchestrator view (Phase 1 TUI)
     this.register('orch', async (args) => {
-      return runOrchCommand(args);
+      return runOrchCommand(args, this.store ? { store: this.store } : {});
     });
 
     // 6. soa bench - SWE-bench Lite subset overview
@@ -165,7 +168,7 @@ Available Components:
   soa exec [taskId]  Run execution trace and view stage progress & span tables
   soa heae [taskId]  Run HEAE failure attribution and view diagnostic signals
   soa memory <sub>   Memory notes: seed, list, show, verify, check, stale-eval
-  soa orch           View runtime configuration axes and optimization history
+  soa orch [command] Process signals, inspect config history, audit, deploy, and roll back
   soa bench          Inspect SWE-bench Lite subset partitioning and task counts
 `;
   }

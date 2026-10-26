@@ -236,7 +236,7 @@ export class OptimizationOrchestrator implements ConfigProvider {
     const versionBefore = this.configStore.getActiveVersion();
     const restored = await this.configStore.load(targetVersion);
 
-    this.configStore.setActiveVersion(targetVersion);
+    await this.configStore.activateVersion(targetVersion);
 
     await this.auditLogger.record({
       ts: Date.now(),

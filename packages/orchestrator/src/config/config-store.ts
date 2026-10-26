@@ -7,6 +7,7 @@ import { BASE_CONFIG } from '../test-utils/fixtures.js';
 export interface ConfigStoreOptions {
   store?: Store;
   configDir?: string;
+  activeVersionPath?: string;
   initialConfig?: FullAgentConfig;
 }
 
@@ -16,10 +17,7 @@ export interface ConfigStoreOptions {
  */
 async function loadDefaultConfigFixture(): Promise<FullAgentConfig> {
   try {
-    const fixturePath = resolve(
-      process.cwd(),
-      'packages/orchestrator/fixtures/default-config.json',
-    );
+    const fixturePath = resolve(process.cwd(), 'packages/orchestrator/src/fix/default-config.json');
 
     const contents = await readFile(fixturePath, 'utf8');
     return FullAgentConfigSchema.parse(JSON.parse(contents));
@@ -38,13 +36,15 @@ async function loadDefaultConfigFixture(): Promise<FullAgentConfig> {
 export class ConfigStore implements ConfigProvider {
   private readonly store?: Store;
   private readonly configDir: string;
+  private readonly activeVersionPath: string;
   private readonly memoryVersions = new Map<string, FullAgentConfig>();
   private activeVersion: string;
   private versionCounter: number;
 
   constructor(options: ConfigStoreOptions = {}) {
     this.store = options.store;
-    this.configDir = options.configDir ?? 'store/config';
+    this.configDir = options.configDir ?? 'config';
+    this.activeVersionPath = options.activeVersionPath ?? `${this.configDir}/active.json`;
 
     // Explicit initialConfig takes priority.
     const seed = FullAgentConfigSchema.parse(options.initialConfig ?? BASE_CONFIG);
@@ -60,16 +60,47 @@ export class ConfigStore implements ConfigProvider {
    * initialConfig is supplied. BASE_CONFIG is used as a fallback.
    */
   static async create(options: ConfigStoreOptions = {}): Promise<ConfigStore> {
-    if (options.initialConfig) {
-      return new ConfigStore(options);
+    const configDir = options.configDir ?? 'config';
+    const activeVersionPath = options.activeVersionPath ?? `${configDir}/active.json`;
+    let initialConfig = FullAgentConfigSchema.parse(
+      options.initialConfig ?? (await loadDefaultConfigFixture()),
+    );
+
+    if (options.store) {
+      if (await options.store.exists(activeVersionPath)) {
+        const active = await options.store.read<{ version?: unknown }>(activeVersionPath);
+        if (typeof active.version !== 'string') {
+          throw new Error(`Invalid active config pointer at "${activeVersionPath}".`);
+        }
+        const versionPath = `${configDir}/${active.version}.json`;
+        if (!(await options.store.exists(versionPath))) {
+          throw new Error(`Active config version "${active.version}" is missing.`);
+        }
+        initialConfig = FullAgentConfigSchema.parse(await options.store.read(versionPath));
+      } else {
+        const files = await options.store.list(`${configDir}/`);
+        const versions = files
+          .map((file) => file.match(/(?:^|\/)(cfg_\d{4})\.json$/)?.[1])
+          .filter((version): version is string => version !== undefined)
+          .sort();
+        const latestVersion = versions.at(-1);
+        if (latestVersion) {
+          initialConfig = FullAgentConfigSchema.parse(
+            await options.store.read(`${configDir}/${latestVersion}.json`),
+          );
+        }
+      }
     }
 
-    const initialConfig = await loadDefaultConfigFixture();
-
-    return new ConfigStore({
-      ...options,
-      initialConfig,
-    });
+    const configStore = new ConfigStore({ ...options, initialConfig });
+    if (options.store) {
+      const versionPath = `${configDir}/${initialConfig.config_version}.json`;
+      if (!(await options.store.exists(versionPath))) {
+        await options.store.write(versionPath, initialConfig, FullAgentConfigSchema);
+      }
+      await options.store.write(activeVersionPath, { version: initialConfig.config_version });
+    }
+    return configStore;
   }
 
   /**
@@ -108,6 +139,7 @@ export class ConfigStore implements ConfigProvider {
     if (this.store) {
       const filePath = `${this.configDir}/${version}.json`;
       await this.store.write(filePath, validated, FullAgentConfigSchema);
+      await this.store.write(this.activeVersionPath, { version });
     }
 
     this.memoryVersions.set(version, validated);
@@ -165,5 +197,14 @@ export class ConfigStore implements ConfigProvider {
     }
 
     this.activeVersion = version;
+  }
+
+  async activateVersion(version: string): Promise<void> {
+    const config = await this.load(version);
+    this.memoryVersions.set(version, config);
+    this.activeVersion = version;
+    if (this.store) {
+      await this.store.write(this.activeVersionPath, { version });
+    }
   }
 }
